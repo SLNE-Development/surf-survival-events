@@ -10,61 +10,61 @@ enum class WerwolfRoles(
 ) {
     WERWOLF(
         buildText { red("Werwolf") },
-        buildText { spacer("Du verspeist jede Nacht einen Dorfbewohner.") },
+        buildText { spacer("Jede Nacht kannst du mit den Wölfen darüber abstimmen, welcher Spieler getötet werden soll.") },
         isHostile = true
     ),
 
     VILLAGER(
         buildText { green("Dorfbewohner") },
-        buildText { spacer("Ein einfacher Bürger ohne Spezialkräfte.") },
+        buildText { spacer("Du bist ein Dorfbewohner ohne spezielle Fähigkeiten.") },
         isHostile = false
     ),
 
     SEER(
         buildText { blue("Seherin") },
-        buildText { spacer("Erkenne jede Nacht die Rolle eines Spielers.") },
+        buildText { spacer("Jede Nacht kannst du die Rolle eines anderen Spielers sehen.") },
         isHostile = false
     ),
 
     WITCH(
         buildText { darkPurple("Hexe") },
-        buildText { spacer("Besitzt einen Heil- und einen Gifttrank.") },
+        buildText { spacer("Du hast zwei Tränke: Einer tötet und der andere heilt einen anderen Spieler. Der Heiltrank wird nur verbraucht, wenn der ausgewählte Spieler angegriffen wird. Du kannst in der ersten Nacht nicht töten.") },
         isHostile = false
     ),
 
     AMOR(
         buildText { lightPurple("Amor") },
-        buildText { spacer("Verbinde zwei Herzen zu einem Liebespaar.") },
+        buildText { spacer("Während der ersten Nacht kannst du zwei Spieler wählen, welche das Pärchen bilden. Wenn einer der Geliebten stirbt, stirbt der andere Geliebte auch. Du gewinnst, wenn das Dorf gewinnt oder das Pärchen als letztes am Leben ist.") },
         isHostile = false
     ),
 
     DOCTOR(
         buildText { aqua("Doktor") },
-        buildText { spacer("Schütze jede Nacht jemanden vor den Wölfen.") },
+        buildText { spacer("Du kannst jede Nacht einen Spieler beschützen. Dieser Spieler kann in dieser Nacht nicht getötet werden.") },
         isHostile = false
     ),
 
     GIRL(
         buildText { lightPurple("Mädchen") },
-        buildText { spacer("Du darfst nachts heimlich blinzeln.") },
+        buildText { spacer("Du darfst nachts heimlich die Augen öffnen und beobachten, wer die Werwölfe und ggf. Killer sind, riskierst dabei aber entdeckt zu werden.") },
         isHostile = false
     ),
 
     MAYOR(
         buildText { gold("Bürgermeister") },
-        buildText { spacer("Deine Stimme zählt bei der Wahl doppelt.") },
+        buildText { spacer("Du vertrittst das Dorf und daher zählt deine Stimme bei der Wahl doppelt.") },
         isHostile = false
     ),
 
     PRIEST(
         buildText { white("Priester") },
-        buildText { spacer("Du bespritzt jemanden mit Weihwasser.") },
+        buildText { spacer("Du kannst Weihwasser auf einen Spieler werfen. Wenn dieser ein Werwolf ist, stirbt er, andernfalls stirbst du.") },
         isHostile = false
     ),
 
     SERIAL_KILLER(
         buildText { darkRed("Serienmörder") },
-        buildText { spacer("Du spielst allein und tötest jeden.") },
+        buildText { spacer("Jede Nacht kannst du einen Spieler töten.") },
         isHostile = true
     );
 }
