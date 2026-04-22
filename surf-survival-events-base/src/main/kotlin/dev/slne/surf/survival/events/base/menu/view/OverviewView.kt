@@ -10,7 +10,6 @@ import me.devnatan.inventoryframework.ViewConfigBuilder
 import me.devnatan.inventoryframework.context.RenderContext
 import net.kyori.adventure.text.format.TextDecoration
 
-@Suppress("UnstableApiUsage")
 object OverviewView : View() {
     private val paginationState = buildLazyPaginationState { _ ->
         Games.entries.toMutableList()
