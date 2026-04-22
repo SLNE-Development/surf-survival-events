@@ -8,7 +8,7 @@ val plugin get() = JavaPlugin.getPlugin(PaperMain::class.java)
 class PaperMain : SuspendingJavaPlugin() {
     override suspend fun onLoadAsync() {
         plugin.logger.info("Loading surf-survival-event-example plugin...")
-        plugin.logger.warning("This plugin should not be used on production!")
+        plugin.logger.warning("This plugin should not be used in production!")
     }
 
     override suspend fun onEnableAsync() {
