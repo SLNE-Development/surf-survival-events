@@ -5,7 +5,6 @@ import dev.slne.surf.api.paper.inventory.framework.outlineItem
 import dev.slne.surf.api.paper.inventory.framework.titleBuilder
 import dev.slne.surf.survival.events.base.games.util.Games
 import dev.slne.surf.survival.events.base.menu.util.*
-import dev.slne.surf.survival.events.paper.menu.util.*
 import me.devnatan.inventoryframework.View
 import me.devnatan.inventoryframework.ViewConfigBuilder
 import me.devnatan.inventoryframework.context.RenderContext

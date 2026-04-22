@@ -1,6 +1,6 @@
 package dev.slne.surf.survival.events.base.util.commands
 
-import dev.slne.surf.survival.events.base.command.openMainMenuimport dev.slne.surf.survival.events.base.command.openMainMenuimport dev.slne.surf.survival.events.paper.command.openMainMenu
+import dev.slne.surf.survival.events.base.command.openMainMenu
 
 object CommandManager {
     fun registerCommands() {
