@@ -1,4 +1,4 @@
-package dev.slne.surf.survival.events.paper.menue.view
+package dev.slne.surf.survival.events.paper.menu.view
 
 import com.destroystokyo.paper.profile.ProfileProperty
 import dev.slne.surf.api.core.font.toSmallCaps
@@ -6,13 +6,13 @@ import dev.slne.surf.api.paper.builder.buildItem
 import dev.slne.surf.api.paper.builder.displayName
 import dev.slne.surf.api.paper.inventory.framework.titleBuilder
 import dev.slne.surf.survival.events.paper.games.util.Games
-import dev.slne.surf.survival.events.paper.menue.util.backItem
-import dev.slne.surf.survival.events.paper.menue.util.eventColored
-import dev.slne.surf.survival.events.paper.menue.util.nextItem
-import dev.slne.surf.survival.events.paper.menue.util.outlineItem
-import dev.slne.surf.survival.events.paper.menue.util.playGeneralClickSound
-import dev.slne.surf.survival.events.paper.menue.util.playNewPageSound
-import dev.slne.surf.survival.events.paper.menue.util.previousItem
+import dev.slne.surf.survival.events.paper.menu.util.backItem
+import dev.slne.surf.survival.events.paper.menu.util.eventColored
+import dev.slne.surf.survival.events.paper.menu.util.nextItem
+import dev.slne.surf.survival.events.paper.menu.util.outlineItem
+import dev.slne.surf.survival.events.paper.menu.util.playGeneralClickSound
+import dev.slne.surf.survival.events.paper.menu.util.playNewPageSound
+import dev.slne.surf.survival.events.paper.menu.util.previousItem
 import io.papermc.paper.datacomponent.DataComponentTypes
 import io.papermc.paper.datacomponent.item.ResolvableProfile
 import io.papermc.paper.datacomponent.item.TooltipDisplay
@@ -42,9 +42,9 @@ object OverviewView : View() {
             .size(5)
             .layout(
                 "OOOOOOOOO",
-                "O       O",
-                "O   G   O",
-                "O       O",
+                "O-------O",
+                "O-G-G-G-O",
+                "O-------O",
                 "OOOBXNOOO"
             )
             .cancelInteractions()

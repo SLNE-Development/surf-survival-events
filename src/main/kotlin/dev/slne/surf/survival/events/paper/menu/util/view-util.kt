@@ -1,4 +1,4 @@
-package dev.slne.surf.survival.events.paper.menue.util
+package dev.slne.surf.survival.events.paper.menu.util
 
 
 import dev.slne.surf.api.core.font.toSmallCaps

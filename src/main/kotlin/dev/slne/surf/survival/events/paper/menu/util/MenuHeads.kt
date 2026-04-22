@@ -1,4 +1,4 @@
-package dev.slne.surf.survival.events.paper.menue.util
+package dev.slne.surf.survival.events.paper.menu.util
 
 import com.destroystokyo.paper.profile.ProfileProperty
 import dev.slne.surf.api.paper.builder.buildItem
