@@ -16,6 +16,5 @@ class PaperMain : SuspendingJavaPlugin()  {
 
     override suspend fun onEnableAsync() {
         registerCommands()
-
     }
 }

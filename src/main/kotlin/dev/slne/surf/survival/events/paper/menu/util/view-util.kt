@@ -46,7 +46,7 @@ val nextItem = MenuHeads.ARROW_RIGHT.clone().apply {
     }
 }
 
-val backItem = MenuHeads.CROSS.apply {
+val backItem = MenuHeads.CROSS.clone().apply {
     displayName {
         primary("Zurück".toSmallCaps(), TextDecoration.BOLD)
     }
