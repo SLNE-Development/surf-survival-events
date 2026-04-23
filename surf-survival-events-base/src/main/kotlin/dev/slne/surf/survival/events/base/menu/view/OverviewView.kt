@@ -12,7 +12,10 @@ import net.kyori.adventure.text.format.TextDecoration
 
 object OverviewView : View() {
     private val paginationState = buildLazyPaginationState { _ ->
-        Games.entries.toMutableList()
+        Games.entries
+            .filter { Games.isGameEnabled(it.name) }
+            .toMutableList()
+
     }.elementFactory { _, builder, _, game ->
         builder.withItem(game.createSkull()).onClick { context ->
             context.playGeneralClickSound()

@@ -9,8 +9,15 @@ import dev.slne.surf.survival.events.base.util.commands.PermissionRegistry
 
 fun openMainMenu() = commandAPICommand("events") {
     withPermission(PermissionRegistry.COMMAND_OPEN_MAIN_MENU)
+    withSubcommand(
+        startEventCommand(),
+    )
+
+
 
     playerExecutor { player, _ ->
         viewFrame.open(OverviewView::class.java, player)
     }
+
+
 }
