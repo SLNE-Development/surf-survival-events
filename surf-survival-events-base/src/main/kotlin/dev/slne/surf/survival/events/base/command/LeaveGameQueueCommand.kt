@@ -18,7 +18,7 @@ fun leaveGameQueueCommand() = subcommand("leave") {
             return@playerExecutor
         }
 
-        if (GameService.leaveQueue(player)) {
+        if (GameService.leaveGameQueue(player) || GameService.leaveWaitingQueue(player)) {
             player.sendText {
                 appendSuccessPrefix()
                 success("Du hast die Warteschlange verlassen.")

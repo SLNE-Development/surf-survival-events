@@ -14,7 +14,8 @@ object JoinQuitListener: Listener {
         if (!GameService.isGameActive()) {
             return
         }
-        GameService.leaveQueue(event.player)
+        GameService.leaveGameQueue(event.player)
+        GameService.leaveWaitingQueue(event.player)
     }
 
     @EventHandler

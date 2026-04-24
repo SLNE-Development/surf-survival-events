@@ -10,7 +10,7 @@ import dev.slne.surf.survival.events.base.games.service.GameService
 import dev.slne.surf.survival.events.base.games.util.Games
 import dev.slne.surf.survival.events.base.util.commands.PermissionRegistry
 
-fun startEventCommand() = subcommand("enable") {
+fun beginEventCommand() = subcommand("begin") {
     withPermission(PermissionRegistry.COMMAND_COMMUNITY_MANAGER)
     gameArgument("game")
     integerArgument("maxPlayers", optional = true)
@@ -38,6 +38,7 @@ fun startEventCommand() = subcommand("enable") {
             }
             return@playerExecutor
         }
+
 
         player.sendText {
             appendErrorPrefix()

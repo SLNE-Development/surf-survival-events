@@ -7,7 +7,7 @@ import dev.slne.surf.survival.events.base.games.service.GameService
 import dev.slne.surf.survival.events.base.util.commands.PermissionRegistry
 
 
-fun joinGameQueueCommand() = subcommand("enter") {
+fun joinGameQueueCommand() = subcommand("join") {
     withPermission(PermissionRegistry.COMMAND_PLAYER)
     playerExecutor { player, _ ->
         if (!GameService.isGameActive()) {
@@ -18,17 +18,20 @@ fun joinGameQueueCommand() = subcommand("enter") {
             return@playerExecutor
         }
 
-        if (GameService.joinQueue(player)) {
+        if (GameService.isGameQueue(player) || GameService.isWaitingQueue(player)) {
             player.sendText {
-                appendSuccessPrefix()
-                success("Du bist jetzt in der Warteschlange!")
+                appendErrorPrefix()
+                error("Du bist bereits in der Warteschlange.")
             }
             return@playerExecutor
         }
 
-        player.sendText {
-            appendErrorPrefix()
-            error("Du bist bereits in der Warteschlange.")
+        if (GameService.joinWaitingQueue(player)) {
+            player.sendText {
+                appendWarningPrefix()
+                warning("Die Warteschlange ist voll. Du befindest dich nun auf der Ersatzbank.")
+            }
+            return@playerExecutor
         }
     }
 }
