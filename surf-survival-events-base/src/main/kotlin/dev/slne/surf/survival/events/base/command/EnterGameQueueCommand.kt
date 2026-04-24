@@ -7,7 +7,7 @@ import dev.slne.surf.survival.events.base.games.service.GameService
 import dev.slne.surf.survival.events.base.util.commands.PermissionRegistry
 
 
-fun enterGameCommand() = subcommand("enter") {
+fun joinGameQueueCommand() = subcommand("enter") {
     withPermission(PermissionRegistry.COMMAND_PLAYER)
     playerExecutor { player, _ ->
         if (!GameService.isGameActive()) {
@@ -18,7 +18,7 @@ fun enterGameCommand() = subcommand("enter") {
             return@playerExecutor
         }
 
-        if (GameService.enterPlayerGameQueue(player)) {
+        if (GameService.joinQueue(player)) {
             player.sendText {
                 appendSuccessPrefix()
                 success("Du bist jetzt in der Warteschlange!")

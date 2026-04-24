@@ -1,6 +1,7 @@
 package dev.slne.surf.survival.events.base.command
 
 import dev.jorel.commandapi.kotlindsl.getValue
+import dev.jorel.commandapi.kotlindsl.integerArgument
 import dev.jorel.commandapi.kotlindsl.playerExecutor
 import dev.jorel.commandapi.kotlindsl.subcommand
 import dev.slne.surf.api.core.messages.adventure.sendText
@@ -9,12 +10,14 @@ import dev.slne.surf.survival.events.base.games.service.GameService
 import dev.slne.surf.survival.events.base.games.util.Games
 import dev.slne.surf.survival.events.base.util.commands.PermissionRegistry
 
-fun enableEventCommand() = subcommand("enable") {
+fun startEventCommand() = subcommand("enable") {
     withPermission(PermissionRegistry.COMMAND_COMMUNITY_MANAGER)
     gameArgument("game")
+    integerArgument("maxPlayers", optional = true)
 
     playerExecutor { player, args ->
         val game: Games by args
+        val maxPlayers: Int? by args
 
         if (!Games.isGameEnabled(game.name)) {
             player.sendText {
@@ -26,7 +29,7 @@ fun enableEventCommand() = subcommand("enable") {
             return@playerExecutor
         }
 
-        if (GameService.enableGame(game)) {
+        if (GameService.startGame(game, maxPlayers)) {
             player.sendText {
                 appendSuccessPrefix()
                 variableValue(game.displayName)

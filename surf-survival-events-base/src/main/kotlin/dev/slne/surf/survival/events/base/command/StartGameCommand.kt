@@ -23,6 +23,6 @@ fun startGameCommand() = subcommand("start") {
         }
 
         //TODO: API that start the Game that you want
-        GameService.disableGame()
+        GameService.stopGame()
     }
 }

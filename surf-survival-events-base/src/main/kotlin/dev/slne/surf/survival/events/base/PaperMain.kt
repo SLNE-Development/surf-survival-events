@@ -3,7 +3,7 @@ package dev.slne.surf.survival.events.base
 import com.github.shynixn.mccoroutine.folia.SuspendingJavaPlugin
 import dev.slne.surf.api.paper.event.register
 import dev.slne.surf.api.paper.inventory.framework.register
-import dev.slne.surf.survival.events.base.listeners.QuitListener
+import dev.slne.surf.survival.events.base.listeners.JoinQuitListener
 import dev.slne.surf.survival.events.base.menu.view.OverviewView
 import dev.slne.surf.survival.events.base.util.commands.CommandManager
 import org.bukkit.plugin.java.JavaPlugin
@@ -17,6 +17,6 @@ class PaperMain : SuspendingJavaPlugin() {
 
     override suspend fun onEnableAsync() {
         CommandManager.registerCommands()
-        QuitListener.register()
+        JoinQuitListener.register()
     }
 }

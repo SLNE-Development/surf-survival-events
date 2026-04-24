@@ -1,52 +1,69 @@
 package dev.slne.surf.survival.events.base.games.service
 
+import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.survival.events.base.games.util.Games
+import org.bukkit.Bukkit
 import org.bukkit.entity.Player
 import java.util.UUID
 
 
 
 object GameService {
-    private val activeGames = mutableListOf<Games>()
-    private val gameQueue = mutableListOf<UUID>()
 
-    fun enterPlayerGameQueue(player: Player): Boolean {
-        val playerUuid = player.uniqueId
-        if (gameQueue.contains(playerUuid)) {
-            return false
-        }
+    private var activeGame: Games? = null
+    private val queue = ArrayDeque<UUID>()
 
-        gameQueue.add(playerUuid)
+    private var maxPlayers = 1000
+
+    fun joinQueue(player: Player): Boolean {
+        val uuid = player.uniqueId
+
+        if (uuid in queue) return false
+
+        queue.add(uuid)
         return true
     }
 
-    fun removePlayerGameQueue(player: Player): Boolean {
-        val playerUuid = player.uniqueId
-        gameQueue.removeIf {
-            gameQueue.contains(playerUuid)
-            return@removeIf true
-        }
-        return false
+    fun leaveQueue(player: Player): Boolean {
+        return queue.remove(player.uniqueId)
     }
 
+    fun startGame(game: Games, maxPlayers: Int? = null): Boolean {
+        if (activeGame != null) return false
 
-    fun enableGame(game: Games): Boolean {
-        if (activeGames.isEmpty()) {
-            activeGames.add(game)
-            return true
-        }
-        return false
+        activeGame = game
+        this.maxPlayers = maxPlayers ?: 1000
+        return true
     }
 
-    fun disableGame(): Boolean {
-        activeGames.ifEmpty {
-            return false
-        }
-        activeGames.clear()
+    fun stopGame(): Boolean {
+        if (activeGame == null) return false
+
+        activeGame = null
         return true
     }
 
     fun isGameActive(): Boolean {
-        return activeGames.isNotEmpty()
+        return activeGame != null
+    }
+
+    fun getActiveGame(): Games {
+        return activeGame ?: throw IllegalStateException("No active game found")
+    }
+
+    fun getMaxPlayers(): Int {
+        return maxPlayers
+    }
+
+    fun setMaxPlayers(maxPlayers: Int) {
+        this.maxPlayers = maxPlayers
+
+        while (queue.size > maxPlayers) {
+            val player = Bukkit.getPlayer(queue.removeLast())
+            player?.sendText {
+                appendInfoPrefix()
+                info("Du wurdest aus der Warteschlange entfernt, da das Limit erreicht wurde.")
+            }
+        }
     }
 }
