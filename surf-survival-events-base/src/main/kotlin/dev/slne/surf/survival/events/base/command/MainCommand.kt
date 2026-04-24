@@ -7,11 +7,12 @@ import dev.slne.surf.api.core.messages.adventure.sendText
 
 fun openMainMenu() = commandAPICommand("events") {
     withSubcommands(
-        enableEventCommand(),
-        enterGameCommand(),
+        startEventCommand(),
+        joinGameQueueCommand(),
         leaveGameQueueCommand(),
         startGameCommand(),
-        eventMenuCommand()
+        eventMenuCommand(),
+        changeMaxPlayersCommand()
 
     )
     playerExecutor { player, _ ->
