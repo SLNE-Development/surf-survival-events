@@ -5,7 +5,9 @@ import dev.jorel.commandapi.kotlindsl.integerArgument
 import dev.jorel.commandapi.kotlindsl.playerExecutor
 import dev.jorel.commandapi.kotlindsl.subcommand
 import dev.slne.surf.api.core.messages.adventure.sendText
+import dev.slne.surf.api.paper.extensions.server
 import dev.slne.surf.survival.events.base.command.arguments.gameArgument
+import dev.slne.surf.survival.events.base.games.service.AnnouncementService.sendAnnouncement
 import dev.slne.surf.survival.events.base.games.service.GameService
 import dev.slne.surf.survival.events.base.games.util.Games
 import dev.slne.surf.survival.events.base.util.commands.PermissionRegistry
@@ -35,6 +37,9 @@ fun beginEventCommand() = subcommand("begin") {
                 variableValue(game.displayName)
                 appendSpace()
                 success("wurde erfolgreich aktiviert.")
+            }
+            for (onlinePlayer in server.onlinePlayers) {
+                sendAnnouncement(onlinePlayer)
             }
             return@playerExecutor
         }

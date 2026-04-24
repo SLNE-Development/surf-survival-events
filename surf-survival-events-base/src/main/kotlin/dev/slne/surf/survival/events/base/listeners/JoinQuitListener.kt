@@ -7,7 +7,7 @@ import org.bukkit.event.Listener
 import org.bukkit.event.player.PlayerJoinEvent
 import org.bukkit.event.player.PlayerQuitEvent
 
-object JoinQuitListener: Listener {
+object JoinQuitListener : Listener {
 
     @EventHandler
     fun onPlayerQuit(event: PlayerQuitEvent) {
@@ -20,6 +20,9 @@ object JoinQuitListener: Listener {
 
     @EventHandler
     fun onPlayerJoin(event: PlayerJoinEvent) {
+        if (!GameService.isGameActive()) {
+            return
+        }
         AnnouncementService.sendAnnouncement(event.player)
     }
 }

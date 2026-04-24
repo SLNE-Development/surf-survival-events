@@ -5,7 +5,7 @@ import dev.jorel.commandapi.kotlindsl.playerExecutor
 import dev.slne.surf.api.core.messages.adventure.sendText
 
 
-fun openMainMenu() = commandAPICommand("events") {
+fun openMainMenu() = commandAPICommand("event") {
     withSubcommands(
         beginEventCommand(),
         joinGameQueueCommand(),
