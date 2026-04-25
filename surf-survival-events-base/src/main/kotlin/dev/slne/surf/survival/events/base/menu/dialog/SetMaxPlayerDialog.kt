@@ -73,7 +73,7 @@ fun setMaxPlayerDialog(game: Games) = dialog {
                             return@customPlayerClick
                         }
 
-                        if (GameService.startGame(game, maxPlayers + 1)) {
+                        if (GameService.startGame(game, maxPlayers)) {
                             player.sendText {
                                 appendSuccessPrefix()
                                 variableValue(game.displayName)

@@ -19,7 +19,7 @@ fun joinGameQueueCommand() = subcommand("join") {
             return@playerExecutor
         }
 
-        if (GameService.isGameQueue(player) || GameService.isWaitingQueue(player)) {
+        if (GameService.isInGameQueue(player) || GameService.isInWaitingQueue(player)) {
             player.sendText {
                 appendErrorPrefix()
                 error("Du bist bereits in der Warteschlange.")

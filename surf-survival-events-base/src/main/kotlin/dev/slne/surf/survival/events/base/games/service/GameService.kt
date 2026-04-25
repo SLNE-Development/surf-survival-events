@@ -15,120 +15,95 @@ import kotlin.collections.ArrayDeque
 
 object GameService {
 
+    private const val UNLIMITED = Int.MAX_VALUE
+
     private var activeGame: Games? = null
+    private var maxPlayers = UNLIMITED
+
     private val gameQueue = ArrayDeque<UUID>()
     private val waitingQueue = ArrayDeque<UUID>()
 
-    private var maxPlayers = 2147483647
-
     private var task: ScheduledTask? = null
-    private var status = false
-
-    fun joinGameQueue(player: Player): Boolean {
-        val uuid = player.uniqueId
-
-        if (isGameQueue(player)) return false
-
-        player.sendText {
-            appendSuccessPrefix()
-            success("Du bist jetzt in der Game Lobby!")
-        }
-        gameQueue.add(uuid)
-        return true
-    }
-
-    fun leaveGameQueue(player: Player): Boolean {
-        return gameQueue.remove(player.uniqueId)
-    }
-
-    fun joinWaitingQueue(player: Player): Boolean {
-        val uuid = player.uniqueId
-
-        if (isWaitingQueue(player)) return false
-        if (isGameQueue(player)) return false
-
-        waitingQueue.add(uuid)
-        return true
-    }
-
-    fun leaveWaitingQueue(player: Player): Boolean {
-        return waitingQueue.remove(player.uniqueId)
-    }
 
     fun startGame(game: Games, maxPlayers: Int? = null): Boolean {
         if (activeGame != null) return false
 
-        if (!status) {
-            status = true
+        activeGame = game
+        this.maxPlayers = maxPlayers ?: UNLIMITED
 
+        if (task == null) {
             task = Bukkit.getAsyncScheduler().runAtFixedRate(plugin, { _ ->
-                checkQueue()
-
-                for (uuid in waitingQueue) {
-                    val player = Bukkit.getPlayer(uuid) ?: continue
-                    showPlayerWaitingQueue(player)
-                }
-
-                for (uuid in gameQueue) {
-                    val player = Bukkit.getPlayer(uuid) ?: continue
-                    showPlayerGameQueue(player)
-                }
-
+                tick()
             }, 0, 1, TimeUnit.SECONDS)
         }
 
-        activeGame = game
-        this.maxPlayers = maxPlayers ?: 2147483647
         return true
     }
 
     fun stopGame(): Boolean {
         if (activeGame == null) return false
 
-        if (status) {
-            status = false
+        task?.cancel()
+        task = null
 
-            task?.cancel()
-            task = null
-        }
         activeGame = null
-        waitingQueue.clear()
         gameQueue.clear()
+        waitingQueue.clear()
+
         return true
     }
 
-    fun isGameActive(): Boolean {
-        return activeGame != null
-    }
+    fun isGameActive(): Boolean = activeGame != null
 
-    fun isGameQueue(player: Player): Boolean {
+    fun getActiveGame(): Games =
+        activeGame ?: throw IllegalStateException("No active game found")
+
+    fun joinGameQueue(player: Player): Boolean {
         val uuid = player.uniqueId
-        return gameQueue.contains(uuid)
+        if (uuid in gameQueue) return false
+
+        gameQueue.add(uuid)
+
+        player.sendText {
+            appendSuccessPrefix()
+            success("Du bist jetzt in der Game Lobby!")
+        }
+
+        return true
     }
 
-    fun isWaitingQueue(player: Player): Boolean {
+    fun leaveGameQueue(player: Player): Boolean =
+        gameQueue.remove(player.uniqueId)
+
+    fun joinWaitingQueue(player: Player): Boolean {
         val uuid = player.uniqueId
-        return waitingQueue.contains(uuid)
+        if (uuid in waitingQueue || uuid in gameQueue) return false
+
+        waitingQueue.add(uuid)
+        return true
     }
 
-    fun getActiveGame(): Games {
-        return activeGame ?: throw IllegalStateException("No active game found")
-    }
+    fun leaveWaitingQueue(player: Player): Boolean =
+        waitingQueue.remove(player.uniqueId)
 
-    fun getMaxPlayers(): Int {
-        return maxPlayers
-    }
+    fun isInGameQueue(player: Player) = player.uniqueId in gameQueue
+    fun isInWaitingQueue(player: Player) = player.uniqueId in waitingQueue
 
-    fun getQueuePlayers(): Int {
-        return gameQueue.size
-    }
+    fun getQueuePlayers(): Int = gameQueue.size
+
+    fun getMaxPlayers(): Int =
+        if (maxPlayers == UNLIMITED) UNLIMITED else maxPlayers
+
+    fun isQueueFull(): Boolean =
+        gameQueue.size >= maxPlayers
 
     fun setMaxPlayers(maxPlayers: Int) {
         this.maxPlayers = maxPlayers
 
-        while (gameQueue.size + 1 > maxPlayers) {
-            val player = Bukkit.getPlayer(gameQueue.removeLast())
-            player?.sendText {
+        while (gameQueue.size > getMaxPlayers()) {
+            val uuid = gameQueue.removeLast()
+
+            Bukkit.getPlayer(uuid)?.sendText {
                 appendInfoPrefix()
                 info("Du wurdest aus der Warteschlange entfernt, da das Limit erreicht wurde.")
             }
@@ -136,26 +111,42 @@ object GameService {
     }
 
     fun checkQueue() {
-        if (gameQueue.size < maxPlayers - 1) {
-            val uuid = waitingQueue.removeFirstOrNull() ?: return
-            val player = Bukkit.getPlayer(uuid) ?: return
+        if (isQueueFull()) return
 
-            joinGameQueue(player)
+        val uuid = waitingQueue.removeFirstOrNull() ?: return
+        val player = Bukkit.getPlayer(uuid) ?: return
+
+        joinGameQueue(player)
+    }
+
+    private fun tick() {
+        checkQueue()
+
+        gameQueue.forEach { uuid ->
+            Bukkit.getPlayer(uuid)?.let(::showPlayerGameQueue)
+        }
+
+        waitingQueue.forEach { uuid ->
+            Bukkit.getPlayer(uuid)?.let(::showPlayerWaitingQueue)
         }
     }
 
     fun showPlayerGameQueue(player: Player) {
-        val newMaxPlayers = if (maxPlayers == 2147483647) "unbegrenzt" else (maxPlayers - 1).toString()
+        val max = if (maxPlayers == UNLIMITED) "unbegrenzt" else getMaxPlayers().toString()
 
         player.sendActionBar {
-            text("Game Lobby: ${gameQueue.size}/$newMaxPlayers", TextColor.color(0x6EA6D9))
+            text("Game Lobby: ${gameQueue.size}/$max", TextColor.color(0x6EA6D9))
         }
     }
 
     fun showPlayerWaitingQueue(player: Player) {
+        val position = waitingQueue.indexOf(player.uniqueId) + 1
+
         player.sendActionBar {
-            text("Dein Platz in der Warteschlange: ${waitingQueue.indexOf(player.uniqueId) + 1}/${waitingQueue.size}", TextColor.color(0x6EA6D9))
+            text(
+                "Dein Platz in der Warteschlange: $position/${waitingQueue.size}",
+                TextColor.color(0x6EA6D9)
+            )
         }
     }
-
 }
