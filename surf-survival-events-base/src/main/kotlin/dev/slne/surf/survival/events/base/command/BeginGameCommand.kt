@@ -6,7 +6,7 @@ import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.survival.events.base.games.service.GameService
 import dev.slne.surf.survival.events.base.util.commands.PermissionRegistry
 
-fun startGameCommand() = subcommand("start") {
+fun beginGameCommand() = subcommand("begin") {
     withPermission(PermissionRegistry.COMMAND_COMMUNITY_MANAGER)
     playerExecutor { player, _ ->
         if (!GameService.isGameActive()) {

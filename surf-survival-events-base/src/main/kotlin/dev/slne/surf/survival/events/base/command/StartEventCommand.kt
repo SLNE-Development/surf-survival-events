@@ -1,25 +1,21 @@
 package dev.slne.surf.survival.events.base.command
 
 import dev.jorel.commandapi.kotlindsl.getValue
-import dev.jorel.commandapi.kotlindsl.integerArgument
 import dev.jorel.commandapi.kotlindsl.playerExecutor
 import dev.jorel.commandapi.kotlindsl.subcommand
 import dev.slne.surf.api.core.messages.adventure.sendText
-import dev.slne.surf.api.paper.extensions.server
 import dev.slne.surf.survival.events.base.command.arguments.gameArgument
-import dev.slne.surf.survival.events.base.games.service.AnnouncementService.sendAnnouncement
 import dev.slne.surf.survival.events.base.games.service.GameService
 import dev.slne.surf.survival.events.base.games.util.Games
+import dev.slne.surf.survival.events.base.menu.dialog.setMaxPlayerDialog
 import dev.slne.surf.survival.events.base.util.commands.PermissionRegistry
 
-fun beginEventCommand() = subcommand("begin") {
+fun startEventCommand() = subcommand("start") {
     withPermission(PermissionRegistry.COMMAND_COMMUNITY_MANAGER)
     gameArgument("game")
-    integerArgument("maxPlayers", optional = true)
 
     playerExecutor { player, args ->
         val game: Games by args
-        val maxPlayers: Int? by args
 
         if (!Games.isGameEnabled(game.name)) {
             player.sendText {
@@ -31,19 +27,10 @@ fun beginEventCommand() = subcommand("begin") {
             return@playerExecutor
         }
 
-        if (GameService.startGame(game, maxPlayers)) {
-            player.sendText {
-                appendSuccessPrefix()
-                variableValue(game.displayName)
-                appendSpace()
-                success("wurde erfolgreich aktiviert.")
-            }
-            for (onlinePlayer in server.onlinePlayers) {
-                sendAnnouncement(onlinePlayer)
-            }
+        if (!GameService.isGameActive()) {
+            player.showDialog(setMaxPlayerDialog(game))
             return@playerExecutor
         }
-
 
         player.sendText {
             appendErrorPrefix()

@@ -79,6 +79,8 @@ object GameService {
             task = null
         }
         activeGame = null
+        waitingQueue.clear()
+        gameQueue.clear()
         return true
     }
 
@@ -93,7 +95,7 @@ object GameService {
 
     fun isWaitingQueue(player: Player): Boolean {
         val uuid = player.uniqueId
-        return gameQueue.contains(uuid)
+        return waitingQueue.contains(uuid)
     }
 
     fun getActiveGame(): Games {
@@ -124,7 +126,6 @@ object GameService {
         if (gameQueue.size < maxPlayers - 1) {
             val uuid = waitingQueue.removeFirstOrNull() ?: return
             val player = Bukkit.getPlayer(uuid) ?: return
-
 
             joinGameQueue(player)
         }

@@ -23,6 +23,6 @@ object JoinQuitListener : Listener {
         if (!GameService.isGameActive()) {
             return
         }
-        AnnouncementService.sendAnnouncement(event.player)
+        AnnouncementService.sendOpenEvent(event.player)
     }
 }

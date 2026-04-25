@@ -5,6 +5,7 @@ import dev.jorel.commandapi.kotlindsl.subcommand
 import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.survival.events.base.games.service.GameService
 import dev.slne.surf.survival.events.base.util.commands.PermissionRegistry
+import net.kyori.adventure.text.format.TextColor
 
 
 fun joinGameQueueCommand() = subcommand("join") {
@@ -28,8 +29,8 @@ fun joinGameQueueCommand() = subcommand("join") {
 
         if (GameService.joinWaitingQueue(player)) {
             player.sendText {
-                appendWarningPrefix()
-                warning("Die Warteschlange ist voll. Du befindest dich nun auf der Ersatzbank.")
+                appendInfoPrefix()
+                text("Die Warteschlange ist voll. Du befindest dich nun auf der Ersatzbank.", TextColor.color(0x88F288))
             }
             return@playerExecutor
         }

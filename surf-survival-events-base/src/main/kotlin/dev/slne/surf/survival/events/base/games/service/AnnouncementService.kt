@@ -6,19 +6,33 @@ import net.kyori.adventure.text.format.TextColor
 import org.bukkit.entity.Player
 
 object AnnouncementService {
-    fun sendAnnouncement(player: Player){
+    fun sendOpenEvent(player: Player){
         val activeGame = GameService.getActiveGame()
 
         player.sendText {
             text("--------------------------------------------------\n", TextColor.color(0x599542))
-            variableValue("Das ${activeGame.displayName} Event wurde gestartet!\n")
+            text("\n")
+            text("Das ${activeGame.displayName} hat gestartet! \n", TextColor.color(0xD98E8D))
             info("Trete über")
             appendSpace()
-            variableValue("/event join")
+            text("/event join", TextColor.color(0xF5A19F))
             clickRunsCommand("/event join")
             appendSpace()
             info("dem Event bei.\n")
+            text("\n")
+            text("--------------------------------------------------", TextColor.color(0x599542))
+        }
+    }
+
+    fun sendCloseEvent(player: Player){
+        val activeGame = GameService.getActiveGame()
+        player.sendText {
             text("--------------------------------------------------\n", TextColor.color(0x599542))
+            text("\n")
+            warning("Das ${activeGame.displayName} wurde Abgebrochen! \n")
+            text("\n")
+            text("--------------------------------------------------", TextColor.color(0x599542))
+
         }
     }
 }
