@@ -29,7 +29,7 @@ object AnnouncementService {
         player.sendText {
             text("--------------------------------------------------\n", TextColor.color(0x599542))
             text("\n")
-            warning("Das ${activeGame.displayName} wurde Abgebrochen! \n")
+            error("Das ${activeGame.displayName} wurde Abgebrochen! \n")
             text("\n")
             text("--------------------------------------------------", TextColor.color(0x599542))
 
