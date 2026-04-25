@@ -1,9 +1,11 @@
 package dev.slne.surf.survival.events.base.games.service
 
 import dev.slne.surf.api.core.messages.adventure.sendText
+import dev.slne.surf.api.core.messages.adventure.text
 import dev.slne.surf.survival.events.base.games.util.Games
 import dev.slne.surf.survival.events.base.plugin
 import io.papermc.paper.threadedregions.scheduler.ScheduledTask
+import net.kyori.adventure.text.format.TextColor
 import org.bukkit.Bukkit
 import org.bukkit.entity.Player
 import java.util.UUID
@@ -17,7 +19,7 @@ object GameService {
     private val gameQueue = ArrayDeque<UUID>()
     private val waitingQueue = ArrayDeque<UUID>()
 
-    private var maxPlayers = 1000
+    private var maxPlayers = 2147483647
 
     private var task: ScheduledTask? = null
     private var status = false
@@ -29,7 +31,7 @@ object GameService {
 
         player.sendText {
             appendSuccessPrefix()
-            success("Du bist jetzt in der Warteschlange!")
+            success("Du bist jetzt in der Game Lobby!")
         }
         gameQueue.add(uuid)
         return true
@@ -61,11 +63,22 @@ object GameService {
 
             task = Bukkit.getAsyncScheduler().runAtFixedRate(plugin, { _ ->
                 checkQueue()
+
+                for (uuid in waitingQueue) {
+                    val player = Bukkit.getPlayer(uuid) ?: continue
+                    showPlayerWaitingQueue(player)
+                }
+
+                for (uuid in gameQueue) {
+                    val player = Bukkit.getPlayer(uuid) ?: continue
+                    showPlayerGameQueue(player)
+                }
+
             }, 0, 1, TimeUnit.SECONDS)
         }
 
         activeGame = game
-        this.maxPlayers = maxPlayers ?: 1000
+        this.maxPlayers = maxPlayers ?: 2147483647
         return true
     }
 
@@ -128,6 +141,20 @@ object GameService {
             val player = Bukkit.getPlayer(uuid) ?: return
 
             joinGameQueue(player)
+        }
+    }
+
+    fun showPlayerGameQueue(player: Player) {
+        val newMaxPlayers = if (maxPlayers == 2147483647) "unbegrenzt" else (maxPlayers - 1).toString()
+
+        player.sendActionBar {
+            text("Game Lobby: ${gameQueue.size}/$newMaxPlayers", TextColor.color(0x6EA6D9))
+        }
+    }
+
+    fun showPlayerWaitingQueue(player: Player) {
+        player.sendActionBar {
+            text("Dein Platz in der Warteschlange: ${waitingQueue.indexOf(player.uniqueId) + 1}/${waitingQueue.size}", TextColor.color(0x6EA6D9))
         }
     }
 

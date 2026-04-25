@@ -19,9 +19,9 @@ object OverviewView : View() {
 
     }.elementFactory { _, builder, _, game ->
         builder.withItem(game.createSkull()).onClick { context ->
+            context.closeForPlayer()
             context.player.showDialog(setMaxPlayerDialog(game))
             context.playGeneralClickSound()
-            context.closeForPlayer()
         }
     }.layoutTarget('G').build()
 

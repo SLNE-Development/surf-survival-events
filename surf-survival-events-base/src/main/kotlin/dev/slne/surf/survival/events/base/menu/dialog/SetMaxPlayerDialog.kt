@@ -63,6 +63,16 @@ fun setMaxPlayerDialog(game: Games) = dialog {
                             return@customPlayerClick
                         }
 
+                        if (maxPlayers >= 2147483647) {
+                            player.closeDialog()
+
+                            player.sendText {
+                                appendErrorPrefix()
+                                error("Die Zahl ist zu groß.")
+                            }
+                            return@customPlayerClick
+                        }
+
                         if (GameService.startGame(game, maxPlayers + 1)) {
                             player.sendText {
                                 appendSuccessPrefix()
