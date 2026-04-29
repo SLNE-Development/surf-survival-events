@@ -27,12 +27,22 @@ fun joinGameQueueCommand() = subcommand("join") {
             return@playerExecutor
         }
 
-        if (GameService.joinWaitingQueue(player)) {
-            player.sendText {
-                appendInfoPrefix()
-                text("Die Warteschlange ist voll. Du befindest dich nun auf der Ersatzbank.", TextColor.color(0x88F288))
+        if (GameService.isQueueFull()) {
+            if (GameService.joinWaitingQueue(player)) {
+                player.sendText {
+                    appendInfoPrefix()
+                    text("Die Warteschlange ist voll. Du befindest dich nun auf der Ersatzbank.", TextColor.color(0x88F288))
+                }
+                return@playerExecutor
             }
-            return@playerExecutor
+        } else {
+            if (GameService.joinGameQueue(player)) {
+                player.sendText {
+                    appendInfoPrefix()
+                    text("Du befindest dich nun in der Warteschlange.", TextColor.color(0x88F288))
+                }
+                return@playerExecutor
+            }
         }
     }
 }
