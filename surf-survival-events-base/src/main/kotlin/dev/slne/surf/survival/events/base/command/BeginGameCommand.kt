@@ -19,7 +19,7 @@ fun beginGameCommand() = subcommand("begin") {
 
         player.sendText {
             appendSuccessPrefix()
-            success("Event wird gestartet...")
+            success("Das Event wird gestartet...")
         }
 
         GameService.beginGame()
