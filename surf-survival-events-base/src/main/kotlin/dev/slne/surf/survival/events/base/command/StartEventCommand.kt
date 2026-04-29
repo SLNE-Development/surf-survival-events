@@ -35,6 +35,7 @@ fun startEventCommand() = subcommand("start") {
 
         player.sendText {
             appendErrorPrefix()
+            error("Das Spiel ")
             variableValue(game.displayName)
             appendSpace()
             error("konnte nicht aktiviert werden. Es ist bereits ein anderes Event aktiv.")
