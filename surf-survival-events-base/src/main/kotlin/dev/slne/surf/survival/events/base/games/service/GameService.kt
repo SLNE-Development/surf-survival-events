@@ -95,7 +95,7 @@ object GameService {
     fun beginGame() {
         val lowerActiveGame = getActiveGame().displayName.lowercase()
         when (lowerActiveGame) {
-            "example" -> {
+             Games.EXAMPLE.displayName -> {
                 startExampleGame(getQueuePlayers())
             }
 
