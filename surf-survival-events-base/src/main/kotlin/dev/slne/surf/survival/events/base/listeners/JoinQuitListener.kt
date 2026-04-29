@@ -8,7 +8,6 @@ import org.bukkit.event.player.PlayerJoinEvent
 import org.bukkit.event.player.PlayerQuitEvent
 
 object JoinQuitListener : Listener {
-
     @EventHandler
     fun onPlayerQuit(event: PlayerQuitEvent) {
         if (!GameService.isGameActive()) {
