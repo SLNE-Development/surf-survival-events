@@ -17,9 +17,5 @@ fun openMainMenu() = commandAPICommand("event") {
     )
     
     playerExecutor { player, _ ->
-        player.sendText {
-            appendErrorPrefix()
-            error("Du musst was wählen.")
-        }
     }
 }
