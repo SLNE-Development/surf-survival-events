@@ -33,7 +33,7 @@ fun changeMaxPlayersCommand() = subcommand("maxPlayers") {
             return@playerExecutor
         }
 
-        GameService.setMaxPlayers(maxPlayers + 1)
+        GameService.setMaxPlayers(maxPlayers)
 
         player.sendText {
             appendSuccessPrefix()

@@ -21,7 +21,7 @@ fun setMaxPlayerDialog(game: Games) = dialog {
                 appendNewline()
                 appendNewline()
                 appendWarningPrefix()
-                error("Bitte beachte, das die Zahl größer als 0 sein muss!")
+                error("Bitte beachte, dass die Zahl größer als 0 sein muss!")
             }
 
             input {
@@ -63,7 +63,7 @@ fun setMaxPlayerDialog(game: Games) = dialog {
                             return@customPlayerClick
                         }
 
-                        if (maxPlayers >= 2147483647) {
+                        if (maxPlayers >= Int.MAX_VALUE) {
                             player.closeDialog()
 
                             player.sendText {
@@ -89,7 +89,7 @@ fun setMaxPlayerDialog(game: Games) = dialog {
 
                          player.sendText {
                              appendErrorPrefix()
-                             error("Ein fehler ist aufgetreten.")
+                             error("Ein Fehler ist aufgetreten.")
                          }
                     }
                 }
