@@ -43,7 +43,5 @@ fun changeMaxPlayersCommand() = subcommand("maxPlayers") {
             appendSpace()
             success("gesetzt.")
         }
-
-
     }
 }
