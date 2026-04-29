@@ -6,7 +6,7 @@ import dev.slne.surf.api.paper.inventory.framework.viewFrame
 import dev.slne.surf.survival.events.base.menu.view.OverviewView
 import dev.slne.surf.survival.events.base.util.commands.PermissionRegistry
 
-fun eventMenuCommand() = subcommand("menu") {
+fun eventMenuCommand() = subcommand("eventmenu") {
     withPermission(PermissionRegistry.COMMAND_COMMUNITY_MANAGER)
     playerExecutor { player, _ ->
         viewFrame.open(OverviewView::class.java, player)
