@@ -18,13 +18,16 @@ fun stopEventCommand() = subcommand("stop") {
         if (GameService.isGameActive()) {
             player.sendText {
                 appendWarningPrefix()
+                warning("Das Spiel ")
                 variableValue(activeGame.displayName)
                 appendSpace()
                 warning("wurde deaktiviert!")
             }
+            
             for (onlinePlayer in server.onlinePlayers) {
                 AnnouncementService.sendCloseEvent(onlinePlayer)
             }
+            
             GameService.stopGame()
             return@playerExecutor
         }
@@ -33,6 +36,5 @@ fun stopEventCommand() = subcommand("stop") {
             appendErrorPrefix()
             error("Es ist kein Event Aktiv!")
         }
-
     }
 }

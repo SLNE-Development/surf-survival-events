@@ -10,16 +10,19 @@ object AnnouncementService {
         val activeGame = GameService.getActiveGame()
 
         player.sendText {
-            text("--------------------------------------------------\n", TextColor.color(0x599542))
-            text("\n")
-            text("Das ${activeGame.displayName} hat gestartet! \n", TextColor.color(0xD98E8D))
+            text("--------------------------------------------------", TextColor.color(0x599542))
+            appendNewline()
+            appendNewline()
+            text("Das ${activeGame.displayName} hat gestartet!", TextColor.color(0xD98E8D))
+            appendNewline()
             info("Trete über")
             appendSpace()
             text("/event join", TextColor.color(0xF5A19F))
             clickRunsCommand("/event join")
             appendSpace()
-            info("dem Event bei.\n")
-            text("\n")
+            info("dem Event bei.")
+            appendNewline()
+            appendNewline()
             text("--------------------------------------------------", TextColor.color(0x599542))
         }
     }
@@ -27,10 +30,12 @@ object AnnouncementService {
     fun sendCloseEvent(player: Player){
         val activeGame = GameService.getActiveGame()
         player.sendText {
-            text("--------------------------------------------------\n", TextColor.color(0x599542))
-            text("\n")
-            error("Das ${activeGame.displayName} wurde abgebrochen! \n")
-            text("\n")
+            text("--------------------------------------------------", TextColor.color(0x599542))
+            appendNewline()
+            appendNewline()
+            error("Das ${activeGame.displayName} wurde abgebrochen!")
+            appendNewline()
+            appendNewline()
             text("--------------------------------------------------", TextColor.color(0x599542))
 
         }
