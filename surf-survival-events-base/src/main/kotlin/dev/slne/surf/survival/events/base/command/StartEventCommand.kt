@@ -20,6 +20,7 @@ fun startEventCommand() = subcommand("start") {
         if (!Games.isGameEnabled(game.name)) {
             player.sendText {
                 appendErrorPrefix()
+                error("Das Spiel ")
                 variableValue(game.displayName)
                 appendSpace()
                 error("ist derzeit nicht verfügbar.")
