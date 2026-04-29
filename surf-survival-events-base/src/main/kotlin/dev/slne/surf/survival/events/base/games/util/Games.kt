@@ -52,8 +52,6 @@ enum class Games(
             return pluginManager.isPluginEnabled("surf-survival-event-$version")
         }
 
-        fun getGame(name: String): Games? {
-            return Games.entries.find { it.name.equals(name, ignoreCase = true) }
-        }
+        fun getGame(name: String) =  Games.entries.find { it.name.equals(name, ignoreCase = true) }
     }
 }
