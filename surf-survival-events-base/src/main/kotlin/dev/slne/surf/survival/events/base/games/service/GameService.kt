@@ -16,10 +16,10 @@ import kotlin.collections.ArrayDeque
 
 object GameService {
 
-    private const val UNLIMITED = Int.MAX_VALUE
+    private const val NONE = -1
 
     private var activeGame: Games? = null
-    private var maxPlayers = UNLIMITED
+    private var maxPlayers = NONE
 
     private val gameQueue = ArrayDeque<UUID>()
     private val waitingQueue = ArrayDeque<UUID>()
@@ -30,7 +30,7 @@ object GameService {
         if (activeGame != null) return false
 
         activeGame = game
-        this.maxPlayers = maxPlayers ?: UNLIMITED
+        this.maxPlayers = maxPlayers ?: NONE
 
         if (task == null) {
             task = Bukkit.getAsyncScheduler().runAtFixedRate(plugin, { _ ->
@@ -106,7 +106,7 @@ object GameService {
     }
 
     fun getMaxPlayers(): Int =
-        if (maxPlayers == UNLIMITED) UNLIMITED else maxPlayers
+        if (maxPlayers == NONE) NONE else maxPlayers
 
     fun isQueueFull(): Boolean =
         gameQueue.size >= maxPlayers
@@ -146,7 +146,7 @@ object GameService {
     }
 
     fun showPlayerGameQueue(player: Player) {
-        val max = if (maxPlayers == UNLIMITED) "unbegrenzt" else getMaxPlayers().toString()
+        val max = if (maxPlayers == NONE) "unbegrenzt" else getMaxPlayers().toString()
 
         player.sendActionBar {
             text("Game Lobby: ${gameQueue.size}/$max", Colors.INFO)
