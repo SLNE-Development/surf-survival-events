@@ -39,6 +39,5 @@ fun startEventCommand() = subcommand("start") {
             appendSpace()
             error("konnte nicht aktiviert werden. Es ist bereits ein anderes Event aktiv.")
         }
-
     }
 }
