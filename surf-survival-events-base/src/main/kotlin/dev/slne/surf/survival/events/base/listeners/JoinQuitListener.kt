@@ -13,6 +13,7 @@ object JoinQuitListener : Listener {
         if (!GameService.isGameActive()) {
             return
         }
+        
         GameService.leaveGameQueue(event.player)
         GameService.leaveWaitingQueue(event.player)
     }
