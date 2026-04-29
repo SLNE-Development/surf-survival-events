@@ -11,3 +11,7 @@ plugins {
     id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
     id("dev.slne.surf.api.gradle.settings") version "+"
 }
+
+
+include("surf-survival-events-base")
+include("surf-survival-events-events:surf-survival-event-example")

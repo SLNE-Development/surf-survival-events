@@ -1,18 +1,28 @@
+import dev.slne.surf.api.gradle.util.slneReleases
 
-plugins {
-    id("dev.slne.surf.api.gradle.paper-plugin")
+buildscript {
+    repositories {
+        gradlePluginPortal()
+        maven("https://reposilite.slne.dev/releases")
+    }
+    dependencies {
+        classpath("dev.slne.surf.api:surf-api-gradle-plugin:+")
+    }
 }
 
-version = findProperty("version") as String
-group = "dev.slne.surf.survival.events"
+allprojects {
+    group = "dev.slne.surf.survival.events"
+    version = findProperty("version") as String
+}
 
-
-surfPaperPluginApi {
-    mainClass("dev.slne.surf.survival.events.paper.PaperMain")
-    generateLibraryLoader(false)
-    foliaSupported(true)
-
-    authors.addAll("red", "mikey", "jo_field")
-
-
+subprojects {
+    afterEvaluate {
+        plugins.withType<PublishingPlugin> {
+            configure<PublishingExtension> {
+                repositories {
+                    slneReleases()
+                }
+            }
+        }
+    }
 }
