@@ -1,12 +1,12 @@
 package dev.slne.surf.survival.events.base.games.service
 
+import dev.slne.surf.api.core.messages.Colors
 import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.api.core.messages.adventure.text
 import dev.slne.surf.survival.events.base.games.util.Games
 import dev.slne.surf.survival.events.base.plugin
 import dev.slne.surf.survival.events.example.ExampleStartGame.startExampleGame
 import io.papermc.paper.threadedregions.scheduler.ScheduledTask
-import net.kyori.adventure.text.format.TextColor
 import org.bukkit.Bukkit
 import org.bukkit.entity.Player
 import java.util.UUID
@@ -149,7 +149,7 @@ object GameService {
         val max = if (maxPlayers == UNLIMITED) "unbegrenzt" else getMaxPlayers().toString()
 
         player.sendActionBar {
-            text("Game Lobby: ${gameQueue.size}/$max", TextColor.color(0x6EA6D9))
+            text("Game Lobby: ${gameQueue.size}/$max", Colors.INFO)
         }
     }
 
@@ -159,7 +159,7 @@ object GameService {
         player.sendActionBar {
             text(
                 "Dein Platz in der Warteschlange: $position/${waitingQueue.size}",
-                TextColor.color(0x6EA6D9)
+                Colors.INFO
             )
         }
     }
