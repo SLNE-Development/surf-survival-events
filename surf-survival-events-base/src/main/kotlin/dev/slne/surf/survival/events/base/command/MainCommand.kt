@@ -15,6 +15,7 @@ fun openMainMenu() = commandAPICommand("event") {
         stopEventCommand()
 
     )
+    
     playerExecutor { player, _ ->
         player.sendText {
             appendErrorPrefix()
