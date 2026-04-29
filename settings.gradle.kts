@@ -14,5 +14,4 @@ plugins {
 
 
 include("surf-survival-events-base")
-include("surf-survival-events-api")
 include("surf-survival-events-events:surf-survival-event-example")

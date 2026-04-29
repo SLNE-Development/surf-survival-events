@@ -22,7 +22,7 @@ fun beginGameCommand() = subcommand("begin") {
             success("Event wird gestartet...")
         }
 
-        //TODO: API that start the Game that you want
+        GameService.beginGame()
         GameService.stopGame()
     }
 }

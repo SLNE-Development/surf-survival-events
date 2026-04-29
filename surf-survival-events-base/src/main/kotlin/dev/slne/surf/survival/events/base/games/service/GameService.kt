@@ -4,6 +4,7 @@ import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.api.core.messages.adventure.text
 import dev.slne.surf.survival.events.base.games.util.Games
 import dev.slne.surf.survival.events.base.plugin
+import dev.slne.surf.survival.events.example.ExampleStartGame.startExampleGame
 import io.papermc.paper.threadedregions.scheduler.ScheduledTask
 import net.kyori.adventure.text.format.TextColor
 import org.bukkit.Bukkit
@@ -47,8 +48,8 @@ object GameService {
         task = null
 
         activeGame = null
-        gameQueue.clear()
         waitingQueue.clear()
+        gameQueue.clear()
 
         return true
     }
@@ -89,7 +90,22 @@ object GameService {
     fun isInGameQueue(player: Player) = player.uniqueId in gameQueue
     fun isInWaitingQueue(player: Player) = player.uniqueId in waitingQueue
 
-    fun getQueuePlayers(): Int = gameQueue.size
+    fun getQueuePlayers(): ArrayDeque<UUID> {
+        return gameQueue
+    }
+
+    fun beginGame() {
+        val lowerActiveGame = getActiveGame().displayName.lowercase()
+        when (lowerActiveGame) {
+            "example" -> {
+                startExampleGame(getQueuePlayers())
+            }
+
+            else -> {
+                throw IllegalStateException("No game found for name: ${activeGame?.displayName}")
+            }
+        }
+    }
 
     fun getMaxPlayers(): Int =
         if (maxPlayers == UNLIMITED) UNLIMITED else maxPlayers
@@ -105,7 +121,7 @@ object GameService {
 
             Bukkit.getPlayer(uuid)?.sendText {
                 appendInfoPrefix()
-                info("Du wurdest aus der Warteschlange entfernt, da das Limit erreicht wurde.")
+                info("Du wurdest aus der Warteschlange entfernt, da ein neues Limit erreicht wurde.")
             }
         }
     }

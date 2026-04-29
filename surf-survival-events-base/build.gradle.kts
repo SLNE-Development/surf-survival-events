@@ -3,7 +3,7 @@ plugins {
 }
 
 dependencies {
-    compileOnly(project(":surf-survival-events-api"))
+    api(project(":surf-survival-events-events:surf-survival-event-example"))
 }
 
 surfPaperPluginApi {
