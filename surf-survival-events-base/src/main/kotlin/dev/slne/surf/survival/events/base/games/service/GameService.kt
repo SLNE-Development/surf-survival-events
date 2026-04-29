@@ -90,9 +90,7 @@ object GameService {
     fun isInGameQueue(player: Player) = player.uniqueId in gameQueue
     fun isInWaitingQueue(player: Player) = player.uniqueId in waitingQueue
 
-    fun getQueuePlayers(): ArrayDeque<UUID> {
-        return gameQueue
-    }
+    fun getQueuePlayers(): ArrayDeque<UUID> = gameQueue
 
     fun beginGame() {
         val lowerActiveGame = getActiveGame().displayName.lowercase()
