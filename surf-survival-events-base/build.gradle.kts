@@ -1,9 +1,12 @@
+import dev.slne.surf.api.gradle.util.registerSoft
+
 plugins {
     id("dev.slne.surf.api.gradle.paper-plugin")
 }
 
 dependencies {
     compileOnly(project(":surf-survival-events-events:surf-survival-event-example"))
+    compileOnly(project(":surf-survival-events-events:surf-survival-event-werewolf"))
 }
 
 surfPaperPluginApi {
@@ -11,5 +14,10 @@ surfPaperPluginApi {
     generateLibraryLoader(false)
     foliaSupported(true)
 
-    authors.addAll("red", "mikey", "jo_field")
+    authors.addAll("red", "mikey", "jo_field", "ProxyFyy")
+
+    serverDependencies {
+        registerSoft("surf-survival-event-example")
+        registerSoft("surf-survival-event-werewolf")
+    }
 }
