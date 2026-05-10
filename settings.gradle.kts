@@ -15,4 +15,4 @@ plugins {
 
 include("surf-survival-events-base")
 include("surf-survival-events-events:surf-survival-event-example")
-include("surf-survival-events-events:surf-survival-event-parkour")
+include("surf-survival-events-events:surf-survival-event-race")

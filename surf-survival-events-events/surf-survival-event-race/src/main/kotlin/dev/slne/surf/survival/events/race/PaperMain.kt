@@ -1,4 +1,4 @@
-package dev.slne.surf.survival.events.parkour
+package dev.slne.surf.survival.events.race
 
 import com.github.shynixn.mccoroutine.folia.SuspendingJavaPlugin
 

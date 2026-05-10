@@ -3,7 +3,7 @@ plugins {
 }
 
 surfPaperPluginApi {
-    mainClass("dev.slne.surf.survival.events.parkour.PaperMain")
+    mainClass("dev.slne.surf.survival.events.race.PaperMain")
     generateLibraryLoader(false)
     foliaSupported(true)
 }
