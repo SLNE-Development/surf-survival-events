@@ -6,6 +6,7 @@ import dev.slne.surf.api.core.messages.adventure.text
 import dev.slne.surf.survival.events.base.games.util.Games
 import dev.slne.surf.survival.events.base.plugin
 import dev.slne.surf.survival.events.example.ExampleStartGame.startExampleGame
+import dev.slne.surf.survival.events.race.service.RaceService
 import io.papermc.paper.threadedregions.scheduler.ScheduledTask
 import org.bukkit.Bukkit
 import org.bukkit.entity.Player
@@ -93,10 +94,15 @@ object GameService {
     fun getQueuePlayers(): ArrayDeque<UUID> = gameQueue
 
     fun beginGame() {
-        val lowerActiveGame = getActiveGame().displayName.lowercase()
-        when (lowerActiveGame) {
+        when (activeGame?.displayName) {
              Games.EXAMPLE.displayName -> {
                 startExampleGame(getQueuePlayers())
+            }
+
+            Games.RACE.displayName -> {
+                gameQueue.forEach { uuid ->
+                    RaceService.addPlayer(uuid)
+                }
             }
 
             else -> {

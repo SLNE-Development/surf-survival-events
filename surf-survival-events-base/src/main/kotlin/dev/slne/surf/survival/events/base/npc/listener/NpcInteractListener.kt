@@ -8,10 +8,10 @@ import org.bukkit.event.Listener
 object NpcInteractListener : Listener {
     @EventHandler
     fun onNpcInteract(event: NpcInteractEvent) {
-        if (event.npc.uniqueName != "survival_events") {
+        if (!event.npc.uniqueName.startsWith("survival_events")) {
             return
         }
-
+        event.player.performCommand("event join")
         GameService.joinWaitingQueue(event.player)
     }
 }
