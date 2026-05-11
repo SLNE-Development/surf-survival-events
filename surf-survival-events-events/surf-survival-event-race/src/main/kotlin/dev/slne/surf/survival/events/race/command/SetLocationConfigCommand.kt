@@ -1,10 +1,12 @@
 package dev.slne.surf.survival.events.race.command
 
-import dev.jorel.commandapi.kotlindsl.anyExecutor
 import dev.jorel.commandapi.kotlindsl.getValue
 import dev.jorel.commandapi.kotlindsl.locationArgument
 import dev.jorel.commandapi.kotlindsl.multiLiteralArgument
+import dev.jorel.commandapi.kotlindsl.playerExecutor
+import dev.jorel.commandapi.kotlindsl.rotationArgument
 import dev.jorel.commandapi.kotlindsl.subcommand
+import dev.jorel.commandapi.wrappers.Rotation
 import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.survival.events.race.config.SurfRaceConfig
 import dev.slne.surf.survival.events.race.utils.PermissionRegistry
@@ -12,11 +14,14 @@ import org.bukkit.Location
 
 fun setLocationConfigCommand() = subcommand("set") {
     withPermission(PermissionRegistry.COMMAND_COMMUNITY_MANAGER)
-    multiLiteralArgument("config", "lobby", "start", "checkpoint")
+    multiLiteralArgument("config", "lobby", "start")
     locationArgument("location")
-    anyExecutor { sender, args ->
+    rotationArgument("rotation")
+    playerExecutor { player, args ->
         val config: String by args
         val location: Location by args
+        val rotation: Rotation by args
+
 
         when (config) {
             "lobby" -> {
@@ -25,11 +30,11 @@ fun setLocationConfigCommand() = subcommand("set") {
                     lobbyX = location.x
                     lobbyY = location.y
                     lobbyZ = location.z
-                    lobbyYaw = location.yaw
-                    lobbyPitch = location.pitch
+                    lobbyYaw = rotation.yaw
+                    lobbyPitch = rotation.pitch
                 }
-                SurfRaceConfig.save()
-                sender.sendText {
+
+                player.sendText {
                     appendSuccessPrefix()
                     success("Die Lobby Location wurde erfolgreich gesetzt!")
                     variableValue(location.toString())
@@ -42,24 +47,24 @@ fun setLocationConfigCommand() = subcommand("set") {
                     startX = location.x
                     startY = location.y
                     startZ = location.z
-                    startYaw = location.yaw
-                    startPitch = location.pitch
+                    startYaw = rotation.yaw
+                    startPitch = rotation.pitch
                 }
-                SurfRaceConfig.save()
-                sender.sendText {
+
+                player.sendText {
                     appendSuccessPrefix()
                     success("Die Start Location wurde erfolgreich gesetzt!")
                     variableValue(location.toString())
                 }
             }
 
-            "checkpoint" -> {
-                SurfRaceConfig.edit {
-                    //checkPoints.add(location)
-                    //TODO: Make it editable
+            else -> {
+                player.sendText {
+                    appendErrorPrefix()
+                    error("Ungültige Konfiguration! Bitte wähle entweder 'lobby' oder 'start'.")
                 }
-                SurfRaceConfig.save()
             }
         }
+        SurfRaceConfig.save()
     }
 }

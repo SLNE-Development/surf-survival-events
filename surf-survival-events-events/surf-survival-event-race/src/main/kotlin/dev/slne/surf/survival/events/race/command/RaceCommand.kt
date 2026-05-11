@@ -5,9 +5,12 @@ import dev.jorel.commandapi.kotlindsl.commandAPICommand
 
 fun raceCommand() = commandAPICommand("race") {
     withSubcommands(
-    startRaceCommand(),
-    setLocationConfigCommand(),
-    surfModToolsReloadCommand(),
+        startRaceCommand(),
+        setLocationConfigCommand(),
+        setCheckpointCommand(),
+        removeCheckpoint(),
+        checkpointListCommand(),
+        surfModToolsReloadCommand(),
     )
-    anyExecutor { _, _ ->  }
+    anyExecutor { _, _ -> }
 }
