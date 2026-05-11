@@ -3,7 +3,7 @@ package dev.slne.surf.survival.events.race.utils
 import dev.slne.surf.api.paper.permission.PermissionRegistry
 
 object PermissionRegistry : PermissionRegistry() {
-    private const val PREFIX = "surf.survival.events.parkour"
+    private const val PREFIX = "surf.survival.events.race"
     private const val COMMAND_PREFIX = "$PREFIX.command"
 
     val COMMAND_ADMIN = create("$COMMAND_PREFIX.admin")

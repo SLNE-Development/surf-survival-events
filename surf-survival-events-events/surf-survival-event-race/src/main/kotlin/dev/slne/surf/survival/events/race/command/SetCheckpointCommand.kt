@@ -6,6 +6,7 @@ import dev.jorel.commandapi.kotlindsl.multiLiteralArgument
 import dev.jorel.commandapi.kotlindsl.playerExecutor
 import dev.jorel.commandapi.kotlindsl.subcommand
 import dev.slne.surf.api.core.messages.adventure.sendText
+import dev.slne.surf.survival.events.race.command.util.stringLocation
 import dev.slne.surf.survival.events.race.config.SurfRaceConfig
 import dev.slne.surf.survival.events.race.utils.PermissionRegistry
 import org.bukkit.Location
@@ -20,7 +21,6 @@ fun setCheckpointCommand() = subcommand("checkpoint") {
     locationArgument("location", optional = true)
 
     playerExecutor { player, args ->
-        val checkpointNumber: Int by args
         val argument: String by args
         val location = args.get("location") as? Location
 
@@ -123,24 +123,6 @@ fun setCheckpointCommand() = subcommand("checkpoint") {
 
                 SurfRaceConfig.save()
             }
-
-            "remove" -> {
-                SurfRaceConfig.edit {
-
-                    checkPoints.removeIf { it.int == checkpointNumber }
-
-                    checkPoints.forEach {
-                        if (it.int > checkpointNumber) {
-                            it.int -= 1
-                        }
-                    }
-                }
-                SurfRaceConfig.save()
-            }
         }
     }
-}
-
-private fun stringLocation(location: Location): String {
-    return "${location.world.name} | ${location.x}, ${location.y}, ${location.z}"
 }

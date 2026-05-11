@@ -5,11 +5,15 @@ import dev.slne.surf.survival.events.race.config.SurfRaceConfig
 import dev.slne.surf.survival.events.race.plugin
 import org.bukkit.Bukkit
 import org.bukkit.Location
+import org.bukkit.Material
+import org.bukkit.entity.Nautilus
 import org.bukkit.entity.Player
+import org.bukkit.inventory.ItemStack
 import java.util.UUID
 
 object RaceService {
-    val racePlayers = mutableListOf<UUID>()
+    private val racePlayers = mutableListOf<UUID>()
+    private var isGameActive: Boolean = false
 
     fun addPlayer(uuid: UUID) {
         val player = Bukkit.getPlayer(uuid)
@@ -34,6 +38,18 @@ object RaceService {
         return racePlayers.contains(uuid)
     }
 
+    fun getRacePlayers(): MutableList<UUID> {
+        return racePlayers
+    }
+
+    fun setGameActive() {
+        isGameActive = true
+    }
+
+    fun isGameActive(): Boolean {
+        return isGameActive
+    }
+
     fun removePlayer(player: Player): Boolean {
         val centralSpawn = Location(player.world, 0.0, 73.0, 0.0, 0f, 0f)
         val uuid = player.uniqueId
@@ -43,5 +59,16 @@ object RaceService {
             return@launch
         }
         return racePlayers.remove(uuid)
+    }
+
+    fun setPlayerOnNautilus(player: Player) {
+
+        val location = player.location
+        val nautilus = location.world.spawn(location, Nautilus::class.java) { entity ->
+            entity.inventory.addItem(ItemStack(Material.SADDLE))
+            entity.owner = player
+            entity.isInvisible = true
+        }
+        nautilus.addPassenger(player)
     }
 }

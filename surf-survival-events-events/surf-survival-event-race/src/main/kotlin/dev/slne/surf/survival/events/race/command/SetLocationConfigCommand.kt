@@ -8,6 +8,7 @@ import dev.jorel.commandapi.kotlindsl.rotationArgument
 import dev.jorel.commandapi.kotlindsl.subcommand
 import dev.jorel.commandapi.wrappers.Rotation
 import dev.slne.surf.api.core.messages.adventure.sendText
+import dev.slne.surf.survival.events.race.command.util.stringLocation
 import dev.slne.surf.survival.events.race.config.SurfRaceConfig
 import dev.slne.surf.survival.events.race.utils.PermissionRegistry
 import org.bukkit.Location
@@ -37,7 +38,7 @@ fun setLocationConfigCommand() = subcommand("set") {
                 player.sendText {
                     appendSuccessPrefix()
                     success("Die Lobby Location wurde erfolgreich gesetzt!")
-                    variableValue(location.toString())
+                    variableValue(stringLocation(location))
                 }
             }
 
@@ -54,7 +55,7 @@ fun setLocationConfigCommand() = subcommand("set") {
                 player.sendText {
                     appendSuccessPrefix()
                     success("Die Start Location wurde erfolgreich gesetzt!")
-                    variableValue(location.toString())
+                    variableValue(stringLocation(location))
                 }
             }
 

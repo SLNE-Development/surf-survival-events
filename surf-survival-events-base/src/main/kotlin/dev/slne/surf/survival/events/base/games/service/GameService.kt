@@ -100,6 +100,7 @@ object GameService {
             }
 
             Games.RACE.displayName -> {
+                RaceService.setGameActive()
                 gameQueue.forEach { uuid ->
                     RaceService.addPlayer(uuid)
                 }
