@@ -13,28 +13,30 @@ fun stopEventCommand() = subcommand("stop") {
 
     playerExecutor { player, _ ->
 
-        val activeGame = GameService.getActiveGame()
-
-        if (GameService.isGameActive()) {
+        if (!GameService.isGameActive()) {
             player.sendText {
-                appendWarningPrefix()
-                warning("Das Spiel ")
-                variableValue(activeGame.displayName)
-                appendSpace()
-                warning("wurde deaktiviert!")
+                appendErrorPrefix()
+                error("Es ist kein Event aktiv!")
             }
-            
-            for (onlinePlayer in server.onlinePlayers) {
-                AnnouncementService.sendCloseEvent(onlinePlayer)
-            }
-            
-            GameService.stopGame()
             return@playerExecutor
         }
 
+        val activeGame = GameService.getActiveGame()
+
         player.sendText {
-            appendErrorPrefix()
-            error("Es ist kein Event Aktiv!")
+            appendWarningPrefix()
+            warning("Das Spiel ")
+            variableValue(activeGame.displayName)
+            appendSpace()
+            warning("wurde deaktiviert!")
         }
+
+        for (onlinePlayer in server.onlinePlayers) {
+            AnnouncementService.sendCloseEvent(onlinePlayer)
+        }
+
+        GameService.stopGame()
+        return@playerExecutor
+
     }
 }

@@ -55,7 +55,9 @@ object GameService {
         return true
     }
 
-    fun isGameActive(): Boolean = activeGame != null
+    fun isGameActive(): Boolean {
+        return activeGame != null
+    }
 
     fun getActiveGame(): Games =
         activeGame ?: throw IllegalStateException("No active game found")
@@ -95,12 +97,12 @@ object GameService {
 
     fun beginGame() {
         when (activeGame?.displayName) {
-             Games.EXAMPLE.displayName -> {
+            Games.EXAMPLE.displayName -> {
                 startExampleGame(getQueuePlayers())
             }
 
             Games.RACE.displayName -> {
-                RaceService.setGameActive()
+                RaceService.setGameActive(true)
                 gameQueue.forEach { uuid ->
                     RaceService.addPlayer(uuid)
                 }

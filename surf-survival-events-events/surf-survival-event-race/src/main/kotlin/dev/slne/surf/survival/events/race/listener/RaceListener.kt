@@ -7,11 +7,12 @@ import org.bukkit.entity.EntityType
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
+import org.bukkit.event.player.PlayerMoveEvent
 import org.bukkit.event.vehicle.VehicleExitEvent
 
 object RaceListener : Listener {
     @EventHandler
-    fun onExitNautilus(event: VehicleExitEvent) {
+    fun onVehicleExit(event: VehicleExitEvent) {
         val player = event.exited
         if (player !is Player) return
 
@@ -23,6 +24,14 @@ object RaceListener : Listener {
             appendErrorPrefix()
             error("Du darfst dich nicht vom Sattel schmeißen lassen!")
         }
+        event.cancel()
+    }
+
+    @EventHandler
+    fun onPlayerMove(event: PlayerMoveEvent) {
+        val player = event.player
+        if (!RaceService.isInRace(player)) return
+        if (RaceService.isRaceStarted()) return
         event.cancel()
     }
 }

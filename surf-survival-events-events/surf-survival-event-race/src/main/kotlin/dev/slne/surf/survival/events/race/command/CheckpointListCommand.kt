@@ -57,10 +57,6 @@ private fun sendCheckpoint(player: Player, checkpoint: SurfRaceConfig.Checkpoint
             })
         )
 
-        hoverEvent(HoverEvent.showText(buildText {
-            info("Klicke zum Teleportieren.")
-        }))
-
         appendSpace()
         info("->")
         appendSpace()
