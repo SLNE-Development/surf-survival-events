@@ -1,4 +1,5 @@
 import dev.slne.surf.api.gradle.util.registerRequired
+import dev.slne.surf.api.gradle.util.registerSoft
 
 plugins {
     id("dev.slne.surf.api.gradle.paper-plugin")
@@ -18,7 +19,7 @@ surfPaperPluginApi {
     authors.addAll("red", "mikey", "jo_field")
     serverDependencies {
         registerRequired("surf-npc-paper")
-        registerRequired("surf-survival-event-example")
-        registerRequired("surf-survival-event-race")
+        registerSoft("surf-survival-event-example")
+        registerSoft("surf-survival-event-race")
     }
 }
