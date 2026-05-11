@@ -12,7 +12,8 @@ import org.bukkit.event.vehicle.VehicleExitEvent
 object RaceListener : Listener {
     @EventHandler
     fun onExitNautilus(event: VehicleExitEvent) {
-        val player = event.exited as Player
+        val player = event.exited
+        if (player !is Player) return
 
         if (!RaceService.isInRace(player)) return
 
