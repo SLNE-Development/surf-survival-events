@@ -12,8 +12,6 @@ fun openMainMenu() = commandAPICommand("event") {
         eventMenuCommand(),
         changeMaxPlayersCommand(),
         stopEventCommand(),
-        queueListCommand(),
-
     )
     
     playerExecutor { player, _ ->

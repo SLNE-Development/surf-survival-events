@@ -11,6 +11,7 @@ fun raceCommand() = commandAPICommand("race") {
         removeCheckpoint(),
         checkpointListCommand(),
         surfModToolsReloadCommand(),
+        raceStopCommand(),
     )
     anyExecutor { _, _ -> }
 }

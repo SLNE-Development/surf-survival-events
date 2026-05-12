@@ -1,6 +1,7 @@
 package dev.slne.surf.survival.events.base.util.commands
 
 import dev.slne.surf.survival.events.base.command.openMainMenu
+import dev.slne.surf.survival.events.base.command.queueListCommand
 import dev.slne.surf.survival.events.base.command.removeEventNpc
 import dev.slne.surf.survival.events.base.command.spawnEventNpc
 
@@ -9,6 +10,7 @@ object CommandManager {
         openMainMenu()
         removeEventNpc()
         spawnEventNpc()
+        queueListCommand()
     }
 }
 

@@ -126,8 +126,10 @@ object GameService {
 
         while (gameQueue.size > getMaxPlayers()) {
             val uuid = gameQueue.removeLast()
+            val player = Bukkit.getPlayer(uuid) ?: continue
+            waitingQueue.addFirst(player.uniqueId)
 
-            Bukkit.getPlayer(uuid)?.sendText {
+            player.sendText {
                 appendInfoPrefix()
                 info("Du wurdest aus der Warteschlange entfernt, da ein neues Limit erreicht wurde.")
             }

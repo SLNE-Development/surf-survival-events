@@ -21,6 +21,8 @@ import java.util.concurrent.TimeUnit
 object RaceService {
     private val racePlayers = mutableListOf<UUID>()
 
+    private val playerNautilus = mutableMapOf<UUID, UUID>()
+
     private var raceState = RaceState.DEACTIVATED
 
     private var countdown = 10
@@ -65,11 +67,13 @@ object RaceService {
     fun removePlayer(player: Player): Boolean {
         val centralSpawn = Location(player.world, 0.0, 73.0, 0.0, 0f, 0f)
         val uuid = player.uniqueId
+        val uuidNautilus = playerNautilus[player.uniqueId] ?: return false
 
-        plugin.launch {
-            player.teleportAsync(centralSpawn)
-            return@launch
-        }
+        Bukkit.getEntity(uuidNautilus)?.remove()
+        playerNautilus.remove(player.uniqueId)
+
+        player.teleportAsync(centralSpawn)
+
         return racePlayers.remove(uuid)
     }
 
@@ -82,6 +86,7 @@ object RaceService {
                     entity.owner = player
                     entity.isInvulnerable = true
                 }
+                playerNautilus[player.uniqueId] = nautilus.uniqueId
                 nautilus.addPassenger(player)
             }
         }
@@ -91,28 +96,45 @@ object RaceService {
         if (raceState != RaceState.COUNTDOWN) return
         countdown = 10
 
+        getRacePlayers().forEach { uuid ->
+            val player = Bukkit.getPlayer(uuid) ?: return@forEach
+            setPlayerOnNautilus(player)
+        }
+
         if (task != null) return
         task = Bukkit.getAsyncScheduler().runAtFixedRate(
             plugin,
             { scheduledTask ->
 
-                getRacePlayers().forEach { uuid ->
-                    val player = Bukkit.getPlayer(uuid) ?: return@forEach
-                    showTitle(player)
-                }
-
                 if (countdown <= 0) {
 
-                    getRacePlayers().forEach { uuid ->
+                    /*getRacePlayers().forEach { uuid ->
                         val player = Bukkit.getPlayer(uuid) ?: return@forEach
-                        setPlayerOnNautilus(player)
-                    }
+
+                        player.showTitle (
+                            title {
+                                title{
+                                    text("LOS!", Colors.VARIABLE_VALUE)
+                                }
+                                times {
+                                    fadeIn(0)
+                                    stay(20)
+                                    fadeOut(0)
+                                }
+                            }
+                        )
+                    }*/
 
                     setRaceState(RaceState.RUNNING)
                     scheduledTask.cancel()
                     task = null
 
                     return@runAtFixedRate
+                }
+
+                getRacePlayers().forEach { uuid ->
+                    val player = Bukkit.getPlayer(uuid) ?: return@forEach
+                    showTitle(player)
                 }
 
                 countdown--
@@ -128,11 +150,11 @@ object RaceService {
                 player.showTitle(
                     title {
                         title {
-                            if (countdown == 0) {
+                            if (countdown <= 0) {
                                 text("LOS!", Colors.VARIABLE_VALUE)
-                                return@withContext
+                            } else {
+                                text(countdown.toString(), Colors.VARIABLE_VALUE)
                             }
-                            text(countdown.toString(), Colors.VARIABLE_VALUE)
                         }
                         times {
                             fadeIn(0)
