@@ -1,5 +1,6 @@
 package dev.slne.surf.survival.events.base.command
 
+
 import dev.jorel.commandapi.kotlindsl.commandTree
 import dev.jorel.commandapi.kotlindsl.integerArgument
 import dev.jorel.commandapi.kotlindsl.playerExecutor
@@ -48,15 +49,16 @@ private fun Player.showParticipants(page: Int) {
                     append(
                         buildText {
                             variableValue(displayName)
-                        }.clickEvent(ClickEvent.callback {
+                        }.clickEvent(ClickEvent.callback { audience ->
                             if (player != null) {
-
+                                audience.sendText {
                                     appendInfoPrefix()
                                     info("Du hast")
                                     appendSpace()
                                     variableValue(displayName)
                                     appendSpace()
                                     info("aus der Warteschlange entfernt.")
+                                }
 
                                 player.sendText {
                                     appendInfoPrefix()

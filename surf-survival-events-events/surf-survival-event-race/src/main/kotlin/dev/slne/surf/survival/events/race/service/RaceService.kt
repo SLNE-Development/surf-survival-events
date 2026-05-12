@@ -5,6 +5,7 @@ import com.github.shynixn.mccoroutine.folia.launch
 import com.github.shynixn.mccoroutine.folia.regionDispatcher
 import dev.slne.surf.api.core.messages.Colors
 import dev.slne.surf.api.core.messages.adventure.title
+import dev.slne.surf.survival.events.race.command.fillBlocks
 import dev.slne.surf.survival.events.race.config.SurfRaceConfig
 import dev.slne.surf.survival.events.race.plugin
 import io.papermc.paper.threadedregions.scheduler.ScheduledTask
@@ -96,11 +97,6 @@ object RaceService {
         if (raceState != RaceState.COUNTDOWN) return
         countdown = 10
 
-        getRacePlayers().forEach { uuid ->
-            val player = Bukkit.getPlayer(uuid) ?: return@forEach
-            setPlayerOnNautilus(player)
-        }
-
         if (task != null) return
         task = Bukkit.getAsyncScheduler().runAtFixedRate(
             plugin,
@@ -108,24 +104,13 @@ object RaceService {
 
                 if (countdown <= 0) {
 
-                    /*getRacePlayers().forEach { uuid ->
-                        val player = Bukkit.getPlayer(uuid) ?: return@forEach
-
-                        player.showTitle (
-                            title {
-                                title{
-                                    text("LOS!", Colors.VARIABLE_VALUE)
-                                }
-                                times {
-                                    fadeIn(0)
-                                    stay(20)
-                                    fadeOut(0)
-                                }
-                            }
-                        )
-                    }*/
-
                     setRaceState(RaceState.RUNNING)
+
+                    SurfRaceConfig.getConfig().barrier.forEach { barrier ->
+                        fillBlocks(barrier, Material.AIR)
+                    }
+
+
                     scheduledTask.cancel()
                     task = null
 

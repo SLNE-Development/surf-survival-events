@@ -14,15 +14,9 @@ data class SurfRaceConfig(
     var lobbyYaw: Float = 0f,
     var lobbyPitch: Float = 0f,
 
-
-    var startWorld: String = "world",
-    var startX: Double = 0.5,
-    var startY: Double = 73.0,
-    var startZ: Double = 0.5,
-    var startYaw: Float = 0f,
-    var startPitch: Float = 0f,
-
     var checkPoints: MutableList<Checkpoint> = mutableListOf(),
+    var barrier: MutableList<Barrier> = mutableListOf(),
+    var start: MutableList<Start> = mutableListOf(),
 
     ) {
     companion object : SpongeYmlConfigClass<SurfRaceConfig>(
@@ -44,6 +38,39 @@ data class SurfRaceConfig(
         var x2: Double = 0.0,
         var y2: Double = 0.0,
         var z2: Double = 0.0
+
+    )
+
+    @ConfigSerializable
+    data class Barrier(
+
+        var world: String = "world",
+
+        var x1: Double = 0.0,
+        var y1: Double = 0.0,
+        var z1: Double = 0.0,
+
+        var x2: Double = 0.0,
+        var y2: Double = 0.0,
+        var z2: Double = 0.0
+
+    )
+
+    @ConfigSerializable
+    data class Start(
+
+        var world: String = "world",
+
+        var x1: Double = 0.0,
+        var y1: Double = 0.0,
+        var z1: Double = 0.0,
+
+        var x2: Double = 0.0,
+        var y2: Double = 0.0,
+        var z2: Double = 0.0,
+
+        var yaw: Float = 0f,
+        var pitch: Float = 0f
 
     )
 }

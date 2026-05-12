@@ -5,13 +5,11 @@ import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.api.paper.event.cancel
 import dev.slne.surf.survival.events.race.service.RaceService
 import dev.slne.surf.survival.events.race.service.RaceState
-import io.papermc.paper.event.entity.EntityMoveEvent
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.inventory.InventoryClickEvent
 import org.bukkit.event.player.PlayerDropItemEvent
-import org.bukkit.event.player.PlayerMoveEvent
 import org.bukkit.event.vehicle.VehicleEnterEvent
 import org.bukkit.event.vehicle.VehicleExitEvent
 import java.util.UUID
@@ -28,25 +26,6 @@ object RaceListener : Listener {
         messageCooldown.put(uuid, true)
         return true
     }
-
-    @EventHandler
-    fun onEntityMove(event: EntityMoveEvent) {
-        val player = event.entity.passengers.firstOrNull() as? Player ?: return
-        if (!RaceService.isInRace(player)) return
-        if (RaceService.getRaceState() != RaceState.RUNNING) {
-            event.cancel()
-        }
-    }
-
-    @EventHandler
-    fun onPlayerMove(event: PlayerMoveEvent) {
-        val player = event.player
-        if (!RaceService.isInRace(player)) return
-        if (RaceService.getRaceState() == RaceState.COUNTDOWN || RaceService.getRaceState() == RaceState.WAITING) {
-            event.cancel()
-        }
-    }
-
 
     @EventHandler
     fun onVehicleExit(event: VehicleExitEvent) {

@@ -7,7 +7,9 @@ fun raceCommand() = commandAPICommand("race") {
     withSubcommands(
         startRaceCommand(),
         setLocationConfigCommand(),
+        setStartCommand(),
         setCheckpointCommand(),
+        setBarrierCommand(),
         removeCheckpoint(),
         checkpointListCommand(),
         surfModToolsReloadCommand(),
