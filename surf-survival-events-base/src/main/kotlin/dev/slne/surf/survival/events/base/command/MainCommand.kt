@@ -8,7 +8,6 @@ fun openMainMenu() = commandAPICommand("event") {
         startEventCommand(),
         joinGameQueueCommand(),
         leaveGameQueueCommand(),
-        beginGameCommand(),
         eventMenuCommand(),
         changeMaxPlayersCommand(),
         stopEventCommand(),

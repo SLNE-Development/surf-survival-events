@@ -32,13 +32,22 @@ fun startEventCommand() = subcommand("start") {
             player.showDialog(setMaxPlayerDialog(game))
             return@playerExecutor
         }
+        if (GameService.getActiveGame() != game) {
+            player.sendText {
+                appendErrorPrefix()
+                variableValue(GameService.getActiveGame().displayName)
+                appendSpace()
+                error("läuft bereits.")
+            }
+            return@playerExecutor
+        }
 
         player.sendText {
-            appendErrorPrefix()
-            error("Das Spiel ")
-            variableValue(game.displayName)
-            appendSpace()
-            error("konnte nicht aktiviert werden. Es ist bereits ein anderes Event aktiv.")
+            appendSuccessPrefix()
+            success("Das Event wird gestartet...")
         }
+
+        GameService.beginGame()
+        GameService.stopGame()
     }
 }

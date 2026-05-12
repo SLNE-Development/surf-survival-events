@@ -32,10 +32,8 @@ object RaceListener : Listener {
     @EventHandler
     fun onEntityMove(event: EntityMoveEvent) {
         val player = event.entity.passengers.firstOrNull() as? Player ?: return
-        println(player.name)
         if (!RaceService.isInRace(player)) return
         if (RaceService.getRaceState() != RaceState.RUNNING) {
-
             event.cancel()
         }
     }
@@ -86,9 +84,7 @@ object RaceListener : Listener {
     @EventHandler
     fun onInventoryClick(event: InventoryClickEvent) {
         val player = event.whoClicked as? Player ?: return
-
         if (!RaceService.isInRace(player)) return
-        if (RaceService.getRaceState() != RaceState.RUNNING) return
 
         event.cancel()
     }
