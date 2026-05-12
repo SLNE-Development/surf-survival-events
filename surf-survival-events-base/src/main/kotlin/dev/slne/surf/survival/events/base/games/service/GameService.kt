@@ -7,6 +7,7 @@ import dev.slne.surf.survival.events.base.games.util.Games
 import dev.slne.surf.survival.events.base.plugin
 import dev.slne.surf.survival.events.example.ExampleStartGame.startExampleGame
 import dev.slne.surf.survival.events.race.service.RaceService
+import dev.slne.surf.survival.events.race.service.RaceState
 import io.papermc.paper.threadedregions.scheduler.ScheduledTask
 import org.bukkit.Bukkit
 import org.bukkit.entity.Player
@@ -102,7 +103,7 @@ object GameService {
             }
 
             Games.RACE.displayName -> {
-                RaceService.setGameActive(true)
+                RaceService.setRaceState(RaceState.LOBBY)
                 gameQueue.forEach { uuid ->
                     RaceService.addPlayer(uuid)
                 }

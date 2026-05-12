@@ -1,12 +1,14 @@
 package dev.slne.surf.survival.events.race.service
 
+import com.github.shynixn.mccoroutine.folia.entityDispatcher
 import com.github.shynixn.mccoroutine.folia.launch
+import com.github.shynixn.mccoroutine.folia.regionDispatcher
 import dev.slne.surf.api.core.messages.Colors
-import dev.slne.surf.api.core.messages.adventure.text
 import dev.slne.surf.api.core.messages.adventure.title
 import dev.slne.surf.survival.events.race.config.SurfRaceConfig
 import dev.slne.surf.survival.events.race.plugin
 import io.papermc.paper.threadedregions.scheduler.ScheduledTask
+import kotlinx.coroutines.withContext
 import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.Material
@@ -14,14 +16,13 @@ import org.bukkit.entity.Nautilus
 import org.bukkit.entity.Player
 import org.bukkit.inventory.ItemStack
 import java.util.UUID
+import java.util.concurrent.TimeUnit
 
 object RaceService {
     private val racePlayers = mutableListOf<UUID>()
 
-    private var isGameActive: Boolean = false
-    private var isRaceStarted: Boolean = false
+    private var raceState = RaceState.DEACTIVATED
 
-    private var isCountdownStarted: Boolean = false
     private var countdown = 10
 
     private var task: ScheduledTask? = null
@@ -53,21 +54,14 @@ object RaceService {
         return racePlayers
     }
 
-    fun setGameActive(boolean: Boolean) {
-        isGameActive = boolean
+    fun getRaceState(): RaceState {
+        return raceState
     }
 
-    fun isGameActive(): Boolean {
-        return isGameActive
+    fun setRaceState(state: RaceState) {
+        raceState = state
     }
 
-    fun isRaceStarted(): Boolean {
-        return isRaceStarted
-    }
-
-    fun setRaceStarted(boolean: Boolean) {
-        isRaceStarted = boolean
-    }
     fun removePlayer(player: Player): Boolean {
         val centralSpawn = Location(player.world, 0.0, 73.0, 0.0, 0f, 0f)
         val uuid = player.uniqueId
@@ -80,50 +74,75 @@ object RaceService {
     }
 
     fun setPlayerOnNautilus(player: Player) {
-        val location = player.location
-        val nautilus = location.world.spawn(location, Nautilus::class.java) { entity ->
-            entity.inventory.addItem(ItemStack(Material.SADDLE))
-            entity.owner = player
-            entity.isInvulnerable = true
+        plugin.launch {
+            val location = player.location
+            withContext(plugin.regionDispatcher(location)) {
+                val nautilus = location.world.spawn(location, Nautilus::class.java) { entity ->
+                    entity.inventory.addItem(ItemStack(Material.SADDLE))
+                    entity.owner = player
+                    entity.isInvulnerable = true
+                }
+                nautilus.addPassenger(player)
+            }
         }
-        nautilus.addPassenger(player)
     }
 
     fun startCountdown() {
-        isCountdownStarted = true
+        if (raceState != RaceState.COUNTDOWN) return
         countdown = 10
 
-        if (isGameActive) return
+        if (task != null) return
+        task = Bukkit.getAsyncScheduler().runAtFixedRate(
+            plugin,
+            { scheduledTask ->
 
+                getRacePlayers().forEach { uuid ->
+                    val player = Bukkit.getPlayer(uuid) ?: return@forEach
+                    showTitle(player)
+                }
 
-        if (task == null) {
-            task = Bukkit.getGlobalRegionScheduler().runAtFixedRate(
-                plugin, { task ->
-                    if (countdown <= 0) {
-                        getRacePlayers().forEach { uuid ->
-                            val player = Bukkit.getPlayer(uuid) ?: return@forEach
-                            setPlayerOnNautilus(player)
-                        }
-                        setRaceStarted(true)
-                        isCountdownStarted = false
-                        task?.cancel()
-                        return@runAtFixedRate
-                    }
+                if (countdown <= 0) {
 
                     getRacePlayers().forEach { uuid ->
                         val player = Bukkit.getPlayer(uuid) ?: return@forEach
-                        player.showTitle(
-                            title {
-                                text(countdown.toString(), Colors.VARIABLE_VALUE)
-                            }
-                        )
+                        setPlayerOnNautilus(player)
                     }
 
-                    countdown--
-                }, 0, 20L
-            )
+                    setRaceState(RaceState.RUNNING)
+                    scheduledTask.cancel()
+                    task = null
+
+                    return@runAtFixedRate
+                }
+
+                countdown--
+            },
+            0L,
+            1, TimeUnit.SECONDS
+        )
+    }
+
+    private fun showTitle(player: Player) {
+        plugin.launch {
+            withContext(plugin.entityDispatcher(player)) {
+                player.showTitle(
+                    title {
+                        title {
+                            if (countdown == 0) {
+                                text("LOS!", Colors.VARIABLE_VALUE)
+                                return@withContext
+                            }
+                            text(countdown.toString(), Colors.VARIABLE_VALUE)
+                        }
+                        times {
+                            fadeIn(0)
+                            stay(20)
+                            fadeOut(0)
+                        }
+                    }
+                )
+            }
         }
-        return
     }
 }
 
