@@ -39,7 +39,7 @@ fun startRaceCommand() = subcommand("start") {
 
             RaceService.getRacePlayers().forEach { uuid ->
                 val player = Bukkit.getPlayer(uuid) ?: return@forEach
-                setPlayerOnNautilus(player)
+                RaceService.setPlayerOnNautilus(player)
             }
 
             SurfRaceConfig.getConfig().start.forEach { start ->
