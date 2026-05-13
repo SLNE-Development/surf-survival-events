@@ -1,5 +1,6 @@
 package dev.slne.surf.event.werewolf.service
 
+import org.bukkit.entity.Player
 import java.util.*
 
 object WerewolfGameManager {
@@ -36,5 +37,23 @@ object WerewolfGameManager {
 
     fun joinGame(gameId: String, uuid: UUID) {
         playerToGame[uuid] = gameId
+    }
+
+    fun handleDisconnect(player: Player) {
+        val uuid = player.uniqueId
+        val gameId = playerToGame[uuid] ?: return
+        val game = games[gameId] ?: run {
+            playerToGame.remove(uuid)
+            return
+        }
+
+        if (game.leader == uuid) {
+            game.stop()
+            removeGame(gameId)
+            return
+        }
+
+        game.removePlayer(player)
+        playerToGame.remove(uuid)
     }
 }

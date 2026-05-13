@@ -17,7 +17,9 @@ surfPaperPluginApi {
     authors.addAll("red", "mikey", "jo_field", "ProxyFyy")
 
     serverDependencies {
+//        registerRequired("surf-npc-paper")
         registerSoft("surf-survival-event-example")
         registerSoft("surf-survival-event-werewolf")
+        registerSoft("surf-survival-event-race")
     }
 }

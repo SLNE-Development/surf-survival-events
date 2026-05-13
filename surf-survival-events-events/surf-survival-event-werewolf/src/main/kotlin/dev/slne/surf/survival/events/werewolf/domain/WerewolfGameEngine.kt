@@ -27,6 +27,9 @@ class WerewolfGameEngine(
     val currentNightStep: NightStep?
         get() = roundState.nightStep
 
+    val currentWerewolfTarget: UUID?
+        get() = roundState.werewolfTarget
+
     fun startGameEngine(): PhaseAdvanceResult {
         roundState = GameRoundState(
             phase = GameState.DAY,
@@ -61,8 +64,33 @@ class WerewolfGameEngine(
 
         println(phaseRemainingSeconds)
         println(roundState.phase)
+        println(roundState.nightStep)
+        println(roundState.nightStep?.time)
 
         return null
+    }
+
+    fun removePlayer(playerId: UUID) {
+        roundState = roundState.copy(
+            nightActions = roundState.nightActions
+                .filterNot { actionReferencesPlayer(it, playerId) }
+                .toMutableList(),
+            votes = roundState.votes
+                .filterKeys { it != playerId }
+                .filterValues { it != playerId }
+                .toMutableMap(),
+            protectedPlayer = roundState.protectedPlayer.takeUnless { it == playerId },
+            werewolfTarget = roundState.werewolfTarget.takeUnless { it == playerId },
+            mayorPlayer = roundState.mayorPlayer.takeUnless { it == playerId },
+            mayorVotes = roundState.mayorVotes
+                .filterKeys { it != playerId }
+                .filterValues { it != playerId }
+                .toMutableMap()
+        )
+
+        if (roundState.phase == GameState.NIGHT) {
+            advanceNightStepIfReady()
+        }
     }
 
     fun advancePhase(): PhaseAdvanceResult {
@@ -242,8 +270,13 @@ class WerewolfGameEngine(
         if (roundState.phase != expectedPhase) return false
         if (service.players[voter]?.isAlive != true) return false
         if (service.players[target]?.isAlive != true) return false
-
+        val previousTarget = votes[voter]
         votes[voter] = target
+
+        if (previousTarget != target) {
+            messenger.announceLeaderVoteSubmitted(expectedPhase, voter, target, previousTarget)
+        }
+
         return true
     }
 
@@ -274,7 +307,14 @@ class WerewolfGameEngine(
         if (!nightStepCoordinator().isActionAllowed(roundState.nightStep, action)) return false
         if (!nightResolver().isValid(action, actor.role)) return false
 
-        replaceNightAction(action)
+        val previousAction = replaceNightAction(action)
+        if (previousAction != action &&
+            action !is NightAction.GirlPeek &&
+            action !is NightAction.SeerInspect
+        ) {
+            messenger.announceLeaderNightAction(action, previousAction)
+        }
+
         advanceNightStepIfReady()
 
         return true
@@ -284,7 +324,9 @@ class WerewolfGameEngine(
         val action = NightAction.SeerInspect(actor = actor, target = target)
         if (!submitNightAction(action)) return null
 
-        return SeerActions.inspectTarget(action, service.players)
+        return SeerActions.inspectTarget(action, service.players)?.also { inspectedRole ->
+            messenger.announceLeaderSeerInspection(actor, target, inspectedRole)
+        }
     }
 
     fun peekWithGirl(actor: UUID): GirlPeekOutcome? {
@@ -297,6 +339,7 @@ class WerewolfGameEngine(
         val action = NightAction.GirlPeek(actor = actor, outcome = outcome)
         if (!submitNightAction(action)) return null
 
+        messenger.announceLeaderGirlPeek(actor, outcome)
         return outcome
     }
 
@@ -334,10 +377,23 @@ class WerewolfGameEngine(
     fun resolveNight(): NightResolutionResult {
         if (roundState.phase != GameState.NIGHT) return NightResolutionResult()
 
+        val doctorProtectedPlayer = DoctorActions.resolveTarget(roundState.nightActions)
+        val witchHealTarget = WitchActions.resolveHealTarget(roundState.nightActions)
+        val witchPoisonTarget = WitchActions.resolvePoisonTarget(roundState.nightActions)
+        val serialKillerTarget = SerialKillerActions.resolveTarget(roundState.nightActions)
+        val caughtGirls = GirlActions.resolveCaughtGirls(roundState.nightActions)
         val resolution = nightResolver().resolve(roundState.nightActions)
         AmorActions.apply(service.players, resolution.lovers)
         WitchActions.apply(service.players, roundState.nightActions)
         messenger.announceLovers(resolution.lovers)
+        messenger.announceLeaderNightResolved(
+            resolution = resolution,
+            doctorProtectedPlayer = doctorProtectedPlayer,
+            witchHealTarget = witchHealTarget,
+            witchPoisonTarget = witchPoisonTarget,
+            serialKillerTarget = serialKillerTarget,
+            caughtGirls = caughtGirls
+        )
         resolution.eliminatedPlayers.forEach(service::executePlayer)
 
         roundState = roundState.copy(
@@ -424,18 +480,21 @@ class WerewolfGameEngine(
                 secondPlayer.inLoveWith == firstPlayer.uuid
     }
 
-    private fun replaceNightAction(newAction: NightAction) {
+    private fun replaceNightAction(newAction: NightAction): NightAction? {
+        val previousAction = roundState.nightActions.lastOrNull { existingAction ->
+            isSameNightActionSlot(existingAction, newAction)
+        }
+
         roundState.nightActions.removeAll { existingAction ->
             isSameNightActionSlot(existingAction, newAction)
         }
         roundState.nightActions.add(newAction)
+        return previousAction
     }
 
     private fun advanceNightStepIfReady() {
         if (roundState.nightStep == NightStep.WEREWOLVES) {
-            roundState = roundState.copy(
-                werewolfTarget = nightResolver().resolveWerewolfTarget(roundState.nightActions)
-            )
+            resolveWerewolfTargetForCurrentStep()
         }
 
         val nextStep = nightStepCoordinator().nextStep(
@@ -446,15 +505,19 @@ class WerewolfGameEngine(
         setNightStep(nextStep)
     }
 
-    private fun advanceNightStepOnTimeout() {
-        if (roundState.nightStep == NightStep.WEREWOLVES) {
-            roundState = roundState.copy(
-                werewolfTarget = nightResolver().resolveWerewolfTarget(roundState.nightActions)
-            )
+    private fun advanceNightStepOnTimeout(cause: NightStepAdvanceCause = NightStepAdvanceCause.TIMEOUT) {
+        val currentStep = roundState.nightStep ?: return
+        if (currentStep == NightStep.WEREWOLVES) {
+            resolveWerewolfTargetForCurrentStep()
         }
 
-        val nextStep = nightStepCoordinator().nextStepAfterTimeout(roundState.nightStep)
+        val nextStep = nightStepCoordinator().nextStepAfterTimeout(currentStep)
             ?: NightStep.RESOLVE
+
+        when (cause) {
+            NightStepAdvanceCause.SKIPPED -> messenger.announceLeaderNightStepSkipped(currentStep, nextStep)
+            NightStepAdvanceCause.TIMEOUT -> messenger.announceLeaderNightStepTimeout(currentStep, nextStep)
+        }
 
         setNightStep(nextStep)
     }
@@ -473,5 +536,42 @@ class WerewolfGameEngine(
     private fun isSameNightActionSlot(existingAction: NightAction, newAction: NightAction): Boolean {
         return existingAction.actor == newAction.actor &&
                 existingAction::class == newAction::class
+    }
+
+    fun skipCurrentNightStep(): Boolean {
+        if (roundState.phase != GameState.NIGHT) return false
+        val currentStep = roundState.nightStep ?: return false
+        if (currentStep == NightStep.RESOLVE) return false
+
+        advanceNightStepOnTimeout(NightStepAdvanceCause.SKIPPED)
+        return true
+    }
+
+    private fun resolveWerewolfTargetForCurrentStep() {
+        val werewolfActions = roundState.nightActions.filterIsInstance<NightAction.WerewolfKill>()
+        val resolvedTarget = nightResolver().resolveWerewolfTarget(roundState.nightActions)
+
+        roundState = roundState.copy(werewolfTarget = resolvedTarget)
+        messenger.announceLeaderWerewolfTargetResolved(resolvedTarget, werewolfActions)
+    }
+
+    private fun actionReferencesPlayer(action: NightAction, playerId: UUID): Boolean {
+        if (action.actor == playerId) return true
+
+        return when (action) {
+            is NightAction.AmorLink -> action.first == playerId || action.second == playerId
+            is NightAction.DoctorProtect -> action.target == playerId
+            is NightAction.GirlPeek -> (action.outcome as? GirlPeekOutcome.FoundWerewolf)?.target == playerId
+            is NightAction.SeerInspect -> action.target == playerId
+            is NightAction.SerialKillerKill -> action.target == playerId
+            is NightAction.WerewolfKill -> action.target == playerId
+            is NightAction.WitchHeal -> action.target == playerId
+            is NightAction.WitchPoison -> action.target == playerId
+        }
+    }
+
+    private enum class NightStepAdvanceCause {
+        TIMEOUT,
+        SKIPPED
     }
 }

@@ -3,6 +3,7 @@ package dev.slne.surf.survival.events.base.games.service
 import dev.slne.surf.api.core.messages.Colors
 import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.api.core.messages.adventure.text
+import dev.slne.surf.survival.events.werewolf.service.WerewolfStartGame.startWerewolfGame
 import dev.slne.surf.survival.events.base.games.util.Games
 import dev.slne.surf.survival.events.base.plugin
 import dev.slne.surf.survival.events.example.ExampleStartGame.startExampleGame
@@ -20,17 +21,19 @@ object GameService {
 
     private var activeGame: Games? = null
     private var maxPlayers = NONE
+    private var eventLeader: UUID? = null
 
     private val gameQueue = ArrayDeque<UUID>()
     private val waitingQueue = ArrayDeque<UUID>()
 
     private var task: ScheduledTask? = null
 
-    fun startGame(game: Games, maxPlayers: Int? = null): Boolean {
+    fun startGame(game: Games, leader: UUID, maxPlayers: Int? = null): Boolean {
         if (activeGame != null) return false
 
         activeGame = game
         this.maxPlayers = maxPlayers ?: NONE
+        this.eventLeader = leader
 
         if (task == null) {
             task = Bukkit.getAsyncScheduler().runAtFixedRate(plugin, { _ ->
@@ -48,6 +51,7 @@ object GameService {
         task = null
 
         activeGame = null
+        eventLeader = null
         waitingQueue.clear()
         gameQueue.clear()
 
@@ -93,10 +97,15 @@ object GameService {
     fun getQueuePlayers(): ArrayDeque<UUID> = gameQueue
 
     fun beginGame() {
-        val lowerActiveGame = getActiveGame().displayName.lowercase()
+        val lowerActiveGame = getActiveGame().displayName
         when (lowerActiveGame) {
              Games.EXAMPLE.displayName -> {
                 startExampleGame(getQueuePlayers())
+            }
+
+            Games.WEREWOLF.displayName -> {
+                val leader = eventLeader ?: throw IllegalStateException("No event leader found for werewolf game")
+                startWerewolfGame(getQueuePlayers().toList(), leader)
             }
 
             else -> {
