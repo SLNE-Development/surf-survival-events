@@ -103,24 +103,21 @@ private fun midLocation(start: SurfRaceConfig.Start): Location {
 
 fun fillBlocks(barrier: SurfRaceConfig.Barrier, material: Material) {
     plugin.launch {
-        val blocks = buildList {
-            val world = Bukkit.getWorld(barrier.world) ?: return@launch
-
-            val minX = minOf(barrier.x1, barrier.x2).toInt()
-            val maxX = maxOf(barrier.x1, barrier.x2).toInt()
-            val minY = minOf(barrier.y1, barrier.y2).toInt()
-            val maxY = maxOf(barrier.y1, barrier.y2).toInt()
-            val minZ = minOf(barrier.z1, barrier.z2).toInt()
-            val maxZ = maxOf(barrier.z1, barrier.z2).toInt()
-
-            for (x in minX..maxX)
-                for (y in minY..maxY)
-                    for (z in minZ..maxZ)
-                        add(world.getBlockAt(x, y, z))
-        }
-        blocks.forEach { block ->
-            withContext(plugin.regionDispatcher(block as Location)) {
-                block.type = material
+        val world = Bukkit.getWorld(barrier.world) ?: return@launch
+        val minX = minOf(barrier.x1, barrier.x2).toInt()
+        val maxX = maxOf(barrier.x1, barrier.x2).toInt()
+        val minY = minOf(barrier.y1, barrier.y2).toInt()
+        val maxY = maxOf(barrier.y1, barrier.y2).toInt()
+        val minZ = minOf(barrier.z1, barrier.z2).toInt()
+        val maxZ = maxOf(barrier.z1, barrier.z2).toInt()
+        for (x in minX..maxX) {
+            for (y in minY..maxY) {
+                for (z in minZ..maxZ) {
+                    val block = world.getBlockAt(x, y, z)
+                    withContext(plugin.regionDispatcher(block.location)) {
+                        block.type = material
+                    }
+                }
             }
         }
     }

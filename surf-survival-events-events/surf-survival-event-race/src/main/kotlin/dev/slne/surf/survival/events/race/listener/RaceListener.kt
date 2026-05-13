@@ -5,6 +5,7 @@ import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.api.paper.event.cancel
 import dev.slne.surf.survival.events.race.service.RaceService
 import dev.slne.surf.survival.events.race.service.RaceState
+import org.bukkit.entity.EntityType
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
@@ -31,7 +32,7 @@ object RaceListener : Listener {
     fun onVehicleExit(event: VehicleExitEvent) {
         val player = event.exited
         if (player !is Player) return
-
+        if (event.vehicle.type != EntityType.NAUTILUS) return
         if (!RaceService.isInRace(player)) return
 
         if (canSendMessage(player.uniqueId)) {
@@ -47,9 +48,9 @@ object RaceListener : Listener {
     fun onVehicleChange(event: VehicleEnterEvent) {
         val player = event.entered
         if (player !is Player) return
-
+        if (event.vehicle.type != EntityType.NAUTILUS) return
         if (!RaceService.isInRace(player)) return
-        if (RaceService.getRaceState() != RaceState.RUNNING) return
+        if (RaceService.getRaceState() == RaceState.WAITING) return
 
         if (canSendMessage(player.uniqueId)) {
             player.sendText {
