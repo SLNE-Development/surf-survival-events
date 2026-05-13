@@ -1,5 +1,6 @@
 package dev.slne.surf.survival.events.race.command
 
+import dev.jorel.commandapi.arguments.LocationType
 import dev.jorel.commandapi.kotlindsl.getValue
 import dev.jorel.commandapi.kotlindsl.locationArgument
 import dev.jorel.commandapi.kotlindsl.multiLiteralArgument
@@ -15,10 +16,10 @@ import java.util.UUID
 private val checkpointPos1 = mutableMapOf<UUID, Location>()
 private val checkpointPos2 = mutableMapOf<UUID, Location>()
 
-fun setCheckpointCommand() = subcommand("checkpoint") {
+fun setCheckpointCommand() = subcommand("set-checkpoint") {
     withPermission(PermissionRegistry.COMMAND_COMMUNITY_MANAGER)
     multiLiteralArgument("argument", "pos1", "pos2", "create")
-    locationArgument("location", optional = true)
+    locationArgument("location", LocationType.BLOCK_POSITION, optional = true)
 
     playerExecutor { player, args ->
         val argument: String by args

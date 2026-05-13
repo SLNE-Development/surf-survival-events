@@ -1,5 +1,6 @@
 package dev.slne.surf.survival.events.race.command
 
+import dev.jorel.commandapi.arguments.LocationType
 import dev.jorel.commandapi.kotlindsl.getValue
 import dev.jorel.commandapi.kotlindsl.literalArgument
 import dev.jorel.commandapi.kotlindsl.locationArgument
@@ -13,10 +14,10 @@ import dev.slne.surf.survival.events.race.config.SurfRaceConfig
 import dev.slne.surf.survival.events.race.utils.PermissionRegistry
 import org.bukkit.Location
 
-fun setLocationConfigCommand() = subcommand("set-location") {
+fun setLocationConfigCommand() = subcommand("set-lobby") {
     withPermission(PermissionRegistry.COMMAND_COMMUNITY_MANAGER)
     literalArgument("config", "lobby")
-    locationArgument("location")
+    locationArgument("location", LocationType.BLOCK_POSITION)
     rotationArgument("rotation")
     playerExecutor { player, args ->
         val location: Location by args

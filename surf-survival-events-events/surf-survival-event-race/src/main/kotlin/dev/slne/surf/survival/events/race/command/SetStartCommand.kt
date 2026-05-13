@@ -1,5 +1,6 @@
 package dev.slne.surf.survival.events.race.command
 
+import dev.jorel.commandapi.arguments.LocationType
 import dev.jorel.commandapi.kotlindsl.getValue
 import dev.jorel.commandapi.kotlindsl.locationArgument
 import dev.jorel.commandapi.kotlindsl.multiLiteralArgument
@@ -20,7 +21,7 @@ private val startPos2 = mutableMapOf<UUID, Location>()
 fun setStartCommand() = subcommand("set-start") {
     withPermission(PermissionRegistry.COMMAND_COMMUNITY_MANAGER)
     multiLiteralArgument("argument", "pos1", "pos2", "create")
-    locationArgument("location")
+    locationArgument("location", LocationType.BLOCK_POSITION, optional = true)
     rotationArgument("rotation")
 
     playerExecutor { player, args ->
