@@ -28,6 +28,7 @@ import org.bukkit.entity.Player
 import org.bukkit.potion.PotionEffect
 import org.bukkit.potion.PotionEffectType
 import java.util.*
+import java.util.concurrent.CancellationException
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
@@ -90,10 +91,14 @@ class WerewolfService(val gameId: String) {
     val engine: WerewolfGameEngine
         get() =_engine
 
+    @Volatile
+    private var phaseSessionId = 0
+
     private var _engine = WerewolfGameEngine(this)
     private val glowingTargetsByWerewolf = mutableMapOf<UUID, UUID>()
     private val glowingTargetsByDoctor = mutableMapOf<UUID, UUID>()
     private val glowingTargetsByWitch = mutableMapOf<UUID, UUID>()
+    private val hiddenPlayerPairs = mutableSetOf<HiddenPlayerPair>()
     private val pendingNightExecutions = mutableListOf<UUID>()
     private val phaseTransitionDelay = 3.seconds
 
@@ -137,9 +142,12 @@ class WerewolfService(val gameId: String) {
         }
 
         try {
+            phaseSessionId += 1
             _phase = GamePhase.RUNNING
             _state = GameState.DAY
             pendingNightExecutions.clear()
+            restoreParticipantVisibility()
+            WerewolfVisibilityCleanup.restorePendingForPlayers(allParticipantIds())
             val roleMap = WerewolfRoleSelection.assignRoles(players.keys.toList())
 
             this._engine.startGameEngine()
@@ -201,6 +209,8 @@ class WerewolfService(val gameId: String) {
                     )
                 }
             }
+
+            messenger.announceLeaderRoles(roleMap)
 
             werewolfTask = plugin.launch {
                 while (isActive) {
@@ -341,13 +351,15 @@ class WerewolfService(val gameId: String) {
     }
 
     fun stop() {
-        werewolfTask?.cancel()
+        werewolfTask?.cancel(CancellationException("Werewolf game '$gameId' stopped"))
         werewolfTask = null
-        _leader = null
+        phaseSessionId += 1
         _phase = GamePhase.IDLE
         clearWerewolfGlowing()
         clearDoctorGlowing()
         clearWitchGlowing()
+        clearBlindness()
+        restoreHiddenPlayerVisibility()
 
         players.forEach { (uuid, _) ->
             uuid.toBukkitPlayer()?.removeFromWerewolfScoreboard()
@@ -357,10 +369,47 @@ class WerewolfService(val gameId: String) {
 
         pendingNightExecutions.clear()
         players.clear()
+        _leader = null
 
         // Cleanup Voice Chat
         audioHandler.clearSecretPlayers()
         WerewolfVoicechatPlugin.removeAudioHandler(gameId)
+    }
+
+    fun removePlayer(player: Player): Boolean {
+        val playerId = player.uniqueId
+        if (players.remove(playerId) == null) return false
+
+        pendingNightExecutions.removeAll { it == playerId }
+        players.values.forEach { werewolfPlayer ->
+            if (werewolfPlayer.inLoveWith == playerId) {
+                werewolfPlayer.inLoveWith = null
+            }
+        }
+
+        engine.removePlayer(playerId)
+        audioHandler.removeSecretPlayer(playerId)
+
+        player.removePotionEffect(PotionEffectType.BLINDNESS)
+        player.removeFromWerewolfScoreboard()
+
+        clearWerewolfGlowing()
+        clearDoctorGlowing()
+        clearWitchGlowing()
+        restoreVisibilityForPlayer(playerId)
+
+        announceToAll {
+            appendErrorPrefix()
+            variableValue(player.name)
+            appendSpace()
+            error("hat die Verbindung verloren und wurde aus dem Spiel entfernt.")
+        }
+
+        if (phase == GamePhase.RUNNING) {
+            engine.checkWinCondition()?.let(::finishGame)
+        }
+
+        return true
     }
 
     private fun makeGlowing(werewolf: Player) {
@@ -462,13 +511,22 @@ class WerewolfService(val gameId: String) {
         removeWitchGlowing(glowingTargets)
     }
 
-    private suspend fun clearBlindnessNow() {
-        getAlivePlayers().forEach { werewolfPlayer ->
-            val player = werewolfPlayer.uuid.toBukkitPlayer() ?: return@forEach
+    private suspend fun clearBlindnessNow(playerIds: Collection<UUID> = getAlivePlayers().map(WerewolfPlayer::uuid)) {
+        playerIds.forEach { playerId ->
+            val player = playerId.toBukkitPlayer() ?: return@forEach
 
             withContext(plugin.entityDispatcher(player)) {
                 player.removePotionEffect(PotionEffectType.BLINDNESS)
             }
+        }
+    }
+
+    private fun clearBlindness() {
+        val alivePlayerIds = getAlivePlayers().map(WerewolfPlayer::uuid)
+        if (alivePlayerIds.isEmpty()) return
+
+        plugin.launch {
+            clearBlindnessNow(alivePlayerIds)
         }
     }
 
@@ -546,6 +604,8 @@ class WerewolfService(val gameId: String) {
             players[executedPlayerId]?.isAlive = false
         }
 
+        messenger.announceLeaderEliminationChain(executionChain, state)
+
         if (state == GameState.NIGHT) {
             pendingNightExecutions.addAll(executionChain)
             return
@@ -583,19 +643,25 @@ class WerewolfService(val gameId: String) {
     private fun applyEliminations(executedPlayers: List<UUID>) {
         if (executedPlayers.isEmpty()) return
 
+        val currentPhaseSessionId = phaseSessionId
         val viewerIds = allParticipants
             .map { it.uniqueId }
             .distinct()
 
         plugin.launch {
             executedPlayers.forEach { deadPlayerId ->
+                if (phase != GamePhase.RUNNING || phaseSessionId != currentPhaseSessionId) return@launch
+
                 viewerIds.forEach { viewerId ->
+                    if (phase != GamePhase.RUNNING || phaseSessionId != currentPhaseSessionId) return@launch
                     if (viewerId == deadPlayerId) return@forEach
 
                     val viewer = viewerId.toBukkitPlayer() ?: return@forEach
 
                     withContext(plugin.entityDispatcher(viewer)) {
+                        if (phase != GamePhase.RUNNING || phaseSessionId != currentPhaseSessionId) return@withContext
                         val deadPlayer = deadPlayerId.toBukkitPlayer() ?: return@withContext
+                        hiddenPlayerPairs += HiddenPlayerPair(viewerId, deadPlayerId)
                         viewer.hidePlayer(plugin, deadPlayer)
                     }
                 }
@@ -605,6 +671,49 @@ class WerewolfService(val gameId: String) {
                 }
             }
         }
+    }
+
+    private fun restoreParticipantVisibility() {
+        val participantIds = allParticipantIds()
+        if (participantIds.size < 2) return
+
+        plugin.launch {
+            for (viewerId in participantIds) {
+                val viewer = viewerId.toBukkitPlayer() ?: continue
+
+                withContext(plugin.entityDispatcher(viewer)) {
+                    for (targetId in participantIds) {
+                        if (viewerId == targetId) continue
+
+                        val target = targetId.toBukkitPlayer() ?: continue
+                        viewer.showPlayer(plugin, target)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun restoreHiddenPlayerVisibility() {
+        if (hiddenPlayerPairs.isEmpty()) return
+
+        WerewolfVisibilityCleanup.queueRestore(hiddenPlayerPairs.toSet())
+        hiddenPlayerPairs.clear()
+    }
+
+    private fun restoreVisibilityForPlayer(playerId: UUID) {
+        val affectedPairs = hiddenPlayerPairs
+            .filter { it.viewerId == playerId || it.targetId == playerId }
+            .toSet()
+
+        if (affectedPairs.isEmpty()) return
+
+        hiddenPlayerPairs.removeAll(affectedPairs)
+        WerewolfVisibilityCleanup.queueRestore(affectedPairs)
+    }
+
+    private fun allParticipantIds(): Set<UUID> = buildSet {
+        addAll(players.keys)
+        leader?.let(::add)
     }
 
     fun getAlivePlayers() = players.values.filter { it.isAlive }
@@ -650,6 +759,8 @@ class WerewolfService(val gameId: String) {
             appendSuccessPrefix()
             success("Ihr könnt jetzt untereinander sprechen!")
         }
+
+        messenger.announceLeaderVoiceChatOpened(playerList.map(Player::getUniqueId))
     }
 
     /**
@@ -662,6 +773,8 @@ class WerewolfService(val gameId: String) {
             appendErrorPrefix()
             error("Der private Voice-Chat wurde beendet.")
         }
+
+        messenger.announceLeaderVoiceChatClosed()
     }
 
     private suspend fun waitForPhaseTransition() {

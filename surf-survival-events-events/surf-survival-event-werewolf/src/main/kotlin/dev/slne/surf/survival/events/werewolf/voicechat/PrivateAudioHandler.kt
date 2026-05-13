@@ -3,6 +3,7 @@ package dev.slne.surf.event.werewolf.voicechat
 import de.maxhenkel.voicechat.api.VoicechatServerApi
 import de.maxhenkel.voicechat.api.audiochannel.AudioChannel
 import de.maxhenkel.voicechat.api.events.MicrophonePacketEvent
+import org.bukkit.Bukkit
 import org.bukkit.entity.Player
 import java.util.*
 
@@ -41,6 +42,12 @@ class PrivateAudioHandler(private val channelId: UUID) {
         voicechatChannel = null
     }
 
+    fun removeSecretPlayer(uuid: UUID) {
+        if (!secretPlayers.remove(uuid)) return
+
+        refreshAudioChannel()
+    }
+
     fun isSecretPlayer(uuid: UUID): Boolean {
         return secretPlayers.contains(uuid)
     }
@@ -59,5 +66,33 @@ class PrivateAudioHandler(private val channelId: UUID) {
                 e.printStackTrace()
             }
         }
+    }
+
+    private fun refreshAudioChannel() {
+        val voicechatApi = api ?: run {
+            voicechatChannel = null
+            return
+        }
+
+        val sourcePlayer = secretPlayers
+            .asSequence()
+            .mapNotNull(Bukkit::getPlayer)
+            .firstOrNull { voicechatApi.getConnectionOf(it.uniqueId) != null }
+
+        if (sourcePlayer == null) {
+            voicechatChannel = null
+            return
+        }
+
+        val connection = voicechatApi.getConnectionOf(sourcePlayer.uniqueId) ?: run {
+            voicechatChannel = null
+            return
+        }
+
+        voicechatChannel = voicechatApi.createStaticAudioChannel(
+            channelId,
+            voicechatApi.fromServerLevel(sourcePlayer.world),
+            connection
+        )
     }
 }

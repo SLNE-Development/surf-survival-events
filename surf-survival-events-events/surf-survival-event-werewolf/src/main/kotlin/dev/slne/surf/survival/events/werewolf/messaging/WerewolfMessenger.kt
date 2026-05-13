@@ -18,11 +18,13 @@ class WerewolfMessenger(private val service: WerewolfService) {
     }
 
     fun announceToAll(content: SurfComponentBuilder.() -> Unit) {
-        service.players.keys.forEach { uuid ->
+        val recipientIds = linkedSetOf<UUID>()
+        recipientIds.addAll(service.players.keys)
+        service.leader?.let(recipientIds::add)
+
+        recipientIds.forEach { uuid ->
             uuid.toBukkitPlayer()?.sendText(content)
         }
-
-        service.leader?.toBukkitPlayer()?.sendText(content)
     }
 
     fun announceToLeader(content: SurfComponentBuilder.() -> Unit) {
@@ -43,10 +45,367 @@ class WerewolfMessenger(private val service: WerewolfService) {
     }
 
     fun announceToAlive(content: SurfComponentBuilder.() -> Unit) {
-        service.getAlivePlayers()
-            .forEach { player ->
-                player.uuid.toBukkitPlayer()?.sendText(content)
+        val recipientIds = linkedSetOf<UUID>()
+        service.getAlivePlayers().forEach { player ->
+            recipientIds.add(player.uuid)
+        }
+        service.leader?.let(recipientIds::add)
+
+        recipientIds.forEach { playerId ->
+            playerId.toBukkitPlayer()?.sendText(content)
+        }
+    }
+
+    fun announceLeaderRoles(roleMap: Map<UUID, WerwolfRoles>) {
+        if (roleMap.isEmpty()) return
+
+        announceToLeader {
+            appendInfoPrefix()
+            info("Rollen wurden verteilt:")
+
+            roleMap.entries
+                .sortedBy { playerName(it.key) }
+                .forEach { (playerId, role) ->
+                    appendNewInfoPrefixedLine()
+                    variableValue(playerName(playerId))
+                    appendSpace()
+                    spacer("->")
+                    appendSpace()
+                    info(roleName(role))
+                }
+        }
+    }
+
+    fun announceLeaderVoteSubmitted(
+        state: GameState,
+        voterId: UUID,
+        targetId: UUID,
+        previousTargetId: UUID?,
+    ) {
+        announceToLeader {
+            appendInfoPrefix()
+            info(votePhaseName(state))
+            appendSpace()
+            variableValue(playerName(voterId))
+            appendSpace()
+            info("stimmt für")
+            appendSpace()
+            variableValue(playerName(targetId))
+
+            if (previousTargetId != null) {
+                appendSpace()
+                spacer("(")
+                info("zuvor")
+                appendSpace()
+                variableValue(playerName(previousTargetId))
+                spacer(")")
             }
+        }
+    }
+
+    fun announceLeaderNightAction(
+        action: NightAction,
+        previousAction: NightAction?,
+    ) {
+        announceToLeader {
+            appendInfoPrefix()
+
+            when (action) {
+                is NightAction.AmorLink -> {
+                    info("Amor")
+                    appendSpace()
+                    variableValue(playerName(action.actor))
+                    appendSpace()
+                    info("verbindet")
+                    appendSpace()
+                    variableValue(playerName(action.first))
+                    appendSpace()
+                    info("und")
+                    appendSpace()
+                    variableValue(playerName(action.second))
+
+                    val previousLink = previousAction as? NightAction.AmorLink
+                    if (previousLink != null) {
+                        appendSpace()
+                        spacer("(")
+                        info("zuvor")
+                        appendSpace()
+                        variableValue(playerName(previousLink.first))
+                        appendSpace()
+                        info("und")
+                        appendSpace()
+                        variableValue(playerName(previousLink.second))
+                        spacer(")")
+                    }
+                }
+
+                is NightAction.DoctorProtect -> {
+                    info("Doktor")
+                    appendSpace()
+                    variableValue(playerName(action.actor))
+                    appendSpace()
+                    info("schützt")
+                    appendSpace()
+                    variableValue(playerName(action.target))
+
+                    val previousTarget = (previousAction as? NightAction.DoctorProtect)?.target
+                    appendPreviousTarget(previousTarget)
+                }
+
+                is NightAction.GirlPeek,
+                is NightAction.SeerInspect -> Unit
+
+                is NightAction.SerialKillerKill -> {
+                    info("Serienmörder")
+                    appendSpace()
+                    variableValue(playerName(action.actor))
+                    appendSpace()
+                    info("wählt")
+                    appendSpace()
+                    variableValue(playerName(action.target))
+                    appendSpace()
+                    info("als Opfer")
+
+                    val previousTarget = (previousAction as? NightAction.SerialKillerKill)?.target
+                    appendPreviousTarget(previousTarget)
+                }
+
+                is NightAction.WerewolfKill -> {
+                    info("Werwolf")
+                    appendSpace()
+                    variableValue(playerName(action.actor))
+                    appendSpace()
+                    info("stimmt für")
+                    appendSpace()
+                    variableValue(playerName(action.target))
+
+                    val previousTarget = (previousAction as? NightAction.WerewolfKill)?.target
+                    appendPreviousTarget(previousTarget)
+                }
+
+                is NightAction.WitchHeal -> {
+                    info("Hexe")
+                    appendSpace()
+                    variableValue(playerName(action.actor))
+                    appendSpace()
+                    info("setzt Heiltrank auf")
+                    appendSpace()
+                    variableValue(playerName(action.target))
+
+                    val previousTarget = (previousAction as? NightAction.WitchHeal)?.target
+                    appendPreviousTarget(previousTarget)
+                }
+
+                is NightAction.WitchPoison -> {
+                    info("Hexe")
+                    appendSpace()
+                    variableValue(playerName(action.actor))
+                    appendSpace()
+                    info("setzt Gifttrank auf")
+                    appendSpace()
+                    variableValue(playerName(action.target))
+
+                    val previousTarget = (previousAction as? NightAction.WitchPoison)?.target
+                    appendPreviousTarget(previousTarget)
+                }
+            }
+        }
+    }
+
+    fun announceLeaderGirlPeek(actorId: UUID, outcome: GirlPeekOutcome) {
+        announceToLeader {
+            appendInfoPrefix()
+            info("Mädchen")
+            appendSpace()
+            variableValue(playerName(actorId))
+            appendSpace()
+
+            when (outcome) {
+                GirlPeekOutcome.CaughtByWerewolves -> info("wurde von den Werwölfen erwischt.")
+                is GirlPeekOutcome.FoundWerewolf -> {
+                    info("hat einen Werwolf gesehen:")
+                    appendSpace()
+                    variableValue(playerName(outcome.target))
+                }
+
+                GirlPeekOutcome.TooDark -> info("hat nichts erkannt.")
+            }
+        }
+    }
+
+    fun announceLeaderSeerInspection(
+        actorId: UUID,
+        targetId: UUID,
+        inspectedRole: WerwolfRoles,
+    ) {
+        announceToLeader {
+            appendInfoPrefix()
+            info("Seherin")
+            appendSpace()
+            variableValue(playerName(actorId))
+            appendSpace()
+            info("deckt")
+            appendSpace()
+            variableValue(playerName(targetId))
+            appendSpace()
+            info("als")
+            appendSpace()
+            variableValue(roleName(inspectedRole))
+            appendSpace()
+            info("auf.")
+        }
+    }
+
+    fun announceLeaderWerewolfTargetResolved(
+        targetId: UUID?,
+        votes: List<NightAction.WerewolfKill>,
+    ) {
+        announceToLeader {
+            appendInfoPrefix()
+
+            if (votes.isEmpty()) {
+                info("Werwölfe haben in diesem Step kein Ziel abgegeben.")
+                return@announceToLeader
+            }
+
+            info("Werwolf-Ziel wurde aufgelöst:")
+            appendSpace()
+
+            if (targetId == null) {
+                info("kein Ziel")
+            } else {
+                variableValue(playerName(targetId))
+            }
+        }
+    }
+
+    fun announceLeaderNightResolved(
+        resolution: NightResolutionResult,
+        doctorProtectedPlayer: UUID?,
+        witchHealTarget: UUID?,
+        witchPoisonTarget: UUID?,
+        serialKillerTarget: UUID?,
+        caughtGirls: List<UUID>,
+    ) {
+        announceToLeader {
+            appendInfoPrefix()
+            info("Nachtauflösung:")
+
+            appendNewInfoPrefixedLine()
+            info("Werwolf-Ziel:")
+            appendSpace()
+            appendPlayerOrNone(resolution.werewolfTarget)
+
+            appendNewInfoPrefixedLine()
+            info("Doktor schützt:")
+            appendSpace()
+            appendPlayerOrNone(doctorProtectedPlayer)
+
+            appendNewInfoPrefixedLine()
+            info("Hexe heilt:")
+            appendSpace()
+            appendPlayerOrNone(witchHealTarget)
+
+            appendNewInfoPrefixedLine()
+            info("Hexe vergiftet:")
+            appendSpace()
+            appendPlayerOrNone(witchPoisonTarget)
+
+            appendNewInfoPrefixedLine()
+            info("Serienmörder-Ziel:")
+            appendSpace()
+            appendPlayerOrNone(serialKillerTarget)
+
+            appendNewInfoPrefixedLine()
+            info("Mädchen erwischt:")
+            appendSpace()
+            appendPlayerListOrNone(caughtGirls)
+
+            appendNewInfoPrefixedLine()
+            info("Liebespaar:")
+            appendSpace()
+            if (resolution.lovers == null) {
+                info("keins")
+            } else {
+                val (firstId, secondId) = resolution.lovers
+                variableValue(playerName(firstId))
+                appendSpace()
+                info("und")
+                appendSpace()
+                variableValue(playerName(secondId))
+            }
+
+            appendNewInfoPrefixedLine()
+            info("Tote der Nacht:")
+            appendSpace()
+            appendPlayerListOrNone(resolution.eliminatedPlayers)
+        }
+    }
+
+    fun announceLeaderNightStepTimeout(currentStep: NightStep, nextStep: NightStep) {
+        announceToLeader {
+            appendInfoPrefix()
+            info("Nightstep")
+            appendSpace()
+            variableValue(nightStepName(currentStep))
+            appendSpace()
+            info("ist abgelaufen.")
+            appendSpace()
+            info("Nächster Step:")
+            appendSpace()
+            variableValue(nightStepName(nextStep))
+        }
+    }
+
+    fun announceLeaderNightStepSkipped(currentStep: NightStep, nextStep: NightStep) {
+        announceToLeader {
+            appendInfoPrefix()
+            info("Nightstep")
+            appendSpace()
+            variableValue(nightStepName(currentStep))
+            appendSpace()
+            info("wurde übersprungen.")
+            appendSpace()
+            info("Nächster Step:")
+            appendSpace()
+            variableValue(nightStepName(nextStep))
+        }
+    }
+
+    fun announceLeaderEliminationChain(executedPlayers: List<UUID>, phase: GameState) {
+        if (executedPlayers.isEmpty()) return
+
+        announceToLeader {
+            appendInfoPrefix()
+            info(
+                when (phase) {
+                    GameState.NIGHT -> "Für den Tagesanbruch vorgemerkte Tote:"
+                    GameState.DAY -> "Tagsüber ausgeschieden:"
+                    GameState.VOTE -> "Durch Abstimmung ausgeschieden:"
+                    GameState.MAYOR_VOTE -> "Ausgeschieden:"
+                }
+            )
+            appendSpace()
+            appendPlayerListOrNone(executedPlayers)
+        }
+    }
+
+    fun announceLeaderVoiceChatOpened(playerIds: List<UUID>) {
+        if (playerIds.isEmpty()) return
+
+        announceToLeader {
+            appendInfoPrefix()
+            info("Privater Voice-Chat geöffnet für:")
+            appendSpace()
+            appendPlayerListOrNone(playerIds)
+        }
+    }
+
+    fun announceLeaderVoiceChatClosed() {
+        announceToLeader {
+            appendInfoPrefix()
+            info("Privater Voice-Chat wurde beendet.")
+        }
     }
 
     fun announceMayorVotingStarted() {
@@ -158,6 +517,15 @@ class WerewolfMessenger(private val service: WerewolfService) {
     }
 
     fun announceNightStep(step: NightStep?) {
+        if (step != null) {
+            announceToLeader {
+                appendInfoPrefix()
+                info("Nightstep:")
+                appendSpace()
+                variableValue(nightStepName(step))
+            }
+        }
+
         when (step) {
             NightStep.AMOR -> announceToRole(WerwolfRoles.AMOR) {
                 appendInfoPrefix()
@@ -184,15 +552,23 @@ class WerewolfMessenger(private val service: WerewolfService) {
                 info("Du bist jetzt am Zug. Nutze /werewolf doctor <spieler>.")
                 appendNewInfoPrefixedLine()
                 info("Du kannst dich selbst oder das aktuelle Werwolf-Opfer heilen.")
-                appendNewInfoPrefixedLine()
-                info("Das Werwolf-Opfer leuchtet für dich.")
+
+                if (service.engine.currentWerewolfTarget != null) {
+                    appendNewInfoPrefixedLine()
+                    info("Das Werwolf-Opfer leuchtet für dich.")
+                }
             }
 
             NightStep.WITCH -> announceToRole(WerwolfRoles.WITCH) {
                 appendInfoPrefix()
                 info("Du bist jetzt am Zug. Nutze /werewolf witch <heal|kill> <spieler>.")
                 appendNewInfoPrefixedLine()
-                info("Das Opfer der Werwölfe leuchtet für dich.")
+
+                if (service.engine.currentWerewolfTarget != null) {
+                    appendNewInfoPrefixedLine()
+                    info("Das Opfer der Werwölfe leuchtet für dich.")
+                }
+
             }
 
             NightStep.SERIAL_KILLER -> announceToRole(WerwolfRoles.SERIAL_KILLER) {
@@ -323,6 +699,72 @@ class WerewolfMessenger(private val service: WerewolfService) {
         text("HIER", Colors.VARIABLE_VALUE, TextDecoration.UNDERLINED)
         hoverEvent(HoverEvent.showText(buildText { info("Klicke hier, um den Command in den Chat einzufügen!") }))
         clickEvent(ClickEvent.suggestCommand("/werewolf vote "))
+    }
+
+    private fun SurfComponentBuilder.appendPlayerListOrNone(playerIds: List<UUID>) {
+        if (playerIds.isEmpty()) {
+            info("niemand")
+            return
+        }
+
+        variableValue(playerIds.joinToString(", ", transform = ::playerName))
+    }
+
+    private fun SurfComponentBuilder.appendPlayerOrNone(playerId: UUID?) {
+        if (playerId == null) {
+            info("niemand")
+            return
+        }
+
+        variableValue(playerName(playerId))
+    }
+
+    private fun SurfComponentBuilder.appendPreviousTarget(previousTargetId: UUID?) {
+        if (previousTargetId == null) return
+
+        appendSpace()
+        spacer("(")
+        info("zuvor")
+        appendSpace()
+        variableValue(playerName(previousTargetId))
+        spacer(")")
+    }
+
+    private fun votePhaseName(state: GameState): String {
+        return when (state) {
+            GameState.MAYOR_VOTE -> "Bürgermeisterwahl"
+            GameState.VOTE -> "Dorfabstimmung"
+            GameState.DAY -> "Tag"
+            GameState.NIGHT -> "Nacht"
+        }
+    }
+
+    private fun nightStepName(step: NightStep): String {
+        return when (step) {
+            NightStep.AMOR -> "Amor"
+            NightStep.WEREWOLVES -> "Werwölfe"
+            NightStep.GIRL -> "Mädchen"
+            NightStep.SEER -> "Seherin"
+            NightStep.DOCTOR -> "Doktor"
+            NightStep.WITCH -> "Hexe"
+            NightStep.SERIAL_KILLER -> "Serienmörder"
+            NightStep.RESOLVE -> "Auflösung"
+        }
+    }
+
+    private fun roleName(role: WerwolfRoles): String {
+        return when (role) {
+            WerwolfRoles.WERWOLF -> "Werwolf"
+            WerwolfRoles.VILLAGER -> "Dorfbewohner"
+            WerwolfRoles.SEER -> "Seherin"
+            WerwolfRoles.WITCH -> "Hexe"
+            WerwolfRoles.AMOR -> "Amor"
+            WerwolfRoles.DOCTOR -> "Doktor"
+            WerwolfRoles.GIRL -> "Mädchen"
+            WerwolfRoles.MAYOR -> "Bürgermeister"
+            WerwolfRoles.PRIEST -> "Priester"
+            WerwolfRoles.SERIAL_KILLER -> "Serienmörder"
+        }
     }
 
     private fun playerName(uuid: UUID): String =

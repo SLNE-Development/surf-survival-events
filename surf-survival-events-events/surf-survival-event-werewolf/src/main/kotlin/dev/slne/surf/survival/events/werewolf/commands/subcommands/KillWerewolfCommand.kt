@@ -71,6 +71,17 @@ fun killWerewolfCommand() = subcommand("kill") {
             return@playerExecutor
         }
 
+        val senderRole = service.getPlayerRole(commandSender.uuid())
+        val targetPlayerRole = service.getPlayerRole(targetPlayer.uuid())
+
+        if (senderRole == targetPlayerRole) {
+            commandSender.sendText {
+                appendErrorPrefix()
+                error("Du kannst keinen anderen Werwolf essen!")
+            }
+            return@playerExecutor
+        }
+
         val submitted = service.engine.submitNightAction(
             NightAction.WerewolfKill(
                 actor = commandSender.uuid(),
