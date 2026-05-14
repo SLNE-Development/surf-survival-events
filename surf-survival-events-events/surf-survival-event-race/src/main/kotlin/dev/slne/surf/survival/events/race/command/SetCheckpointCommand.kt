@@ -19,23 +19,15 @@ private val checkpointPos2 = mutableMapOf<UUID, Location>()
 fun setCheckpointCommand() = subcommand("set-checkpoint") {
     withPermission(PermissionRegistry.COMMAND_COMMUNITY_MANAGER)
     multiLiteralArgument("argument", "pos1", "pos2", "create")
-    locationArgument("location", LocationType.BLOCK_POSITION, optional = true)
+    locationArgument("location", LocationType.BLOCK_POSITION)
 
     playerExecutor { player, args ->
         val argument: String by args
-        val location = args.get("location") as? Location
+        val location: Location by args
 
 
         when (argument) {
             "pos1" -> {
-
-                if (location == null) {
-                    player.sendText {
-                        appendErrorPrefix()
-                        error("Du musst eine Location angeben!")
-                    }
-                    return@playerExecutor
-                }
 
                 checkpointPos1[player.uniqueId] = location
 
@@ -48,14 +40,6 @@ fun setCheckpointCommand() = subcommand("set-checkpoint") {
             }
 
             "pos2" -> {
-
-                if (location == null) {
-                    player.sendText {
-                        appendErrorPrefix()
-                        error("Du musst eine Location angeben!")
-                    }
-                    return@playerExecutor
-                }
 
                 checkpointPos2[player.uniqueId] = location
 
@@ -87,12 +71,12 @@ fun setCheckpointCommand() = subcommand("set-checkpoint") {
                     return@playerExecutor
                 }
 
-                val nextNumber = (SurfRaceConfig.getConfig().checkPoints.maxOfOrNull { it.int } ?: 0) + 1
+                val nextNumber = (SurfRaceConfig.getConfig().checkPoints.maxOfOrNull { it.id } ?: 0) + 1
 
                 SurfRaceConfig.edit {
                     checkPoints.add(
                         SurfRaceConfig.Checkpoint(
-                            int = nextNumber,
+                            id = nextNumber,
 
                             world = pos1.world.name,
                             x1 = pos1.x,

@@ -11,10 +11,8 @@ object NpcInteractListener : Listener {
     fun onNpcInteract(event: NpcInteractEvent) {
         val player = event.player
         if (event.npc.uniqueName != "survival_events") {
-            println("${event.player.uniqueId} interacted.")
             return
         }
-        println("${event.player.uniqueId} interacted.")
 
         if (!GameService.isGameActive()) {
             player.sendText {

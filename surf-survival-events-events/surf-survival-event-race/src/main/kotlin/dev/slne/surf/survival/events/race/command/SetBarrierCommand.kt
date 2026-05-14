@@ -20,23 +20,15 @@ private val barrierPos2 = mutableMapOf<UUID, Location>()
 fun setBarrierCommand() = subcommand("set-barrier") {
     withPermission(PermissionRegistry.COMMAND_COMMUNITY_MANAGER)
     multiLiteralArgument("argument", "pos1", "pos2", "create")
-    locationArgument("location", LocationType.BLOCK_POSITION, optional = true)
+    locationArgument("location", LocationType.BLOCK_POSITION)
 
     playerExecutor { player, args ->
         val argument: String by args
-        val location = args.get("location") as? Location
+        val location: Location by args
 
 
         when (argument) {
             "pos1" -> {
-
-                if (location == null) {
-                    player.sendText {
-                        appendErrorPrefix()
-                        error("Du musst eine Location angeben!")
-                    }
-                    return@playerExecutor
-                }
 
                 barrierPos1[player.uniqueId] = location
 
@@ -49,14 +41,6 @@ fun setBarrierCommand() = subcommand("set-barrier") {
             }
 
             "pos2" -> {
-
-                if (location == null) {
-                    player.sendText {
-                        appendErrorPrefix()
-                        error("Du musst eine Location angeben!")
-                    }
-                    return@playerExecutor
-                }
 
                 barrierPos2[player.uniqueId] = location
 

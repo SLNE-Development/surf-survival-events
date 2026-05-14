@@ -5,7 +5,6 @@ import com.github.shynixn.mccoroutine.folia.launch
 import com.github.shynixn.mccoroutine.folia.regionDispatcher
 import dev.slne.surf.api.core.messages.Colors
 import dev.slne.surf.api.core.messages.adventure.title
-import dev.slne.surf.survival.events.race.command.fillBlocks
 import dev.slne.surf.survival.events.race.config.SurfRaceConfig
 import dev.slne.surf.survival.events.race.plugin
 import io.papermc.paper.threadedregions.scheduler.ScheduledTask
@@ -105,11 +104,7 @@ object RaceService {
                 if (countdown <= 0) {
 
                     setRaceState(RaceState.RUNNING)
-
-                    SurfRaceConfig.getConfig().barrier.forEach { barrier ->
-                        fillBlocks(barrier, Material.AIR)
-                    }
-
+                    RegionService.fillBlocks(Material.AIR)
 
                     scheduledTask.cancel()
                     task = null

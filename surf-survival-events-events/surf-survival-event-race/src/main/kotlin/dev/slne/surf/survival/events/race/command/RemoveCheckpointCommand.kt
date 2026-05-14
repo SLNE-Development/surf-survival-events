@@ -17,7 +17,7 @@ fun removeCheckpoint() = subcommand("remove-Checkpoint") {
 
         SurfRaceConfig.edit {
 
-            val removed = SurfRaceConfig.getConfig().checkPoints.removeIf { it.int == checkpointNumber }
+            val removed = SurfRaceConfig.getConfig().checkPoints.removeIf { it.id == checkpointNumber }
 
             if (!removed) {
                 player.sendText {
@@ -32,8 +32,8 @@ fun removeCheckpoint() = subcommand("remove-Checkpoint") {
             }
 
             checkPoints.forEach {
-                if (it.int > checkpointNumber) {
-                    it.int -= 1
+                if (it.id > checkpointNumber) {
+                    it.id -= 1
                 }
             }
         }

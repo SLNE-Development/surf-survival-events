@@ -73,7 +73,7 @@ fun checkpointListCommand() = subcommand("list") {
                     success("Checkpoints:")
 
 
-                    checkpoints.sortedBy { it.int }.forEach { checkpoint ->
+                    checkpoints.sortedBy { it.id }.forEach { checkpoint ->
                         sendCheckpoint(player, checkpoint)
                     }
                 }
@@ -92,7 +92,7 @@ private fun sendCheckpoint(player: Player, checkpoint: SurfRaceConfig.Checkpoint
     val world = Bukkit.getWorld(checkpoint.world) ?: return
 
     player.sendText {
-        success("#${checkpoint.int}")
+        success("#${checkpoint.id}")
         appendNewline()
         append(
             buildText {

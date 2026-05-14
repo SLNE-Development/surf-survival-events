@@ -21,7 +21,7 @@ private val startPos2 = mutableMapOf<UUID, Location>()
 fun setStartCommand() = subcommand("set-start") {
     withPermission(PermissionRegistry.COMMAND_COMMUNITY_MANAGER)
     multiLiteralArgument("argument", "pos1", "pos2", "create")
-    locationArgument("location", LocationType.BLOCK_POSITION, optional = true)
+    locationArgument("location", LocationType.BLOCK_POSITION)
     rotationArgument("rotation")
 
     playerExecutor { player, args ->
@@ -32,14 +32,6 @@ fun setStartCommand() = subcommand("set-start") {
 
         when (argument) {
             "pos1" -> {
-
-                if (location == null) {
-                    player.sendText {
-                        appendErrorPrefix()
-                        error("Du musst eine Location angeben!")
-                    }
-                    return@playerExecutor
-                }
 
                 startPos1[player.uniqueId] = location
 
@@ -53,14 +45,6 @@ fun setStartCommand() = subcommand("set-start") {
 
             "pos2" -> {
 
-                if (location == null) {
-                    player.sendText {
-                        appendErrorPrefix()
-                        error("Du musst eine Location angeben!")
-                    }
-                    return@playerExecutor
-                }
-
                 startPos2[player.uniqueId] = location
 
                 player.sendText {
@@ -72,14 +56,6 @@ fun setStartCommand() = subcommand("set-start") {
             }
 
             "create" -> {
-
-                if (rotation == null) {
-                    player.sendText {
-                        appendErrorPrefix()
-                        error("Du musst eine Rotation angeben!")
-                    }
-                    return@playerExecutor
-                }
 
                 val pos1 = startPos1[player.uniqueId]
                 val pos2 = startPos2[player.uniqueId]

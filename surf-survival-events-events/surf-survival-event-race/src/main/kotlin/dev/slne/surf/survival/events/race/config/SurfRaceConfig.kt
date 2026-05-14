@@ -2,6 +2,7 @@ package dev.slne.surf.survival.events.race.config
 
 import dev.slne.surf.api.core.config.SpongeYmlConfigClass
 import dev.slne.surf.survival.events.race.plugin
+import dev.slne.surf.survival.events.race.region.RegionData
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 
 @ConfigSerializable
@@ -27,50 +28,51 @@ data class SurfRaceConfig(
 
     @ConfigSerializable
     data class Checkpoint(
-        var int: Int = 0,
 
-        var world: String = "world",
+        var id: Int = 0,
 
-        var x1: Double = 0.0,
-        var y1: Double = 0.0,
-        var z1: Double = 0.0,
+        override var world: String = "world",
 
-        var x2: Double = 0.0,
-        var y2: Double = 0.0,
-        var z2: Double = 0.0
+        override var x1: Double = 0.0,
+        override var y1: Double = 0.0,
+        override var z1: Double = 0.0,
 
-    )
+        override var x2: Double = 0.0,
+        override var y2: Double = 0.0,
+        override var z2: Double = 0.0
+
+    ) : RegionData
 
     @ConfigSerializable
     data class Barrier(
 
-        var world: String = "world",
+        override var world: String = "world",
 
-        var x1: Double = 0.0,
-        var y1: Double = 0.0,
-        var z1: Double = 0.0,
+        override var x1: Double = 0.0,
+        override var y1: Double = 0.0,
+        override var z1: Double = 0.0,
 
-        var x2: Double = 0.0,
-        var y2: Double = 0.0,
-        var z2: Double = 0.0
+        override var x2: Double = 0.0,
+        override var y2: Double = 0.0,
+        override var z2: Double = 0.0
 
-    )
+    ) : RegionData
 
     @ConfigSerializable
     data class Start(
 
-        var world: String = "world",
+        override var world: String = "world",
 
-        var x1: Double = 0.0,
-        var y1: Double = 0.0,
-        var z1: Double = 0.0,
+        override var x1: Double = 0.0,
+        override var y1: Double = 0.0,
+        override var z1: Double = 0.0,
 
-        var x2: Double = 0.0,
-        var y2: Double = 0.0,
-        var z2: Double = 0.0,
+        override var x2: Double = 0.0,
+        override var y2: Double = 0.0,
+        override var z2: Double = 0.0,
 
         var yaw: Float = 0f,
         var pitch: Float = 0f
 
-    )
+    ) : RegionData
 }

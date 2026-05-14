@@ -11,6 +11,7 @@ import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.inventory.InventoryClickEvent
 import org.bukkit.event.player.PlayerDropItemEvent
+import org.bukkit.event.player.PlayerMoveEvent
 import org.bukkit.event.vehicle.VehicleEnterEvent
 import org.bukkit.event.vehicle.VehicleExitEvent
 import java.util.UUID
@@ -74,5 +75,11 @@ object RaceListener : Listener {
         val player = event.player
         if (!RaceService.isInRace(player)) return
         event.cancel()
+    }
+
+
+    @EventHandler
+    fun onPlayerMove(event: PlayerMoveEvent) {
+
     }
 }
