@@ -1,8 +1,8 @@
-package dev.slne.surf.event.werewolf.service
+package dev.slne.surf.survival.events.werewolf.service
 
 import com.github.shynixn.mccoroutine.folia.entityDispatcher
 import com.github.shynixn.mccoroutine.folia.launch
-import dev.slne.surf.event.werewolf.util.toBukkitPlayer
+import dev.slne.surf.survival.events.werewolf.util.toBukkitPlayer
 import dev.slne.surf.survival.events.werewolf.plugin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext

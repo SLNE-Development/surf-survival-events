@@ -1,4 +1,4 @@
-package dev.slne.surf.event.werewolf.commands
+package dev.slne.surf.survival.events.werewolf.commands.argument
 
 import dev.jorel.commandapi.CommandAPICommand
 import dev.jorel.commandapi.CommandTree
@@ -7,8 +7,8 @@ import dev.jorel.commandapi.arguments.ArgumentSuggestions
 import dev.jorel.commandapi.arguments.CustomArgument
 import dev.jorel.commandapi.arguments.StringArgument
 import dev.slne.surf.api.core.messages.adventure.buildText
-import dev.slne.surf.event.werewolf.service.WerewolfGameManager
-import dev.slne.surf.event.werewolf.service.WerewolfService
+import dev.slne.surf.survival.events.werewolf.service.WerewolfGameManager
+import dev.slne.surf.survival.events.werewolf.service.WerewolfService
 
 class WerewolfGameArgument(nodeName: String) :
     CustomArgument<WerewolfService, String>(StringArgument(nodeName), { info ->

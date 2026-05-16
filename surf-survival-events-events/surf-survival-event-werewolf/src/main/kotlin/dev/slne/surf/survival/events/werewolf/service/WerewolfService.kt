@@ -1,4 +1,4 @@
-package dev.slne.surf.event.werewolf.service
+package dev.slne.surf.survival.events.werewolf.service
 
 import com.github.shynixn.mccoroutine.folia.entityDispatcher
 import com.github.shynixn.mccoroutine.folia.launch
@@ -9,14 +9,16 @@ import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.api.core.messages.adventure.showTitle
 import dev.slne.surf.api.core.messages.builder.SurfComponentBuilder
 import dev.slne.surf.api.paper.glow.SurfGlowingApi
-import dev.slne.surf.event.werewolf.dialog.WerewolfRoleViewDialoge
-import dev.slne.surf.event.werewolf.domain.WerewolfGameEngine
-import dev.slne.surf.event.werewolf.messaging.WerewolfMessenger
+import dev.slne.surf.survival.events.werewolf.dialog.WerewolfRoleViewDialoge
+import dev.slne.surf.survival.events.werewolf.domain.WerewolfGameEngine
+import dev.slne.surf.survival.events.werewolf.messaging.WerewolfMessenger
 import dev.slne.surf.survival.events.werewolf.plugin
-import dev.slne.surf.event.werewolf.scoreboard.addToWerewolfScoreboard
-import dev.slne.surf.event.werewolf.scoreboard.removeFromWerewolfScoreboard
-import dev.slne.surf.event.werewolf.util.*
-import dev.slne.surf.event.werewolf.voicechat.WerewolfVoicechatPlugin
+import dev.slne.surf.survival.events.werewolf.scoreboard.addToWerewolfScoreboard
+import dev.slne.surf.survival.events.werewolf.scoreboard.removeFromWerewolfScoreboard
+import dev.slne.surf.survival.events.werewolf.service.HiddenPlayerPair
+import dev.slne.surf.survival.events.werewolf.service.WerewolfVisibilityCleanup
+import dev.slne.surf.survival.events.werewolf.util.*
+import dev.slne.surf.survival.events.werewolf.voicechat.WerewolfVoicechatPlugin
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -29,6 +31,7 @@ import org.bukkit.potion.PotionEffect
 import org.bukkit.potion.PotionEffectType
 import java.util.*
 import java.util.concurrent.CancellationException
+import kotlin.collections.plusAssign
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
@@ -114,9 +117,9 @@ class WerewolfService(val gameId: String) {
         if (phase != GamePhase.LOBBY) return WerewolfJoinResult.AlreadyStarted
         if (players.containsKey(uuid)) return WerewolfJoinResult.AlreadyInGame
 
-        players[uuid] = WerewolfPlayer(uuid)
-
         uuid.toBukkitPlayer()?.addToWerewolfScoreboard() ?: return WerewolfJoinResult.Error("Dein Spieler konnte nicht gefunden werden!")
+
+        players[uuid] = WerewolfPlayer(uuid)
 
         announceToAll {
             appendSuccessPrefix()
@@ -667,7 +670,7 @@ class WerewolfService(val gameId: String) {
                 }
 
                 if (deadPlayerId.toBukkitPlayer()?.isVisibleByDefault == false) {
-                    println("Player not visible!")
+                    plugin.logger.fine("Player not visible! \n PlayerID: $deadPlayerId \n PlayerName: ${deadPlayerId.toBukkitPlayer()?.name}")
                 }
             }
         }

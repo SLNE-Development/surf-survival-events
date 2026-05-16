@@ -1,12 +1,12 @@
-package dev.slne.surf.event.werewolf.commands.subcommands
+package dev.slne.surf.survival.events.werewolf.commands.subcommands
 
 import dev.jorel.commandapi.kotlindsl.playerExecutor
 import dev.jorel.commandapi.kotlindsl.subcommand
 import dev.slne.surf.api.core.messages.adventure.sendText
-import dev.slne.surf.event.werewolf.commands.werewolfGameArgument
-import dev.slne.surf.event.werewolf.service.WerewolfJoinResult
-import dev.slne.surf.event.werewolf.service.WerewolfService
-import dev.slne.surf.event.werewolf.service.WerewolfGameManager
+import dev.slne.surf.survival.events.werewolf.commands.argument.werewolfGameArgument
+import dev.slne.surf.survival.events.werewolf.service.WerewolfJoinResult
+import dev.slne.surf.survival.events.werewolf.service.WerewolfService
+import dev.slne.surf.survival.events.werewolf.service.WerewolfGameManager
 
 fun joinWerewolfCommand() = subcommand("join") {
     werewolfGameArgument("gameId")

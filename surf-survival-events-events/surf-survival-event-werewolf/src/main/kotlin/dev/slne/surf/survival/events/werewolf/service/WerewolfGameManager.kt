@@ -1,4 +1,4 @@
-package dev.slne.surf.event.werewolf.service
+package dev.slne.surf.survival.events.werewolf.service
 
 import org.bukkit.entity.Player
 import java.util.*

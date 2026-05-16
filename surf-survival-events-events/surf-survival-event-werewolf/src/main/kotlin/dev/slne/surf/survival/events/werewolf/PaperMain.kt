@@ -4,10 +4,10 @@ import com.github.shynixn.mccoroutine.folia.SuspendingJavaPlugin
 import de.maxhenkel.voicechat.api.BukkitVoicechatService
 import dev.slne.surf.api.core.messages.builder.SurfComponentBuilder
 import dev.slne.surf.api.paper.event.register
-import dev.slne.surf.event.werewolf.commands.werewolfCommand
-import dev.slne.surf.event.werewolf.listeners.WerewolfDisconnectListener
-import dev.slne.surf.event.werewolf.service.WerewolfVisibilityCleanupListener
-import dev.slne.surf.event.werewolf.voicechat.WerewolfVoicechatPlugin
+import dev.slne.surf.survival.events.werewolf.commands.werewolfCommand
+import dev.slne.surf.survival.events.werewolf.listeners.WerewolfDisconnectListener
+import dev.slne.surf.survival.events.werewolf.service.WerewolfVisibilityCleanupListener
+import dev.slne.surf.survival.events.werewolf.voicechat.WerewolfVoicechatPlugin
 import net.kyori.adventure.text.format.TextColor
 import net.kyori.adventure.text.format.TextDecoration
 import org.bukkit.plugin.java.JavaPlugin

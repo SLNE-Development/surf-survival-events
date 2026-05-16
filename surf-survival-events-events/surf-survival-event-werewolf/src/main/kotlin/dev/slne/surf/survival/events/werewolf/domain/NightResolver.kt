@@ -1,10 +1,11 @@
-package dev.slne.surf.event.werewolf.domain
+package dev.slne.surf.survival.events.werewolf.domain
 
-import dev.slne.surf.event.werewolf.domain.roleActions.*
-import dev.slne.surf.event.werewolf.util.NightAction
-import dev.slne.surf.event.werewolf.util.NightResolutionResult
-import dev.slne.surf.event.werewolf.util.WerewolfPlayer
-import dev.slne.surf.event.werewolf.util.WerwolfRoles
+import dev.slne.surf.survival.events.werewolf.domain.roleActions.*
+import dev.slne.surf.survival.events.werewolf.util.NightAction
+import dev.slne.surf.survival.events.werewolf.util.NightResolutionResult
+import dev.slne.surf.survival.events.werewolf.util.WerewolfPlayer
+import dev.slne.surf.survival.events.werewolf.util.WerwolfRoles
+import dev.slne.surf.survival.events.werewolf.domain.roleActions.AmorActions
 import java.util.*
 
 internal class NightResolver(

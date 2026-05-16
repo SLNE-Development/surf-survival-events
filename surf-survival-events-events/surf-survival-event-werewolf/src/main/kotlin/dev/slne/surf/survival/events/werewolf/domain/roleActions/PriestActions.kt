@@ -1,7 +1,7 @@
-package dev.slne.surf.event.werewolf.domain.roleActions
+package dev.slne.surf.survival.events.werewolf.domain.roleActions
 
-import dev.slne.surf.event.werewolf.util.WerewolfPlayer
-import dev.slne.surf.event.werewolf.util.WerwolfRoles
+import dev.slne.surf.survival.events.werewolf.util.WerewolfPlayer
+import dev.slne.surf.survival.events.werewolf.util.WerwolfRoles
 import java.util.*
 
 data class PriestResolution(

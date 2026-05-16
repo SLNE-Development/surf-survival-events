@@ -1,9 +1,11 @@
-package dev.slne.surf.event.werewolf.domain
+package dev.slne.surf.survival.events.werewolf.domain
 
-import dev.slne.surf.event.werewolf.domain.roleActions.*
-import dev.slne.surf.event.werewolf.messaging.WerewolfMessenger
-import dev.slne.surf.event.werewolf.service.WerewolfService
-import dev.slne.surf.event.werewolf.util.*
+import dev.slne.surf.survival.events.werewolf.domain.roleActions.*
+import dev.slne.surf.survival.events.werewolf.messaging.WerewolfMessenger
+import dev.slne.surf.survival.events.werewolf.service.WerewolfService
+import dev.slne.surf.survival.events.werewolf.util.*
+import dev.slne.surf.survival.events.werewolf.domain.roleActions.AmorActions
+import dev.slne.surf.survival.events.werewolf.plugin
 import org.bukkit.entity.Player
 import java.util.*
 import kotlin.time.Duration
@@ -62,10 +64,12 @@ class WerewolfGameEngine(
             phaseRemainingSeconds = roundState.phaseRemainingSeconds - 1.seconds,
         )
 
-        println(phaseRemainingSeconds)
-        println(roundState.phase)
-        println(roundState.nightStep)
-        println(roundState.nightStep?.time)
+        plugin.logger.fine(
+            "Werewolf tick state: remaining=$phaseRemainingSeconds, " +
+                    "phase=${roundState.phase}, " +
+                    "nightStep=${roundState.nightStep}, " +
+                    "nightStepTime=${roundState.nightStep?.time}"
+        )
 
         return null
     }
@@ -292,11 +296,15 @@ class WerewolfGameEngine(
     private fun calculateVoteStandings(): List<VoteStanding> {
         if (roundState.phase != GameState.VOTE) return emptyList()
 
+        val mayorPlayer = roundState.mayorPlayer?.let {
+            service.players[it]
+        }
+
         return VoteResolver.calculateStandings(
             players = service.players,
             votes = roundState.votes
         ) { voterPlayer ->
-            if (voterPlayer.role == WerwolfRoles.MAYOR) 2 else 1
+            if (voterPlayer == mayorPlayer) 2 else 1
         }
     }
 

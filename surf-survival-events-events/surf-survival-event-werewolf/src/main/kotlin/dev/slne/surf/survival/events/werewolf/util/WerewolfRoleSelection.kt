@@ -1,4 +1,4 @@
-package dev.slne.surf.event.werewolf.util
+package dev.slne.surf.survival.events.werewolf.util
 
 import java.util.*
 
@@ -59,7 +59,7 @@ object WerewolfRoleSelection {
         WerwolfRoles.DOCTOR,
         WerwolfRoles.AMOR,
         WerwolfRoles.GIRL,
-        WerwolfRoles.MAYOR,
+        WerwolfRoles.VILLAGER,
         WerwolfRoles.VILLAGER,
         WerwolfRoles.VILLAGER,
         WerwolfRoles.VILLAGER
@@ -75,9 +75,9 @@ object WerewolfRoleSelection {
         WerwolfRoles.DOCTOR,
         WerwolfRoles.AMOR,
         WerwolfRoles.GIRL,
-        WerwolfRoles.MAYOR,
         WerwolfRoles.PRIEST,
         WerwolfRoles.SERIAL_KILLER,
+        WerwolfRoles.VILLAGER,
         WerwolfRoles.VILLAGER,
         WerwolfRoles.VILLAGER,
         WerwolfRoles.VILLAGER
