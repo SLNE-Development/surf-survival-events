@@ -1,4 +1,4 @@
-package dev.slne.surf.event.werewolf.util
+package dev.slne.surf.survival.events.werewolf.util
 
 import dev.slne.surf.api.core.messages.adventure.buildText
 import net.kyori.adventure.text.Component

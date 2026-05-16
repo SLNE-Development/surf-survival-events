@@ -1,4 +1,4 @@
-package dev.slne.surf.event.werewolf.util
+package dev.slne.surf.survival.events.werewolf.util
 
 sealed class GameOutcome {
     data object VillagersWin : GameOutcome()

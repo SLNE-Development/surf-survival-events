@@ -1,4 +1,4 @@
-package dev.slne.surf.event.werewolf.voicechat
+package dev.slne.surf.survival.events.werewolf.voicechat
 
 import de.maxhenkel.voicechat.api.VoicechatServerApi
 import de.maxhenkel.voicechat.api.audiochannel.AudioChannel

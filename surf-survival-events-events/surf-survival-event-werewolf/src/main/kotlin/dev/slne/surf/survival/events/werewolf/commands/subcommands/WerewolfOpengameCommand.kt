@@ -1,4 +1,4 @@
-package dev.slne.surf.event.werewolf.commands.subcommands
+package dev.slne.surf.survival.events.werewolf.commands.subcommands
 
 import dev.jorel.commandapi.kotlindsl.playerExecutor
 import dev.jorel.commandapi.kotlindsl.stringArgument
@@ -6,7 +6,7 @@ import dev.jorel.commandapi.kotlindsl.subcommand
 import dev.slne.surf.api.core.messages.Colors
 import dev.slne.surf.api.core.messages.adventure.buildText
 import dev.slne.surf.api.core.messages.adventure.sendText
-import dev.slne.surf.event.werewolf.service.WerewolfGameManager
+import dev.slne.surf.survival.events.werewolf.service.WerewolfGameManager
 import net.kyori.adventure.text.event.ClickEvent
 import net.kyori.adventure.text.event.HoverEvent
 import net.kyori.adventure.text.format.TextDecoration

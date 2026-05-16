@@ -1,14 +1,14 @@
-package dev.slne.surf.event.werewolf.commands.subcommands
+package dev.slne.surf.survival.events.werewolf.commands.subcommands
 
 import dev.jorel.commandapi.kotlindsl.playerExecutor
 import dev.jorel.commandapi.kotlindsl.subcommand
 import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.api.core.messages.adventure.uuid
-import dev.slne.surf.event.werewolf.service.WerewolfGameManager
-import dev.slne.surf.event.werewolf.util.GameState
-import dev.slne.surf.event.werewolf.util.GirlPeekOutcome
-import dev.slne.surf.event.werewolf.util.NightStep
-import dev.slne.surf.event.werewolf.util.WerwolfRoles
+import dev.slne.surf.survival.events.werewolf.service.WerewolfGameManager
+import dev.slne.surf.survival.events.werewolf.util.GameState
+import dev.slne.surf.survival.events.werewolf.util.GirlPeekOutcome
+import dev.slne.surf.survival.events.werewolf.util.NightStep
+import dev.slne.surf.survival.events.werewolf.util.WerwolfRoles
 import net.kyori.adventure.text.format.TextDecoration
 
 fun girlWerewolfCommand() = subcommand("girl") {

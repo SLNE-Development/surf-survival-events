@@ -1,6 +1,6 @@
-package dev.slne.surf.event.werewolf.listeners
+package dev.slne.surf.survival.events.werewolf.listeners
 
-import dev.slne.surf.event.werewolf.service.WerewolfGameManager
+import dev.slne.surf.survival.events.werewolf.service.WerewolfGameManager
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.player.PlayerKickEvent

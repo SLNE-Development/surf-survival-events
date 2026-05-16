@@ -1,11 +1,11 @@
-package dev.slne.surf.event.werewolf.messaging
+package dev.slne.surf.survival.events.werewolf.messaging
 
 import dev.slne.surf.api.core.messages.Colors
 import dev.slne.surf.api.core.messages.adventure.buildText
 import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.api.core.messages.builder.SurfComponentBuilder
-import dev.slne.surf.event.werewolf.service.WerewolfService
-import dev.slne.surf.event.werewolf.util.*
+import dev.slne.surf.survival.events.werewolf.service.WerewolfService
+import dev.slne.surf.survival.events.werewolf.util.*
 import net.kyori.adventure.text.event.ClickEvent
 import net.kyori.adventure.text.event.HoverEvent
 import net.kyori.adventure.text.format.TextDecoration

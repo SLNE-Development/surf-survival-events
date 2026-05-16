@@ -1,4 +1,4 @@
-package dev.slne.surf.event.werewolf.scoreboard
+package dev.slne.surf.survival.events.werewolf.scoreboard
 
 import dev.slne.surf.api.core.font.toSmallCaps
 import dev.slne.surf.api.core.messages.CommonComponents.formatTime
@@ -7,7 +7,7 @@ import dev.slne.surf.api.core.messages.adventure.text
 import dev.slne.surf.api.paper.extensions.server
 import dev.slne.surf.api.paper.scoreboard.SurfAutoUpdatableScoreboard
 import dev.slne.surf.api.paper.scoreboard.SurfScoreboardBuilder
-import dev.slne.surf.event.werewolf.service.WerewolfGameManager
+import dev.slne.surf.survival.events.werewolf.service.WerewolfGameManager
 import dev.slne.surf.survival.events.werewolf.inWerewolfColor
 import net.kyori.adventure.text.format.TextDecoration
 import org.bukkit.entity.Player

@@ -1,4 +1,4 @@
-package dev.slne.surf.event.werewolf.commands.subcommands
+package dev.slne.surf.survival.events.werewolf.commands.subcommands
 
 import dev.jorel.commandapi.kotlindsl.subcommand
 

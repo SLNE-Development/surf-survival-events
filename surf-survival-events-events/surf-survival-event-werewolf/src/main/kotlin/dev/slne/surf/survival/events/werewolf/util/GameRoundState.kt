@@ -1,4 +1,4 @@
-package dev.slne.surf.event.werewolf.util
+package dev.slne.surf.survival.events.werewolf.util
 
 import java.util.*
 import kotlin.time.Duration

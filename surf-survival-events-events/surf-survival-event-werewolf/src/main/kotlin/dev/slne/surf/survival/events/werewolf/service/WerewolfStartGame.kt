@@ -1,9 +1,5 @@
 package dev.slne.surf.survival.events.werewolf.service
 
-import dev.slne.surf.event.werewolf.service.WerewolfGameManager
-import dev.slne.surf.event.werewolf.service.WerewolfJoinResult
-import dev.slne.surf.event.werewolf.service.WerewolfService
-import dev.slne.surf.event.werewolf.service.WerewolfStartResult
 import java.util.UUID
 
 object WerewolfStartGame {

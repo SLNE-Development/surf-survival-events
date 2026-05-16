@@ -1,7 +1,7 @@
-package dev.slne.surf.event.werewolf.domain
+package dev.slne.surf.survival.events.werewolf.domain
 
-import dev.slne.surf.event.werewolf.util.VoteStanding
-import dev.slne.surf.event.werewolf.util.WerewolfPlayer
+import dev.slne.surf.survival.events.werewolf.util.VoteStanding
+import dev.slne.surf.survival.events.werewolf.util.WerewolfPlayer
 import java.util.*
 
 internal object VoteResolver {

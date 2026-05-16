@@ -1,9 +1,9 @@
-package dev.slne.surf.event.werewolf.commands.subcommands
+package dev.slne.surf.survival.events.werewolf.commands.subcommands
 
 import dev.jorel.commandapi.kotlindsl.playerExecutor
 import dev.jorel.commandapi.kotlindsl.subcommand
 import dev.slne.surf.api.core.messages.adventure.sendText
-import dev.slne.surf.event.werewolf.service.WerewolfGameManager
+import dev.slne.surf.survival.events.werewolf.service.WerewolfGameManager
 
 fun skipNightStepWerewolfCommand() = subcommand("skipNightStep") {
     playerExecutor { player, _ ->

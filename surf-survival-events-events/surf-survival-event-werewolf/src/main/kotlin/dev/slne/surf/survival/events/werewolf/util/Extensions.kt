@@ -1,7 +1,7 @@
-package dev.slne.surf.event.werewolf.util
+package dev.slne.surf.survival.events.werewolf.util
 
 import dev.slne.surf.api.paper.extensions.server
-import dev.slne.surf.event.werewolf.service.WerewolfService
+import dev.slne.surf.survival.events.werewolf.service.WerewolfService
 import org.bukkit.entity.Player
 import java.util.*
 
