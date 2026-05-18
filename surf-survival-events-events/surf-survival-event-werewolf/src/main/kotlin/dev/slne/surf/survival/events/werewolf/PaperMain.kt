@@ -24,10 +24,6 @@ class PaperMain : SuspendingJavaPlugin() {
             val plugin = WerewolfVoicechatPlugin()
             voicechatService.registerPlugin(plugin)
 
-            // Speichere die VoicechatServerApi für später Zugriff
-//            voicechatService.registerPlugin(plugin)?.let {
-//                WerewolfVoicechatPlugin.setVoicechatApi()
-//            }
         }
     }
 

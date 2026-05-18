@@ -82,6 +82,7 @@ class WerewolfService(val gameId: String) {
     private var _werewolfTime: Duration = 0.seconds
 
     private val messenger = WerewolfMessenger(this)
+    private var privateWerewolfVoiceChatActive = false
 
     val aliveCount: Int
         get() = getAlivePlayers().size
@@ -375,7 +376,8 @@ class WerewolfService(val gameId: String) {
         _leader = null
 
         // Cleanup Voice Chat
-        audioHandler.clearSecretPlayers()
+        audioHandler.clearPrivateChannel()
+        privateWerewolfVoiceChatActive = false
         WerewolfVoicechatPlugin.removeAudioHandler(gameId)
     }
 
@@ -391,7 +393,7 @@ class WerewolfService(val gameId: String) {
         }
 
         engine.removePlayer(playerId)
-        audioHandler.removeSecretPlayer(playerId)
+        audioHandler.removePlayer(playerId)
 
         player.removePotionEffect(PotionEffectType.BLINDNESS)
         player.removeFromWerewolfScoreboard()
@@ -751,12 +753,45 @@ class WerewolfService(val gameId: String) {
         _state = gameState
     }
 
+    fun syncWerewolfPrivateChannel(nightStep: NightStep?) {
+        if (nightStep == null) {
+            removePlayersFromPrivateChannel()
+            return
+        }
+
+        if (nightStep != NightStep.WEREWOLVES) {
+            mutePlayersAtNight()
+            return
+        }
+
+        val aliveWerewolves = players.values
+            .asSequence()
+            .filter { it.isAlive && it.role == WerwolfRoles.WERWOLF }
+            .mapNotNull { it.uuid.toBukkitPlayer() }
+            .toList()
+
+        if (aliveWerewolves.isEmpty()) {
+            removePlayersFromPrivateChannel()
+            return
+        }
+
+        movePlayersToPrivateChannel(aliveWerewolves)
+    }
+
     fun movePlayersToPrivateChannel(playerList: List<Player>) {
         if (playerList.isEmpty()) return
 
-        // Setze die Spieler im Audio-Handler mit der VoicechatServerApi
+        val silencedPlayers = players.values
+            .asSequence()
+            .filter { it.isAlive && it.role != WerwolfRoles.WERWOLF && it.uuid != leader }
+            .mapNotNull { it.uuid.toBukkitPlayer() }
+            .toList()
+
         val api = WerewolfVoicechatPlugin.getVoicechatApi()
-        audioHandler.setSecretPlayers(playerList, api)
+        audioHandler.configurePrivateChannel(playerList, silencedPlayers, api)
+        if (privateWerewolfVoiceChatActive) return
+
+        privateWerewolfVoiceChatActive = true
 
         announceToRole(WerwolfRoles.WERWOLF, onlyAlive = true) {
             appendSuccessPrefix()
@@ -766,11 +801,36 @@ class WerewolfService(val gameId: String) {
         messenger.announceLeaderVoiceChatOpened(playerList.map(Player::getUniqueId))
     }
 
+    private fun mutePlayersAtNight() {
+        val silencedPlayers = players.values
+            .asSequence()
+            .filter { it.isAlive && it.uuid != leader }
+            .mapNotNull { it.uuid.toBukkitPlayer() }
+            .toList()
+
+        val api = WerewolfVoicechatPlugin.getVoicechatApi()
+        audioHandler.configurePrivateChannel(emptyList(), silencedPlayers, api)
+
+        if (!privateWerewolfVoiceChatActive) return
+
+        privateWerewolfVoiceChatActive = false
+
+        announceToRole(WerwolfRoles.WERWOLF, onlyAlive = true) {
+            appendErrorPrefix()
+            error("Der private Voice-Chat wurde beendet.")
+        }
+
+        messenger.announceLeaderVoiceChatClosed()
+    }
+
     /**
      * Entfernt Spieler aus dem privaten Voice-Chat-Channel
      */
     fun removePlayersFromPrivateChannel() {
-        audioHandler.clearSecretPlayers()
+        audioHandler.clearPrivateChannel()
+        if (!privateWerewolfVoiceChatActive) return
+
+        privateWerewolfVoiceChatActive = false
 
         announceToRole(WerwolfRoles.WERWOLF, onlyAlive = true) {
             appendErrorPrefix()
