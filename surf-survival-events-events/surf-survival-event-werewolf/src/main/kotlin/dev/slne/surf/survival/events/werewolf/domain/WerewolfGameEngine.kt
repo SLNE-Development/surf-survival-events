@@ -232,6 +232,7 @@ class WerewolfGameEngine(
             nightActions = mutableListOf()
         )
 
+        service.syncWerewolfPrivateChannel(null)
         service.setGameState(GameState.DAY)
     }
 
@@ -535,6 +536,8 @@ class WerewolfGameEngine(
             nightStep = step,
             phaseRemainingSeconds = step.time
         )
+
+        service.syncWerewolfPrivateChannel(step)
 
         if (announce) {
             messenger.announceNightStep(step)
