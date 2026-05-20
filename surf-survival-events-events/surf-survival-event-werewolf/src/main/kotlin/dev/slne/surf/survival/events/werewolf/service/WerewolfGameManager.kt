@@ -1,5 +1,7 @@
 package dev.slne.surf.survival.events.werewolf.service
 
+import dev.slne.surf.survival.events.werewolf.util.WerewolfCommandRequirements
+import dev.slne.surf.survival.events.werewolf.util.toBukkitPlayer
 import org.bukkit.entity.Player
 import java.util.*
 
@@ -14,6 +16,7 @@ object WerewolfGameManager {
         game.openLobby(leaderUuid)
         games[gameId] = game
         playerToGame[leaderUuid] = gameId
+        WerewolfCommandRequirements.update(leaderUuid.toBukkitPlayer())
         return game
     }
 
@@ -26,9 +29,11 @@ object WerewolfGameManager {
         return getGame(gameId)
     }
 
-    fun removeGame(gameId: String) {
+    fun removeGame(gameId: String, participantsToRefresh: Collection<Player> = emptyList()) {
+        val playersToUpdate = participantsToRefresh + (games[gameId]?.allParticipants ?: emptyList())
         playerToGame.entries.removeIf { it.value == gameId }
         games.remove(gameId)
+        WerewolfCommandRequirements.update(playersToUpdate)
     }
 
     fun getAllGames(): Map<String, WerewolfService> {
@@ -37,6 +42,7 @@ object WerewolfGameManager {
 
     fun joinGame(gameId: String, uuid: UUID) {
         playerToGame[uuid] = gameId
+        WerewolfCommandRequirements.update(uuid.toBukkitPlayer())
     }
 
     fun handleDisconnect(player: Player) {
@@ -48,8 +54,9 @@ object WerewolfGameManager {
         }
 
         if (game.leader == uuid) {
+            val participants = game.allParticipants
             game.stop()
-            removeGame(gameId)
+            removeGame(gameId, participants)
             return
         }
 

@@ -3,6 +3,7 @@ package dev.slne.surf.survival.events.werewolf.service
 import com.github.shynixn.mccoroutine.folia.entityDispatcher
 import com.github.shynixn.mccoroutine.folia.launch
 import dev.slne.surf.survival.events.werewolf.util.toBukkitPlayer
+import dev.slne.surf.survival.events.werewolf.util.WerewolfCommandRequirements
 import dev.slne.surf.survival.events.werewolf.plugin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -72,6 +73,7 @@ object WerewolfVisibilityCleanupListener : Listener {
 
     @EventHandler
     fun onPlayerJoin(event: PlayerJoinEvent) {
+        WerewolfCommandRequirements.update(event.player)
         WerewolfVisibilityCleanup.restorePendingForPlayers(listOf(event.player.uniqueId))
     }
 }

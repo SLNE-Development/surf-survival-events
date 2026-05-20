@@ -4,8 +4,10 @@ import dev.jorel.commandapi.kotlindsl.playerExecutor
 import dev.jorel.commandapi.kotlindsl.subcommand
 import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.survival.events.werewolf.service.WerewolfGameManager
+import dev.slne.surf.survival.events.werewolf.util.WerewolfCommandRequirements
 
 fun skipNightStepWerewolfCommand() = subcommand("skipNightStep") {
+    withRequirement { sender -> WerewolfCommandRequirements.canDebugSkipNightStep(sender) }
     playerExecutor { player, _ ->
         val service = WerewolfGameManager.getGameForPlayer(player.uniqueId)
 

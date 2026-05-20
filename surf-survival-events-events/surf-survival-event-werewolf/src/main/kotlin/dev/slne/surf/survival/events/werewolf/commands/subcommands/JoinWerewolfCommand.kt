@@ -7,8 +7,10 @@ import dev.slne.surf.survival.events.werewolf.commands.argument.werewolfGameArgu
 import dev.slne.surf.survival.events.werewolf.service.WerewolfJoinResult
 import dev.slne.surf.survival.events.werewolf.service.WerewolfService
 import dev.slne.surf.survival.events.werewolf.service.WerewolfGameManager
+import dev.slne.surf.survival.events.werewolf.util.WerewolfCommandRequirements
 
 fun joinWerewolfCommand() = subcommand("join") {
+    withRequirement { sender -> WerewolfCommandRequirements.canJoinGame(sender) }
     werewolfGameArgument("gameId")
     playerExecutor { player, arguments ->
         val game = arguments.get("gameId") as WerewolfService
