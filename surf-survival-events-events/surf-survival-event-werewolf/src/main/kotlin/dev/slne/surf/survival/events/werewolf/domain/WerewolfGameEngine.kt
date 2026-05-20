@@ -325,6 +325,7 @@ class WerewolfGameEngine(
         }
 
         advanceNightStepIfReady()
+        service.refreshCommandRequirements()
 
         return true
     }
@@ -375,6 +376,7 @@ class WerewolfGameEngine(
         val resolution = PriestActions.resolve(actor, target, service.players)
         resolution.eliminatedPlayers.forEach(service::executePlayer)
         messenger.announcePriestHolyWater(actor, target, resolution.hitWerewolf)
+        service.refreshCommandRequirements()
 
         return PriestActionResult.Success(
             hitWerewolf = resolution.hitWerewolf,
@@ -555,6 +557,7 @@ class WerewolfGameEngine(
         if (currentStep == NightStep.RESOLVE) return false
 
         advanceNightStepOnTimeout(NightStepAdvanceCause.SKIPPED)
+        service.refreshCommandRequirements()
         return true
     }
 

@@ -6,6 +6,7 @@ import dev.jorel.commandapi.kotlindsl.subcommand
 import dev.slne.surf.api.core.messages.Colors
 import dev.slne.surf.api.core.messages.adventure.buildText
 import dev.slne.surf.api.core.messages.adventure.sendText
+import dev.slne.surf.survival.events.werewolf.permissions.PermissionRegistry
 import dev.slne.surf.survival.events.werewolf.service.WerewolfGameManager
 import net.kyori.adventure.text.event.ClickEvent
 import net.kyori.adventure.text.event.HoverEvent
@@ -20,6 +21,7 @@ private fun createClickable(gameId: String) = buildText {
 
 
 fun openGameWerewolfCommand() = subcommand("openGame") {
+    withRequirement { sender -> sender is Player && sender.hasPermission(PermissionRegistry.COMMAND_WEREWOLF_ADMIN) }
     stringArgument("gameId")
     playerExecutor { player, arguments ->
         val gameId = arguments.get("gameId") as String

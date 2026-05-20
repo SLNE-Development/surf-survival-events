@@ -7,10 +7,12 @@ import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.api.core.messages.adventure.uuid
 import dev.slne.surf.survival.events.werewolf.service.WerewolfGameManager
 import dev.slne.surf.survival.events.werewolf.util.GameState
+import dev.slne.surf.survival.events.werewolf.util.WerewolfCommandRequirements
 import net.kyori.adventure.text.format.TextDecoration
 import org.bukkit.entity.Player
 
 fun voteWerewolfCommand() = subcommand("vote") {
+    withRequirement { sender -> WerewolfCommandRequirements.canVote(sender) }
     withArguments(EntitySelectorArgument.OnePlayer("player"))
     playerExecutor { commandSender, arguments ->
         val targetPlayer = arguments.get("player") as Player

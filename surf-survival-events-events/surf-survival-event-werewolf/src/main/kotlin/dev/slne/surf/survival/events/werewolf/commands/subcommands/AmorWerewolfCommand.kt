@@ -9,11 +9,13 @@ import dev.slne.surf.survival.events.werewolf.service.WerewolfGameManager
 import dev.slne.surf.survival.events.werewolf.util.GameState
 import dev.slne.surf.survival.events.werewolf.util.NightAction
 import dev.slne.surf.survival.events.werewolf.util.NightStep
+import dev.slne.surf.survival.events.werewolf.util.WerewolfCommandRequirements
 import dev.slne.surf.survival.events.werewolf.util.WerwolfRoles
 import net.kyori.adventure.text.format.TextDecoration
 import org.bukkit.entity.Player
 
 fun amorWerewolfCommand() = subcommand("amor") {
+    withRequirement { sender -> WerewolfCommandRequirements.canActAsAmor(sender) }
     withArguments(EntitySelectorArgument.OnePlayer("firstPlayer"))
     withArguments(EntitySelectorArgument.OnePlayer("secondPlayer"))
 

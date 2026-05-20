@@ -317,6 +317,8 @@ class WerewolfService(val gameId: String) {
 
                             GameState.MAYOR_VOTE -> Unit
                         }
+
+                        refreshCommandRequirements()
                     }
                 }
             }
@@ -341,6 +343,7 @@ class WerewolfService(val gameId: String) {
                 }
             }
 
+            refreshCommandRequirements()
             return WerewolfStartResult.Success
         } catch (e: Exception) {
             _phase = GamePhase.IDLE
@@ -349,9 +352,10 @@ class WerewolfService(val gameId: String) {
     }
 
     fun finishGame(winner: GameOutcome) {
+        val participants = allParticipants
         messenger.announceWinner(winner)
         stop()
-        WerewolfGameManager.removeGame(gameId)
+        WerewolfGameManager.removeGame(gameId, participants)
     }
 
     fun stop() {
@@ -412,6 +416,10 @@ class WerewolfService(val gameId: String) {
 
         if (phase == GamePhase.RUNNING) {
             engine.checkWinCondition()?.let(::finishGame)
+        }
+
+        if (phase != GamePhase.IDLE) {
+            refreshCommandRequirements()
         }
 
         return true
@@ -676,6 +684,8 @@ class WerewolfService(val gameId: String) {
                 }
             }
         }
+
+        refreshCommandRequirements()
     }
 
     private fun restoreParticipantVisibility() {
@@ -744,6 +754,8 @@ class WerewolfService(val gameId: String) {
     fun announceToRole(role: WerwolfRoles, onlyAlive: Boolean = true, content: SurfComponentBuilder.() -> Unit) = messenger.announceToRole(role, onlyAlive, content)
 
     fun announceToAlive(content: SurfComponentBuilder.() -> Unit) = messenger.announceToAlive(content)
+
+    fun refreshCommandRequirements() = WerewolfCommandRequirements.update(allParticipants)
 
     fun getPlayerRole(uuid: UUID): WerwolfRoles? {
         return players[uuid]?.role
@@ -823,9 +835,6 @@ class WerewolfService(val gameId: String) {
         messenger.announceLeaderVoiceChatClosed()
     }
 
-    /**
-     * Entfernt Spieler aus dem privaten Voice-Chat-Channel
-     */
     fun removePlayersFromPrivateChannel() {
         audioHandler.clearPrivateChannel()
         if (!privateWerewolfVoiceChatActive) return
@@ -842,6 +851,7 @@ class WerewolfService(val gameId: String) {
 
     private suspend fun waitForPhaseTransition() {
         _isPhaseTransitioning = true
+        refreshCommandRequirements()
         try {
             delay(phaseTransitionDelay)
         } finally {

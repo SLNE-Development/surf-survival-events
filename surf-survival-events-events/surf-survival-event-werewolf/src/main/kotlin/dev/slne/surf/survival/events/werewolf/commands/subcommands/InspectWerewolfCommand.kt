@@ -8,11 +8,13 @@ import dev.slne.surf.api.core.messages.adventure.uuid
 import dev.slne.surf.survival.events.werewolf.service.WerewolfGameManager
 import dev.slne.surf.survival.events.werewolf.util.GameState
 import dev.slne.surf.survival.events.werewolf.util.NightStep
+import dev.slne.surf.survival.events.werewolf.util.WerewolfCommandRequirements
 import dev.slne.surf.survival.events.werewolf.util.WerwolfRoles
 import net.kyori.adventure.text.format.TextDecoration
 import org.bukkit.entity.Player
 
 fun inspectWerewolfCommand() = subcommand("inspect") {
+    withRequirement { sender -> WerewolfCommandRequirements.canActAsSeer(sender) }
     withArguments(EntitySelectorArgument.OnePlayer("player"))
 
     playerExecutor { commandSender, arguments ->

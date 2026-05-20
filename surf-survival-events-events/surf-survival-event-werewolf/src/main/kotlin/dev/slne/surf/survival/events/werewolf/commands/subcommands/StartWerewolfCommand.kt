@@ -6,8 +6,10 @@ import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.survival.events.werewolf.commands.argument.werewolfGameArgument
 import dev.slne.surf.survival.events.werewolf.service.WerewolfStartResult
 import dev.slne.surf.survival.events.werewolf.service.WerewolfService
+import dev.slne.surf.survival.events.werewolf.util.WerewolfCommandRequirements
 
 fun startWerewolfCommand() = subcommand("start") {
+    withRequirement { sender -> WerewolfCommandRequirements.canStartGame(sender) }
     werewolfGameArgument("gameId")
     playerExecutor { player, arguments ->
         val game = arguments.get("gameId") as WerewolfService

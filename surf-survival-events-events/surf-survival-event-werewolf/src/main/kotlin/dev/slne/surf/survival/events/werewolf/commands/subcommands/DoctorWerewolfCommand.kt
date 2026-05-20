@@ -9,11 +9,13 @@ import dev.slne.surf.survival.events.werewolf.service.WerewolfGameManager
 import dev.slne.surf.survival.events.werewolf.util.GameState
 import dev.slne.surf.survival.events.werewolf.util.NightAction
 import dev.slne.surf.survival.events.werewolf.util.NightStep
+import dev.slne.surf.survival.events.werewolf.util.WerewolfCommandRequirements
 import dev.slne.surf.survival.events.werewolf.util.WerwolfRoles
 import net.kyori.adventure.text.format.TextDecoration
 import org.bukkit.entity.Player
 
 fun doctorWerewolfCommand() = subcommand("doctor") {
+    withRequirement { sender -> WerewolfCommandRequirements.canActAsDoctor(sender) }
     withArguments(EntitySelectorArgument.OnePlayer("player"))
 
     playerExecutor { commandSender, arguments ->

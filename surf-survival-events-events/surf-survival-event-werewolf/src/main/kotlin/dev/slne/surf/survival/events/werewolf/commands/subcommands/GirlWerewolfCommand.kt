@@ -8,10 +8,12 @@ import dev.slne.surf.survival.events.werewolf.service.WerewolfGameManager
 import dev.slne.surf.survival.events.werewolf.util.GameState
 import dev.slne.surf.survival.events.werewolf.util.GirlPeekOutcome
 import dev.slne.surf.survival.events.werewolf.util.NightStep
+import dev.slne.surf.survival.events.werewolf.util.WerewolfCommandRequirements
 import dev.slne.surf.survival.events.werewolf.util.WerwolfRoles
 import net.kyori.adventure.text.format.TextDecoration
 
 fun girlWerewolfCommand() = subcommand("girl") {
+    withRequirement { sender -> WerewolfCommandRequirements.canActAsGirl(sender) }
     playerExecutor { commandSender, _ ->
         val service = WerewolfGameManager.getGameForPlayer(commandSender.uuid())
 

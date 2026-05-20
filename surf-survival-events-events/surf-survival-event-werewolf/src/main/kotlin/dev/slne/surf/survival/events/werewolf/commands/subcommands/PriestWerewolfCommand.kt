@@ -8,10 +8,12 @@ import dev.slne.surf.api.core.messages.adventure.uuid
 import dev.slne.surf.survival.events.werewolf.service.WerewolfGameManager
 import dev.slne.surf.survival.events.werewolf.util.GameState
 import dev.slne.surf.survival.events.werewolf.util.PriestActionResult
+import dev.slne.surf.survival.events.werewolf.util.WerewolfCommandRequirements
 import dev.slne.surf.survival.events.werewolf.util.WerwolfRoles
 import org.bukkit.entity.Player
 
 fun priestWerewolfCommand() = subcommand("priest") {
+    withRequirement { sender -> WerewolfCommandRequirements.canActAsPriest(sender) }
     withArguments(EntitySelectorArgument.OnePlayer("player"))
 
     playerExecutor { commandSender, arguments ->
