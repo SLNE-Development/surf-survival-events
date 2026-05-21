@@ -5,6 +5,7 @@ import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.api.paper.event.cancel
 import dev.slne.surf.survival.events.race.service.RaceService
 import dev.slne.surf.survival.events.race.service.RaceState
+import dev.slne.surf.survival.events.race.service.RegionService
 import org.bukkit.entity.EntityType
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
@@ -71,7 +72,7 @@ object RaceListener : Listener {
     }
 
     @EventHandler
-    fun onDropEvent(event: PlayerDropItemEvent){
+    fun onDropEvent(event: PlayerDropItemEvent) {
         val player = event.player
         if (!RaceService.isInRace(player)) return
         event.cancel()
@@ -80,6 +81,34 @@ object RaceListener : Listener {
 
     @EventHandler
     fun onPlayerMove(event: PlayerMoveEvent) {
+        val player = event.player
+        //if (!RaceService.isInRace(player)) return
 
+        val to = event.to
+        val from = event.from
+
+        if (from.x.toInt() == to.x.toInt() &&
+            from.y.toInt() == to.y.toInt() &&
+            from.z.toInt() == to.z.toInt()
+        ) return
+
+        val checkpoint = RegionService.getCheckpoint(player.location)
+        val start = RegionService.getStart(player.location)
+
+        if (checkpoint != null) {
+            player.sendText {
+                appendSuccessPrefix()
+                success("Du hast den Checkpoint ${checkpoint.id} erreicht!")
+            }
+        }
+
+        if (start != null) {
+            player.sendText {
+                appendSuccessPrefix()
+                success("Du hast den Start erreicht!")
+            }
+        }
     }
+
+
 }

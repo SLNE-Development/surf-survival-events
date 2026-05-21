@@ -105,6 +105,10 @@ object RaceService {
 
                     setRaceState(RaceState.RUNNING)
                     RegionService.fillBlocks(Material.AIR)
+                    getRacePlayers().forEach { uuid ->
+                        ProgressService.addPlayer(uuid)
+                    }
+
 
                     scheduledTask.cancel()
                     task = null

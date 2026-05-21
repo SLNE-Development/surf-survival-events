@@ -13,9 +13,15 @@ val RegionData.minZ get() = minOf(z1, z2)
 val RegionData.maxZ get() = maxOf(z1, z2)
 
 fun RegionData.contains(location: Location): Boolean {
-    if (location.world?.name != world) return false
 
-    return location.x in minX..maxX &&
-            location.y in minY..maxY &&
-            location.z in minZ..maxZ
+    val worldName = location.world?.name ?: return false
+    if (worldName != world) return false
+
+    val x = location.blockX
+    val y = location.blockY
+    val z = location.blockZ
+
+    return x in minX.toInt()..maxX.toInt() &&
+            y in minY.toInt()..maxY.toInt() &&
+            z in minZ.toInt()..maxZ.toInt()
 }

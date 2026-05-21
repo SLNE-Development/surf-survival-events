@@ -41,6 +41,7 @@ object RegionService {
     }
 
     fun getCheckpoint(playerLocation: Location): SurfRaceConfig.Checkpoint? {
+
         return SurfRaceConfig.getConfig()
             .checkPoints
             .find { it.contains(playerLocation) }
