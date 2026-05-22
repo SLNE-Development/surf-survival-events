@@ -5,8 +5,8 @@ import dev.slne.surf.api.paper.event.register
 import dev.slne.surf.api.paper.inventory.framework.register
 import dev.slne.surf.survival.events.base.listeners.JoinQuitListener
 import dev.slne.surf.survival.events.base.menu.view.OverviewView
-import dev.slne.surf.survival.events.base.npc.listener.NpcInteractListener
-import dev.slne.surf.survival.events.base.npc.service.NpcService
+import dev.slne.surf.survival.events.base.listeners.NpcInteractListener
+import dev.slne.surf.survival.events.base.service.NpcService
 import dev.slne.surf.survival.events.base.util.commands.CommandManager
 import org.bukkit.plugin.java.JavaPlugin
 

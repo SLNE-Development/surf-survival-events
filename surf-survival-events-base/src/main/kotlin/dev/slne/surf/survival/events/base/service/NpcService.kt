@@ -1,4 +1,4 @@
-package dev.slne.surf.survival.events.base.npc.service
+package dev.slne.surf.survival.events.base.service
 
 import dev.slne.surf.api.core.font.toSmallCaps
 import dev.slne.surf.api.core.util.mutableObject2ObjectMapOf

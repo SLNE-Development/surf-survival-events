@@ -3,6 +3,7 @@ package dev.slne.surf.survival.events.race.listener
 import com.github.benmanes.caffeine.cache.Caffeine
 import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.api.paper.event.cancel
+import dev.slne.surf.survival.events.race.service.ProgressService
 import dev.slne.surf.survival.events.race.service.RaceService
 import dev.slne.surf.survival.events.race.service.RaceState
 import dev.slne.surf.survival.events.race.service.RegionService
@@ -82,7 +83,7 @@ object RaceListener : Listener {
     @EventHandler
     fun onPlayerMove(event: PlayerMoveEvent) {
         val player = event.player
-        //if (!RaceService.isInRace(player)) return
+        if (!RaceService.isInRace(player)) return
 
         val to = event.to
         val from = event.from
@@ -93,22 +94,25 @@ object RaceListener : Listener {
         ) return
 
         val checkpoint = RegionService.getCheckpoint(player.location)
-        val start = RegionService.getStart(player.location)
+        val lap = RegionService.getStart(player.location)
 
         if (checkpoint != null) {
-            player.sendText {
-                appendSuccessPrefix()
-                success("Du hast den Checkpoint ${checkpoint.id} erreicht!")
+            if (checkpoint.id < ProgressService.getCheckpoint(player.uniqueId)){
+                player.sendText {
+                    appendSuccessPrefix()
+                    success("Du hast den Checkpoint ${checkpoint.id} erreicht!")
+                }
+            }
+            if (canSendMessage(player.uniqueId)) {
+                player.sendText {
+                    appendErrorPrefix()
+                    error("Du warst hier bereits.")
+                }
             }
         }
 
-        if (start != null) {
-            player.sendText {
-                appendSuccessPrefix()
-                success("Du hast den Start erreicht!")
-            }
+        if (lap != null) {
+
         }
     }
-
-
 }

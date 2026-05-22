@@ -5,9 +5,9 @@ import dev.slne.surf.api.paper.dialog.dialog
 import dev.slne.surf.api.paper.dialog.*
 import dev.slne.surf.api.paper.dialog.builder.actionButton
 import dev.slne.surf.api.paper.extensions.server
-import dev.slne.surf.survival.events.base.games.service.AnnouncementService
-import dev.slne.surf.survival.events.base.games.service.GameService
-import dev.slne.surf.survival.events.base.games.util.Games
+import dev.slne.surf.survival.events.base.service.AnnouncementService
+import dev.slne.surf.survival.events.base.service.GameService
+import dev.slne.surf.survival.events.base.util.Games
 import dev.slne.surf.survival.events.base.menu.util.eventColored
 
 

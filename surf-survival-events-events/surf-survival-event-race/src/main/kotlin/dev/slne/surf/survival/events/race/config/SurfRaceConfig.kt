@@ -7,6 +7,7 @@ import org.spongepowered.configurate.objectmapping.ConfigSerializable
 
 @ConfigSerializable
 data class SurfRaceConfig(
+    var laps: Int = 5,
 
     var lobbyWorld: String = "world",
     var lobbyX: Double = 0.5,

@@ -8,7 +8,7 @@ import dev.jorel.commandapi.arguments.CustomArgument
 import dev.jorel.commandapi.arguments.CustomArgument.CustomArgumentException.fromAdventureComponent
 import dev.jorel.commandapi.arguments.StringArgument
 import dev.slne.surf.api.core.messages.adventure.buildText
-import dev.slne.surf.survival.events.base.games.util.Games
+import dev.slne.surf.survival.events.base.util.Games
 
 class GameArgument(nodeName: String) : CustomArgument<Games, String>(
     StringArgument(nodeName),

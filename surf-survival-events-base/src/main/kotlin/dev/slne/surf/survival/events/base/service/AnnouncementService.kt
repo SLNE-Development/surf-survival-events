@@ -1,4 +1,4 @@
-package dev.slne.surf.survival.events.base.games.service
+package dev.slne.surf.survival.events.base.service
 
 import com.github.shynixn.mccoroutine.folia.launch
 import com.github.shynixn.mccoroutine.folia.regionDispatcher

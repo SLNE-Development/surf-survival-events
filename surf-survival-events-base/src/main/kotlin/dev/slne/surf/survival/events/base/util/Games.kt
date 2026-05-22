@@ -1,4 +1,4 @@
-package dev.slne.surf.survival.events.base.games.util
+package dev.slne.surf.survival.events.base.util
 
 import com.destroystokyo.paper.profile.ProfileProperty
 import dev.slne.surf.api.core.font.toSmallCaps
@@ -10,7 +10,6 @@ import io.papermc.paper.datacomponent.DataComponentTypes
 import io.papermc.paper.datacomponent.item.ResolvableProfile
 import io.papermc.paper.datacomponent.item.TooltipDisplay
 import org.bukkit.Material
-
 
 enum class Games(
     val displayName: String,
@@ -52,6 +51,6 @@ enum class Games(
 
         fun isGameEnabled(name: String) = pluginManager.isPluginEnabled("surf-survival-event-${name.lowercase()}")
 
-        fun getGame(name: String) = Games.entries.find { it.name.equals(name, ignoreCase = true) }
+        fun getGame(name: String) = entries.find { it.name.equals(name, ignoreCase = true) }
     }
 }

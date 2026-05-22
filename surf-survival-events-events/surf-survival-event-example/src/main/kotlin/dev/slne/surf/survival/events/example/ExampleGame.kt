@@ -3,7 +3,7 @@ package dev.slne.surf.survival.events.example
 import org.bukkit.Bukkit
 import java.util.UUID
 
-object ExampleStartGame {
+object ExampleGame {
     fun startExampleGame(playerList: ArrayDeque<UUID>) {
 
         /**

@@ -1,11 +1,11 @@
-package dev.slne.surf.survival.events.base.games.service
+package dev.slne.surf.survival.events.base.service
 
 import dev.slne.surf.api.core.messages.Colors
 import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.api.core.messages.adventure.text
-import dev.slne.surf.survival.events.base.games.util.Games
+import dev.slne.surf.survival.events.base.util.Games
 import dev.slne.surf.survival.events.base.plugin
-import dev.slne.surf.survival.events.example.ExampleStartGame.startExampleGame
+import dev.slne.surf.survival.events.example.ExampleGame.startExampleGame
 import dev.slne.surf.survival.events.race.service.RaceService
 import dev.slne.surf.survival.events.race.service.RaceState
 import io.papermc.paper.threadedregions.scheduler.ScheduledTask

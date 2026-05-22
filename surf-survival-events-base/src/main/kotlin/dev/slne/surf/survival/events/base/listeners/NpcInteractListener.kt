@@ -1,8 +1,8 @@
-package dev.slne.surf.survival.events.base.npc.listener
+package dev.slne.surf.survival.events.base.listeners
 
 import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.npc.api.event.NpcInteractEvent
-import dev.slne.surf.survival.events.base.games.service.GameService
+import dev.slne.surf.survival.events.base.service.GameService
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 
