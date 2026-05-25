@@ -3,6 +3,7 @@ package dev.slne.surf.survival.events.race.listener
 import com.github.benmanes.caffeine.cache.Caffeine
 import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.api.paper.event.cancel
+import dev.slne.surf.survival.events.race.config.SurfRaceConfig
 import dev.slne.surf.survival.events.race.service.ProgressService
 import dev.slne.surf.survival.events.race.service.RaceService
 import dev.slne.surf.survival.events.race.service.RaceState
@@ -79,40 +80,92 @@ object RaceListener : Listener {
         event.cancel()
     }
 
-
     @EventHandler
     fun onPlayerMove(event: PlayerMoveEvent) {
+
         val player = event.player
+        val uuid = player.uniqueId
+
         if (!RaceService.isInRace(player)) return
+        if (ProgressService.isFinished(uuid)) return
 
-        val to = event.to
         val from = event.from
+        val to = event.to
 
-        if (from.x.toInt() == to.x.toInt() &&
-            from.y.toInt() == to.y.toInt() &&
-            from.z.toInt() == to.z.toInt()
+        if (
+            from.blockX == to.blockX &&
+            from.blockY == to.blockY &&
+            from.blockZ == to.blockZ
         ) return
 
-        val checkpoint = RegionService.getCheckpoint(player.location)
-        val lap = RegionService.getStart(player.location)
+        val checkpointFrom = RegionService.getCheckpoint(from)
+        val checkpointTo = RegionService.getCheckpoint(to)
 
-        if (checkpoint != null) {
-            if (checkpoint.id < ProgressService.getCheckpoint(player.uniqueId)){
+        val startFrom = RegionService.getStart(from)
+        val startTo = RegionService.getStart(to)
+
+        val currentCheckpoint = ProgressService.getCheckpoint(uuid)
+
+        if (checkpointFrom == null && checkpointTo != null) {
+
+            val expectedCheckpoint = currentCheckpoint + 1
+
+            if (checkpointTo.id == expectedCheckpoint) {
+
+                ProgressService.checkpointUp(uuid)
+
                 player.sendText {
                     appendSuccessPrefix()
-                    success("Du hast den Checkpoint ${checkpoint.id} erreicht!")
+                    success("Du hast den Checkpoint ${checkpointTo.id} erreicht!")
+                }
+
+            } else {
+
+                if (canSendMessage(uuid)) {
+                    player.sendText {
+                        appendErrorPrefix()
+                        error("Falscher Checkpoint!")
+                    }
                 }
             }
-            if (canSendMessage(player.uniqueId)) {
+        }
+
+        if (startFrom == null && startTo != null) {
+
+            val config = SurfRaceConfig.getConfig()
+            val highestCheckpoint =
+                config.checkPoints.maxOfOrNull { it.id } ?: return
+
+            if (ProgressService.getCheckpoint(uuid) == highestCheckpoint) {
+
+                ProgressService.lapUp(uuid)
+
+                val lap = ProgressService.getLap(uuid)
+
+                if (lap >= config.laps) {
+
+                    ProgressService.setFinished(uuid, true)
+                    ProgressService.addPlace(uuid)
+
+                    val place = ProgressService.getPlace(uuid)
+
+                    player.sendText {
+                        appendSuccessPrefix()
+                        success("Du hast das Rennen auf Platz $place beendet!")
+                    }
+
+                    return
+                }
+
+                ProgressService.checkpointReset(uuid)
+
                 player.sendText {
-                    appendErrorPrefix()
-                    error("Du warst hier bereits.")
+                    appendSuccessPrefix()
+                    success("Du bist jetzt in Runde ${lap + 1}!")
                 }
             }
         }
 
-        if (lap != null) {
-
-        }
     }
+
 }

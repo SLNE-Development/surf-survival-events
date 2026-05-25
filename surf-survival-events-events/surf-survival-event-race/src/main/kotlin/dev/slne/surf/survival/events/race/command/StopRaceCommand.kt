@@ -3,6 +3,7 @@ package dev.slne.surf.survival.events.race.command
 import dev.jorel.commandapi.kotlindsl.anyExecutor
 import dev.jorel.commandapi.kotlindsl.subcommand
 import dev.slne.surf.api.core.messages.adventure.sendText
+import dev.slne.surf.survival.events.race.service.ProgressService
 import dev.slne.surf.survival.events.race.service.RaceService
 import dev.slne.surf.survival.events.race.service.RaceState
 import dev.slne.surf.survival.events.race.utils.PermissionRegistry
@@ -27,6 +28,7 @@ fun raceStopCommand() = subcommand("stop") {
         }
 
         RaceService.setRaceState(RaceState.DEACTIVATED)
+        ProgressService.clear()
 
         RaceService.getRacePlayers().toList().forEach { uuid ->
             val player = Bukkit.getPlayer(uuid) ?: return@forEach
