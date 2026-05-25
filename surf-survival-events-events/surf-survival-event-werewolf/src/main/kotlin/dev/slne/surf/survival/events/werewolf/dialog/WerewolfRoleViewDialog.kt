@@ -36,7 +36,7 @@ object WerewolfRoleViewDialoge {
                             return@plainMessage
                         }
 
-                        primary("ðŸ§© Deine Rolle")
+                        primary("🧩 Deine Rolle")
                         appendNewline()
                         spacer("─".repeat(40))
                         appendNewline()
@@ -57,16 +57,16 @@ object WerewolfRoleViewDialoge {
                         spacer("─".repeat(40))
                         appendNewline()
                         if (!role.isHostile) {
-                            info("ðŸŒž Das Dorf zählt auf dich.")
+                            info("🌞 Das Dorf zählt auf dich.")
                         } else {
-                            info("ðŸŒ™ Die Nacht ist dein Verbündeter…")
+                            info("🌙 Die Nacht ist dein Verbündeter…")
                         }
                         appendNewline()
                         spacer("─".repeat(40))
                     }
 
                     else {
-                        primary("ðŸ“œ Rollenübersicht")
+                        primary("📜 Rollenübersicht")
                         appendNewline()
                         spacer("─".repeat(40))
                         appendNewline()
@@ -76,13 +76,13 @@ object WerewolfRoleViewDialoge {
                             val role = wwPlayer.role
                             val name = server.getPlayer(wwPlayer.uuid)?.name ?: "Unbekannt"
 
-                            val deathState = if (wwPlayer.isAlive) "ðŸŸ¢ lebt" else "ðŸ”´ tot"
+                            val deathState = if (wwPlayer.isAlive) "🟢 lebt" else "🔴 tot"
                             val loveState = wwPlayer.inLoveWith?.let {
                                 val loverName = server.getPlayer(it)?.name ?: "Unbekannt"
-                                "ðŸ’˜ verliebt in $loverName"
-                            } ?: "ðŸ¤ nicht verliebt"
+                                "💘 verliebt in $loverName"
+                            } ?: "🤍 nicht verliebt"
 
-                            success("ðŸ‘¤ $name")
+                            success("👤 $name")
                             appendSpace()
                             info("→")
                             appendSpace()
