@@ -15,6 +15,8 @@ fun raceCommand() = commandAPICommand("race") {
         surfModToolsReloadCommand(),
         raceStopCommand(),
         setLapsCommand(),
+        getLeaderboardCommand(),
+        nextRoundCommand(),
     )
     anyExecutor { _, _ -> }
 }

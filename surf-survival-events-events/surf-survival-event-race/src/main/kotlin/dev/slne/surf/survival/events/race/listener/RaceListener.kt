@@ -87,6 +87,7 @@ object RaceListener : Listener {
         val uuid = player.uniqueId
 
         if (!RaceService.isInRace(player)) return
+        if (RaceService.getRaceState() != RaceState.RUNNING) return
         if (ProgressService.isFinished(uuid)) return
 
         val from = event.from
@@ -133,8 +134,7 @@ object RaceListener : Listener {
         if (startFrom == null && startTo != null) {
 
             val config = SurfRaceConfig.getConfig()
-            val highestCheckpoint =
-                config.checkPoints.maxOfOrNull { it.id } ?: return
+            val highestCheckpoint = config.checkPoints.maxOfOrNull { it.id } ?: return
 
             if (ProgressService.getCheckpoint(uuid) == highestCheckpoint) {
 
@@ -167,5 +167,4 @@ object RaceListener : Listener {
         }
 
     }
-
 }

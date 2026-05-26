@@ -2,7 +2,6 @@ package dev.slne.surf.survival.events.base.service
 
 import com.github.shynixn.mccoroutine.folia.launch
 import com.github.shynixn.mccoroutine.folia.regionDispatcher
-import dev.slne.surf.api.core.messages.adventure.clickRunsCommand
 import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.survival.events.base.plugin
 import kotlinx.coroutines.withContext
@@ -27,12 +26,7 @@ object AnnouncementService {
             appendNewline()
             text("Das ${activeGame.displayName} hat gestartet!", TextColor.color(0xD98E8D))
             appendNewline()
-            info("Trete über")
-            appendSpace()
-            text("/event join", TextColor.color(0xF5A19F))
-            clickRunsCommand("/event join")
-            appendSpace()
-            info("dem Event bei.")
+            info("Begebe dich zum Central Spawn und klicke auf Arty, um am Event teilzunehmen.")
             appendNewline()
             appendNewline()
             text("--------------------------------------------------", TextColor.color(0x599542))

@@ -10,7 +10,7 @@ import dev.slne.surf.survival.events.race.utils.PermissionRegistry
 
 fun setLapsCommand() = subcommand("set-laps") {
     withPermission(PermissionRegistry.COMMAND_COMMUNITY_MANAGER)
-    integerArgument("laps", 1)
+    integerArgument("rawLaps", 1)
     anyExecutor { sender, args ->
         val rawLaps: Int by args
 

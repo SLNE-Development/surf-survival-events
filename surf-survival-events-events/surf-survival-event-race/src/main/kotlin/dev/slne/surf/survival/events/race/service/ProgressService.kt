@@ -3,7 +3,7 @@ package dev.slne.surf.survival.events.race.service
 import java.util.UUID
 
 data class PlayerRaceProgress(
-    var currentCheckpoint: Int = -1,
+    var currentCheckpoint: Int = 0,
     var currentLap: Int = 0,
     var finished: Boolean = false
 )
@@ -18,7 +18,7 @@ object ProgressService {
     }
 
     fun getCheckpoint(uuid: UUID): Int {
-        return playerProgress[uuid]?.currentCheckpoint ?: -1
+        return playerProgress[uuid]?.currentCheckpoint ?: 0
     }
 
     fun checkpointUp(uuid: UUID) {
@@ -28,7 +28,7 @@ object ProgressService {
     }
 
     fun checkpointReset(uuid: UUID) {
-        playerProgress[uuid]?.currentCheckpoint = -1
+        playerProgress[uuid]?.currentCheckpoint = 0
     }
 
     fun lapUp(uuid: UUID) {
@@ -59,6 +59,10 @@ object ProgressService {
         return places.indexOf(uuid) + 1
     }
 
+    fun getPlaceList(): ArrayDeque<UUID> {
+        return places
+    }
+
     fun removePlayer(uuid: UUID) {
         playerProgress.remove(uuid)
         places.remove(uuid)
@@ -68,7 +72,6 @@ object ProgressService {
         playerProgress.clear()
         places.clear()
     }
-
 }
 
 
