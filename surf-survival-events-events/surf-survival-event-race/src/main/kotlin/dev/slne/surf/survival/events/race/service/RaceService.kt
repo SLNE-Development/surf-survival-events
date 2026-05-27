@@ -2,7 +2,6 @@ package dev.slne.surf.survival.events.race.service
 
 import com.github.shynixn.mccoroutine.folia.entityDispatcher
 import com.github.shynixn.mccoroutine.folia.launch
-import com.github.shynixn.mccoroutine.folia.regionDispatcher
 import dev.slne.surf.api.core.messages.Colors
 import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.api.core.messages.adventure.title
@@ -81,18 +80,15 @@ object RaceService {
     }
 
     fun setPlayerOnNautilus(player: Player) {
-        plugin.launch {
-            val location = player.location
-            withContext(plugin.regionDispatcher(location)) {
-                val nautilus = location.world.spawn(location, Nautilus::class.java) { entity ->
-                    entity.inventory.addItem(ItemStack(Material.SADDLE))
-                    entity.owner = player
-                    entity.isInvulnerable = true
-                }
-                playerNautilus[player.uniqueId] = nautilus.uniqueId
-                nautilus.addPassenger(player)
-            }
+        val location = player.location
+
+        val nautilus = location.world.spawn(location, Nautilus::class.java) { entity ->
+            entity.inventory.addItem(ItemStack(Material.SADDLE))
+            entity.owner = player
+            entity.isInvulnerable = true
         }
+        playerNautilus[player.uniqueId] = nautilus.uniqueId
+        nautilus.addPassenger(player)
     }
 
     fun startCountdown() {
@@ -156,57 +152,66 @@ object RaceService {
 
 
     fun nextRound(int: Int) {
-        val realInt = int.minus(1)
-        val places = ProgressService.getPlaceList()
+        val places = ProgressService.getPlaceList().toList()
 
+        val survivors = places.take(int)
+        val eliminated = places.drop(int)
 
+        eliminated.forEach { uuid ->
+            val player = Bukkit.getPlayer(uuid)
 
-        places.forEach { uuid ->
-            val playerIndex = places.indexOf(uuid)
-             if (playerIndex < realInt) {
-
-                 val player = Bukkit.getPlayer(uuid)
-                 player?.sendText {
-                     appendInfoPrefix()
-                     info("Du bist leider raus, danke fürs Mitmachen!")
-                 }
-                 ProgressService.removePlayer(uuid)
-                 removePlayer(player ?: return@forEach)
-                 val uuidNautilus = playerNautilus[uuid] ?: return
-                 Bukkit.getEntity(uuidNautilus)?.remove()
+            player?.sendText {
+                appendInfoPrefix()
+                info("Du bist leider raus, danke fürs Mitmachen!")
             }
+
+            ProgressService.removePlayer(uuid)
+            player?.let { removePlayer(it) }
         }
 
-        places.forEach { uuid ->
+        survivors.forEach { uuid ->
             val player = Bukkit.getPlayer(uuid) ?: return@forEach
+
             ProgressService.setFinished(uuid, false)
+
             player.sendText {
                 appendInfoPrefix()
                 info("Du hast es in die nächste Runde geschafft!")
             }
-            val uuidNautilus = playerNautilus[uuid] ?: return
-            Bukkit.getEntity(uuidNautilus)?.remove()
+
+            playerNautilus[uuid]?.let {
+                Bukkit.getEntity(it)?.remove()
+            }
         }
+
         playerToMid()
     }
 
     fun playerToMid() {
 
+        setRaceState(RaceState.WAITING)
 
+        val players = getRacePlayers()
+            .mapNotNull { Bukkit.getPlayer(it) }
 
-        getRacePlayers().forEach { uuid ->
-            val player = Bukkit.getPlayer(uuid) ?: return@forEach
-            setPlayerOnNautilus(player)
-        }
+        val starts = SurfRaceConfig.getConfig().start
 
-        SurfRaceConfig.getConfig().start.forEach { start ->
+        players.forEachIndexed { index, player ->
+
+            val start = starts.getOrNull(index) ?: starts.first()
             val location = midLocation(start)
 
-            getRacePlayers().forEach { uuid ->
-                Bukkit.getPlayer(uuid)?.teleportAsync(location)
+            plugin.launch {
+                withContext(plugin.entityDispatcher(player)) {
+
+                    player.teleportAsync(location)
+
+                    setPlayerOnNautilus(player)
+                }
             }
         }
-        setRaceState(RaceState.WAITING)
+
+
     }
 
     private fun midLocation(start: SurfRaceConfig.Start): Location {

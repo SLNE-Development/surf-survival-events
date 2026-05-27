@@ -15,7 +15,9 @@ fun getLeaderboardCommand() = subcommand("get-leaderboard") {
         val places = ProgressService.getPlaceList()
         sender.sendText {
             text("--------------------------------------------------", TextColor.color(0x599542))
+            appendNewline()
             info("Plätze:")
+            appendNewline()
             places.forEach { uuid ->
                 val player = Bukkit.getPlayer(uuid)
                 variableValue(player?.name ?: uuid.toString())
