@@ -1,7 +1,6 @@
 package dev.slne.surf.survival.events.base.command
 
-import dev.jorel.commandapi.kotlindsl.commandAPICommand
-import dev.jorel.commandapi.kotlindsl.playerExecutor
+import dev.jorel.commandapi.kotlindsl.commandTree
 import dev.slne.surf.survival.events.base.command.subcommand.changePlayerLimitCommand
 import dev.slne.surf.survival.events.base.command.subcommand.eventMenuCommand
 import dev.slne.surf.survival.events.base.command.subcommand.joinAsSpectatorCommand
@@ -13,19 +12,15 @@ import dev.slne.surf.survival.events.base.command.subcommand.spawnNpc
 import dev.slne.surf.survival.events.base.command.subcommand.startEventCommand
 import dev.slne.surf.survival.events.base.command.subcommand.stopEventCommand
 
-fun openMainMenu() = commandAPICommand("event") {
-    withSubcommands(
-        startEventCommand(),
-        stopEventCommand(),
-        joinAsSpectatorCommand(),
-        leaveQueueCommand(),
-        showQueueCommand(),
-        eventMenuCommand(),
-        kickPlayerCommand(),
-        changePlayerLimitCommand(),
-        spawnNpc(),
-        removeNpc(),
-    )
-    
-    playerExecutor { _, _ -> }
+fun openMainMenu() = commandTree("event") {
+        startEventCommand()
+        stopEventCommand()
+        joinAsSpectatorCommand()
+        leaveQueueCommand()
+        showQueueCommand()
+        eventMenuCommand()
+        kickPlayerCommand()
+        changePlayerLimitCommand()
+        spawnNpc()
+        removeNpc()
 }

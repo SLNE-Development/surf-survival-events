@@ -17,9 +17,19 @@ object ProgressService {
         playerProgress[uuid] = PlayerRaceProgress()
     }
 
-    fun getCheckpoint(uuid: UUID): Int {
-        return playerProgress[uuid]?.currentCheckpoint ?: 0
+    fun removePlayer(uuid: UUID) {
+        playerProgress.remove(uuid)
+        places.remove(uuid)
     }
+
+    fun clear() {
+        playerProgress.clear()
+        places.clear()
+    }
+
+    fun getCheckpoint(uuid: UUID) =
+        playerProgress[uuid]?.currentCheckpoint ?: 0
+
 
     fun checkpointUp(uuid: UUID) {
         playerProgress[uuid]?.let {
@@ -31,22 +41,22 @@ object ProgressService {
         playerProgress[uuid]?.currentCheckpoint = 0
     }
 
+    fun getLap(uuid: UUID) =
+        playerProgress[uuid]?.currentLap ?: 0
+
+
     fun lapUp(uuid: UUID) {
         playerProgress[uuid]?.let {
             it.currentLap++
         }
     }
 
-    fun getLap(uuid: UUID): Int {
-        return playerProgress[uuid]?.currentLap ?: 0
-    }
+    fun isFinished(uuid: UUID) =
+        playerProgress[uuid]?.finished ?: false
+
 
     fun setFinished(uuid: UUID, finished: Boolean) {
         playerProgress[uuid]?.finished = finished
-    }
-
-    fun isFinished(uuid: UUID): Boolean {
-        return playerProgress[uuid]?.finished ?: false
     }
 
     fun addPlace(uuid: UUID) {
@@ -62,18 +72,4 @@ object ProgressService {
     fun getPlaceList(): ArrayDeque<UUID> {
         return places
     }
-
-    fun removePlayer(uuid: UUID) {
-        playerProgress.remove(uuid)
-        places.remove(uuid)
-    }
-
-    fun clear() {
-        playerProgress.clear()
-        places.clear()
-    }
-
-
 }
-
-

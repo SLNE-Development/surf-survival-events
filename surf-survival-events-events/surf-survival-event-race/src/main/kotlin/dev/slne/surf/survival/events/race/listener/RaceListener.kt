@@ -29,14 +29,15 @@ object RaceListener : Listener {
 
     private fun canSendMessage(uuid: UUID): Boolean {
         if (messageCooldown.getIfPresent(uuid) != null) return false
+
         messageCooldown.put(uuid, true)
         return true
     }
 
     @EventHandler
     fun onVehicleExit(event: VehicleExitEvent) {
-        val player = event.exited
-        if (player !is Player) return
+        val player = event.exited as? Player ?: return
+
         if (event.vehicle.type != EntityType.NAUTILUS) return
         if (!RaceService.isInRace(player)) return
 
@@ -46,13 +47,14 @@ object RaceListener : Listener {
                 error("Du darfst dich nicht vom Sattel schmeißen lassen!")
             }
         }
+
         event.cancel()
     }
 
     @EventHandler
-    fun onVehicleChange(event: VehicleEnterEvent) {
-        val player = event.entered
-        if (player !is Player) return
+    fun onVehicleEnter(event: VehicleEnterEvent) {
+        val player = event.entered as? Player ?: return
+
         if (event.vehicle.type != EntityType.NAUTILUS) return
         if (!RaceService.isInRace(player)) return
         if (RaceService.getRaceState() == RaceState.WAITING) return
@@ -63,12 +65,14 @@ object RaceListener : Listener {
                 error("Du sollst andere nicht Kapern!")
             }
         }
+
         event.cancel()
     }
 
     @EventHandler
     fun onInventoryClick(event: InventoryClickEvent) {
         val player = event.whoClicked as? Player ?: return
+
         if (!RaceService.isInRace(player)) return
 
         event.cancel()
@@ -77,18 +81,20 @@ object RaceListener : Listener {
     @EventHandler
     fun onDropEvent(event: PlayerDropItemEvent) {
         val player = event.player
+
         if (!RaceService.isInRace(player)) return
+
         event.cancel()
     }
 
     @EventHandler
     fun onPlayerMove(event: PlayerMoveEvent) {
-
         val player = event.player
         val uuid = player.uniqueId
+        val raceState = RaceService.getRaceState()
 
         if (!RaceService.isInRace(player)) return
-        if (RaceService.getRaceState() != RaceState.RUNNING) return
+        if (raceState != RaceState.RUNNING) return
         if (ProgressService.isFinished(uuid)) return
 
         val from = event.from
@@ -98,7 +104,9 @@ object RaceListener : Listener {
             from.blockX == to.blockX &&
             from.blockY == to.blockY &&
             from.blockZ == to.blockZ
-        ) return
+        ) {
+            return
+        }
 
         val checkpointFrom = RegionService.getCheckpoint(from)
         val checkpointTo = RegionService.getCheckpoint(to)
@@ -121,15 +129,14 @@ object RaceListener : Listener {
                     success("Du hast den Checkpoint ${checkpointTo.id} erreicht!")
                 }
 
-            } else {
+            } else if (canSendMessage(uuid)) {
 
-                if (canSendMessage(uuid)) {
-                    player.sendText {
-                        appendErrorPrefix()
-                        error("Falscher Checkpoint!")
-                    }
+                player.sendText {
+                    appendErrorPrefix()
+                    error("Falscher Checkpoint!")
                 }
             }
+            return
         }
 
         if (startFrom == null && startTo != null) {
@@ -137,52 +144,54 @@ object RaceListener : Listener {
             val config = SurfRaceConfig.getConfig()
             val highestCheckpoint = config.checkPoints.maxOfOrNull { it.id } ?: return
 
-            if (ProgressService.getCheckpoint(uuid) == highestCheckpoint) {
+            if (ProgressService.getCheckpoint(uuid) != highestCheckpoint) {
+                return
+            }
 
-                ProgressService.lapUp(uuid)
+            ProgressService.lapUp(uuid)
 
-                val lap = ProgressService.getLap(uuid)
+            val lap = ProgressService.getLap(uuid)
 
-                if (lap >= config.laps) {
+            if (lap >= config.laps) {
 
-                    ProgressService.setFinished(uuid, true)
-                    ProgressService.addPlace(uuid)
+                ProgressService.setFinished(uuid, true)
+                ProgressService.addPlace(uuid)
 
-                    val place = ProgressService.getPlace(uuid)
+                val place = ProgressService.getPlace(uuid)
 
-                    RaceService.getSpectatorPlayers().forEach { uuid ->
-                        val playerSpectator = Bukkit.getPlayer(uuid) ?: return@forEach
-                        playerSpectator.sendText {
-                            appendInfoPrefix()
-                            variableValue(player.name)
-                            appendSpace()
-                            info("hat das Rennen auf Platz")
-                            appendSpace()
-                            variableValue("$place")
-                            appendSpace()
-                            info("beendet!")
-                        }
-                    }
+                RaceService.getSpectatorPlayers().forEach { spectatorUuid ->
+                    val spectator = Bukkit.getPlayer(spectatorUuid) ?: return@forEach
 
-                    player.sendText {
-                        appendSuccessPrefix()
-                        success("Du hast das Rennen auf Platz")
+                    spectator.sendText {
+                        appendInfoPrefix()
+                        variableValue(player.name)
                         appendSpace()
-                        variableValue(place)
+                        info("hat das Rennen auf Platz")
                         appendSpace()
-                        success("beendet!")
+                        variableValue("$place")
+                        appendSpace()
+                        info("beendet!")
                     }
-                    return
                 }
-
-                ProgressService.checkpointReset(uuid)
 
                 player.sendText {
                     appendSuccessPrefix()
-                    success("Du bist jetzt in Runde ${lap + 1}!")
+                    success("Du hast das Rennen auf Platz")
+                    appendSpace()
+                    variableValue(place)
+                    appendSpace()
+                    success("beendet!")
                 }
+
+                return
+            }
+
+            ProgressService.checkpointReset(uuid)
+
+            player.sendText {
+                appendSuccessPrefix()
+                success("Du bist jetzt in Runde ${lap + 1}!")
             }
         }
-
     }
 }

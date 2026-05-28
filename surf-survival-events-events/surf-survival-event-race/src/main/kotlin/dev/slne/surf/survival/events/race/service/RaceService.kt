@@ -20,20 +20,18 @@ import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 object RaceService {
+
     private val racePlayers = mutableListOf<UUID>()
-
     private val spectators = mutableListOf<UUID>()
-
     private val playerNautilus = mutableMapOf<UUID, UUID>()
 
     private var raceState = RaceState.DEACTIVATED
-
     private var countdown = 10
-
     private var task: ScheduledTask? = null
 
     fun addPlayer(uuid: UUID) {
         val player = Bukkit.getPlayer(uuid)
+
         val lobby = SurfRaceConfig.getConfig().let {
             Location(
                 Bukkit.getWorld(it.lobbyWorld),
@@ -44,36 +42,22 @@ object RaceService {
                 it.lobbyPitch
             )
         }
+
         plugin.launch {
             player?.teleportAsync(lobby)
         }
+
         racePlayers.add(uuid)
     }
 
-    fun isInRace(player: Player): Boolean {
-        val uuid = player.uniqueId
-        return racePlayers.contains(uuid)
-    }
-
-    fun getRacePlayers(): MutableList<UUID> {
-        return racePlayers
-    }
-
-    fun getRaceState(): RaceState {
-        return raceState
-    }
-
-    fun setRaceState(state: RaceState) {
-        raceState = state
-    }
-
     fun removePlayer(player: Player): Boolean {
-        val centralSpawn = Location(player.world, 0.0, 73.0, 0.0, 0f, 0f)
         val uuid = player.uniqueId
-        val uuidNautilus = playerNautilus[player.uniqueId] ?: return false
+        val centralSpawn = Location(player.world, 0.0, 73.0, 0.0, 0f, 0f)
 
-        Bukkit.getEntity(uuidNautilus)?.remove()
-        playerNautilus.remove(player.uniqueId)
+        val nautilusId = playerNautilus[uuid] ?: return false
+
+        Bukkit.getEntity(nautilusId)?.remove()
+        playerNautilus.remove(uuid)
 
         ProgressService.removePlayer(uuid)
 
@@ -81,9 +65,44 @@ object RaceService {
             player.teleportAsync(centralSpawn).await()
         }
 
-
-
         return racePlayers.remove(uuid)
+    }
+
+    fun isInRace(player: Player) = racePlayers.contains(player.uniqueId)
+
+    fun getRacePlayers(): MutableList<UUID> = racePlayers
+
+    fun addSpectators(uuid: UUID) {
+        val player = Bukkit.getPlayer(uuid)
+
+        val lobby = SurfRaceConfig.getConfig().let {
+            Location(
+                Bukkit.getWorld(it.lobbyWorld),
+                it.lobbyX,
+                it.lobbyY,
+                it.lobbyZ,
+                it.lobbyYaw,
+                it.lobbyPitch
+            )
+        }
+
+        plugin.launch {
+            player?.teleportAsync(lobby)
+        }
+
+        spectators.add(uuid)
+    }
+
+    fun getSpectatorPlayers(): MutableList<UUID> = spectators
+
+    fun removeSpectator(uuid: UUID) {
+        spectators.remove(uuid)
+    }
+
+    fun getRaceState() = raceState
+
+    fun setRaceState(state: RaceState) {
+        raceState = state
     }
 
     fun setPlayerOnNautilus(player: Player) {
@@ -94,15 +113,17 @@ object RaceService {
             entity.owner = player
             entity.isInvulnerable = true
         }
+
         playerNautilus[player.uniqueId] = nautilus.uniqueId
         nautilus.addPassenger(player)
     }
 
     fun startCountdown() {
         if (raceState != RaceState.COUNTDOWN) return
+        if (task != null) return
+
         countdown = 10
 
-        if (task != null) return
         task = Bukkit.getAsyncScheduler().runAtFixedRate(
             plugin,
             { scheduledTask ->
@@ -111,31 +132,95 @@ object RaceService {
 
                     setRaceState(RaceState.RUNNING)
                     RegionService.fillBlocks(Material.AIR)
-                    getRacePlayers().forEach { uuid ->
-                        ProgressService.addPlayer(uuid)
-                    }
+
+                    racePlayers.forEach { ProgressService.addPlayer(it) }
 
                     scheduledTask.cancel()
                     task = null
-
                     return@runAtFixedRate
                 }
 
-                getRacePlayers().forEach { uuid ->
-                    val player = Bukkit.getPlayer(uuid) ?: return@forEach
-                    showTitle(player)
+                racePlayers.forEach { uuid ->
+                    Bukkit.getPlayer(uuid)?.let { showTitle(it) }
                 }
 
-                getSpectatorPlayers().forEach { uuid ->
-                    val player = Bukkit.getPlayer(uuid) ?: return@forEach
-                    showTitle(player)
+                spectators.forEach { uuid ->
+                    Bukkit.getPlayer(uuid)?.let { showTitle(it) }
                 }
 
                 countdown--
             },
             0L,
-            1, TimeUnit.SECONDS
+            1,
+            TimeUnit.SECONDS
         )
+    }
+
+    fun nextRound(int: Int) {
+        val places = ProgressService.getPlaceList().toList()
+
+        val survivors = places.take(int)
+        val eliminated = places.drop(int)
+
+        eliminated.forEach { uuid ->
+            Bukkit.getPlayer(uuid)?.let { player ->
+                player.sendText {
+                    appendInfoPrefix()
+                    info("Du bist leider raus, danke fürs Mitmachen!")
+                }
+                removePlayer(player)
+            }
+
+            ProgressService.removePlayer(uuid)
+        }
+
+        survivors.forEach { uuid ->
+            Bukkit.getPlayer(uuid)?.let { player ->
+                ProgressService.setFinished(uuid, false)
+
+                player.sendText {
+                    appendInfoPrefix()
+                    info("Du hast es in die nächste Runde geschafft!")
+                }
+
+                playerNautilus[uuid]?.let {
+                    Bukkit.getEntity(it)?.remove()
+                }
+            }
+        }
+
+        playerToStartMid()
+    }
+
+    fun playerToStartMid() {
+        setRaceState(RaceState.WAITING)
+
+        val starts = SurfRaceConfig.getConfig().start
+
+        racePlayers
+            .mapNotNull { Bukkit.getPlayer(it) }
+            .forEachIndexed { index, player ->
+
+                val start = starts.getOrNull(index) ?: starts.first()
+                val location = midStartLocation(start)
+
+                plugin.launch {
+                    withContext(plugin.entityDispatcher(player)) {
+                        player.teleportAsync(location)
+                        setPlayerOnNautilus(player)
+                    }
+                }
+            }
+    }
+
+    private fun midStartLocation(start: SurfRaceConfig.Start): Location {
+        val world = Bukkit.getWorld(start.world)
+
+        val midX = (start.x1 + start.x2) / 2
+        val midY = (start.y1 + start.y2) / 2
+        val midZ = (start.z1 + start.z2) / 2
+
+        return Location(world, midX, midY, midZ, start.yaw, start.pitch)
     }
 
     private fun showTitle(player: Player) {
@@ -144,11 +229,10 @@ object RaceService {
                 player.showTitle(
                     title {
                         title {
-                            if (countdown <= 0) {
-                                text("LOS!", Colors.VARIABLE_VALUE)
-                            } else {
-                                text(countdown.toString(), Colors.VARIABLE_VALUE)
-                            }
+                            text(
+                                if (countdown <= 0) "LOS!" else countdown.toString(),
+                                Colors.VARIABLE_VALUE
+                            )
                         }
                         times {
                             fadeIn(0)
@@ -159,113 +243,6 @@ object RaceService {
                 )
             }
         }
-    }
-
-
-    fun nextRound(int: Int) {
-        val places = ProgressService.getPlaceList().toList()
-
-        val survivors = places.take(int)
-        val eliminated = places.drop(int)
-
-        eliminated.forEach { uuid ->
-            val player = Bukkit.getPlayer(uuid)
-
-            player?.sendText {
-                appendInfoPrefix()
-                info("Du bist leider raus, danke fürs Mitmachen!")
-            }
-
-            ProgressService.removePlayer(uuid)
-            player?.let { removePlayer(it) }
-        }
-
-        survivors.forEach { uuid ->
-            val player = Bukkit.getPlayer(uuid) ?: return@forEach
-
-            ProgressService.setFinished(uuid, false)
-
-            player.sendText {
-                appendInfoPrefix()
-                info("Du hast es in die nächste Runde geschafft!")
-            }
-
-            playerNautilus[uuid]?.let {
-                Bukkit.getEntity(it)?.remove()
-            }
-        }
-
-        playerToStartMid()
-    }
-
-    fun playerToStartMid() {
-
-        setRaceState(RaceState.WAITING)
-
-        val players = getRacePlayers()
-            .mapNotNull { Bukkit.getPlayer(it) }
-
-        val starts = SurfRaceConfig.getConfig().start
-
-        players.forEachIndexed { index, player ->
-
-            val start = starts.getOrNull(index) ?: starts.first()
-            val location = midStartLocation(start)
-
-            plugin.launch {
-                withContext(plugin.entityDispatcher(player)) {
-
-                    player.teleportAsync(location)
-
-                    setPlayerOnNautilus(player)
-                }
-            }
-        }
-    }
-
-    private fun midStartLocation(start: SurfRaceConfig.Start): Location {
-        val world = Bukkit.getWorld(start.world)
-
-        val midX = (start.x1 + start.x2) / 2
-        val midY = (start.y1 + start.y2) / 2
-        val midZ = (start.z1 + start.z2) / 2
-
-        return Location(
-            world,
-            midX,
-            midY,
-            midZ,
-            start.yaw,
-            start.pitch
-        )
-    }
-
-
-
-    fun addSpectators(uuid: UUID) {
-        val player = Bukkit.getPlayer(uuid)
-        val lobby = SurfRaceConfig.getConfig().let {
-            Location(
-                Bukkit.getWorld(it.lobbyWorld),
-                it.lobbyX,
-                it.lobbyY,
-                it.lobbyZ,
-                it.lobbyYaw,
-                it.lobbyPitch
-            )
-        }
-        plugin.launch {
-            player?.teleportAsync(lobby)
-        }
-        spectators.add(uuid)
-    }
-
-    fun getSpectatorPlayers(): MutableList<UUID> {
-        return spectators
-    }
-
-    fun removeSpectator(uuid: UUID) {
-        spectators.remove(uuid)
     }
 }
 

@@ -1,9 +1,10 @@
 package dev.slne.surf.survival.events.base.command.subcommand
 
 
+import dev.jorel.commandapi.CommandTree
 import dev.jorel.commandapi.kotlindsl.integerArgument
+import dev.jorel.commandapi.kotlindsl.literalArgument
 import dev.jorel.commandapi.kotlindsl.playerExecutor
-import dev.jorel.commandapi.kotlindsl.subcommand
 import dev.slne.surf.api.core.messages.adventure.buildText
 import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.api.core.messages.pagination.Pagination
@@ -15,12 +16,14 @@ import org.bukkit.Bukkit
 import org.bukkit.OfflinePlayer
 import org.bukkit.entity.Player
 
-fun showQueueCommand() = subcommand("queue") {
-    withPermission(PermissionRegistry.COMMAND_GAME_SPECTATOR)
-    integerArgument("page", optional = true) {
-        playerExecutor { player, args ->
-            val page: Int = (args.get("page") as? Int) ?: 1
-            player.showParticipants(page)
+fun CommandTree.showQueueCommand() {
+    literalArgument("queue") {
+        withPermission(PermissionRegistry.COMMAND_GAME_SPECTATOR)
+        integerArgument("page", optional = true) {
+            playerExecutor { player, args ->
+                val page: Int = (args.get("page") as? Int) ?: 1
+                player.showParticipants(page)
+            }
         }
     }
 }

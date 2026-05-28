@@ -1,9 +1,10 @@
-package dev.slne.surf.survival.events.race.command
+package dev.slne.surf.survival.events.race.command.subcommand
 
+import dev.jorel.commandapi.CommandTree
 import dev.jorel.commandapi.kotlindsl.getValue
+import dev.jorel.commandapi.kotlindsl.literalArgument
 import dev.jorel.commandapi.kotlindsl.multiLiteralArgument
 import dev.jorel.commandapi.kotlindsl.playerExecutor
-import dev.jorel.commandapi.kotlindsl.subcommand
 import dev.slne.surf.api.core.messages.adventure.buildText
 import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.survival.events.race.config.SurfRaceConfig
@@ -14,73 +15,76 @@ import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.entity.Player
 
-fun checkpointListCommand() = subcommand("list") {
-    withPermission(PermissionRegistry.COMMAND_COMMUNITY_MANAGER)
-    multiLiteralArgument("arguments", "checkpoints", "start", "barrier")
+fun CommandTree.checkpointListCommand() {
+    literalArgument("list") {
+        withPermission(PermissionRegistry.COMMAND_COMMUNITY_MANAGER)
+        multiLiteralArgument("arguments", "checkpoints", "start", "barrier") {
 
-    playerExecutor { player, args ->
-        val arguments: String by args
+            playerExecutor { player, args ->
+                val arguments: String by args
 
 
-        player.sendText {
+                player.sendText {
 
-            when (arguments) {
-                "start" -> {
-                    val start = SurfRaceConfig.getConfig().start
-                    if (start.isEmpty()) {
-                        player.sendText {
-                            appendErrorPrefix()
-                            error("Es gibt kein Start.")
+                    when (arguments) {
+                        "start" -> {
+                            val start = SurfRaceConfig.getConfig().start
+                            if (start.isEmpty()) {
+                                player.sendText {
+                                    appendErrorPrefix()
+                                    error("Es gibt kein Start.")
+                                }
+                                return@playerExecutor
+                            }
+
+                            appendSuccessPrefix()
+                            success("Startpunkt:")
+                            start.forEach { start ->
+                                sendStart(player, start)
+                            }
                         }
-                        return@playerExecutor
-                    }
 
-                    appendSuccessPrefix()
-                    success("Startpunkt:")
-                    start.forEach { start ->
-                        sendStart(player, start)
-                    }
-                }
+                        "barrier" -> {
+                            val barrier = SurfRaceConfig.getConfig().barrier
+                            if (barrier.isEmpty()) {
+                                player.sendText {
+                                    appendErrorPrefix()
+                                    error("Es gibt keine Barrier.")
+                                }
+                                return@playerExecutor
+                            }
 
-                "barrier" -> {
-                    val barrier = SurfRaceConfig.getConfig().barrier
-                    if (barrier.isEmpty()) {
-                        player.sendText {
-                            appendErrorPrefix()
-                            error("Es gibt keine Barrier.")
+                            appendSuccessPrefix()
+                            success("Barrier:")
+                            barrier.forEach { barrier ->
+                                sendBarrier(player, barrier)
+                            }
                         }
-                        return@playerExecutor
-                    }
 
-                    appendSuccessPrefix()
-                    success("Barrier:")
-                    barrier.forEach { barrier ->
-                        sendBarrier(player, barrier)
-                    }
-                }
+                        "checkpoints" -> {
+                            val checkpoints = SurfRaceConfig.getConfig().checkPoints
+                            if (checkpoints.isEmpty()) {
+                                player.sendText {
+                                    appendErrorPrefix()
+                                    error("Es gibt keine Checkpoints.")
+                                }
+                                return@playerExecutor
+                            }
 
-                "checkpoints" -> {
-                    val checkpoints = SurfRaceConfig.getConfig().checkPoints
-                    if (checkpoints.isEmpty()) {
-                        player.sendText {
-                            appendErrorPrefix()
-                            error("Es gibt keine Checkpoints.")
+                            appendSuccessPrefix()
+                            success("Checkpoints:")
+
+
+                            checkpoints.sortedBy { it.id }.forEach { checkpoint ->
+                                sendCheckpoint(player, checkpoint)
+                            }
                         }
-                        return@playerExecutor
+
+                        else -> {
+                            appendErrorPrefix()
+                            error("Das Argument existiert nicht.")
+                        }
                     }
-
-                    appendSuccessPrefix()
-                    success("Checkpoints:")
-
-
-                    checkpoints.sortedBy { it.id }.forEach { checkpoint ->
-                        sendCheckpoint(player, checkpoint)
-                    }
-                }
-
-                else -> {
-                    appendErrorPrefix()
-                    error("Das Argument existiert nicht.")
                 }
             }
         }
