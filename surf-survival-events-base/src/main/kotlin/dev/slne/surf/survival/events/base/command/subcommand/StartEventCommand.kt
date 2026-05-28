@@ -1,10 +1,10 @@
-package dev.slne.surf.survival.events.base.command
+package dev.slne.surf.survival.events.base.command.subcommand
 
 import dev.jorel.commandapi.kotlindsl.getValue
 import dev.jorel.commandapi.kotlindsl.playerExecutor
 import dev.jorel.commandapi.kotlindsl.subcommand
 import dev.slne.surf.api.core.messages.adventure.sendText
-import dev.slne.surf.survival.events.base.command.arguments.gameArgument
+import dev.slne.surf.survival.events.base.command.argument.gameArgument
 import dev.slne.surf.survival.events.base.service.GameService
 import dev.slne.surf.survival.events.base.util.Games
 import dev.slne.surf.survival.events.base.menu.dialog.setMaxPlayerDialog
@@ -20,7 +20,8 @@ fun startEventCommand() = subcommand("start") {
         if (!Games.isGameEnabled(game.name)) {
             player.sendText {
                 appendErrorPrefix()
-                error("Das Spiel ")
+                error("Das Spiel")
+                appendSpace()
                 variableValue(game.displayName)
                 appendSpace()
                 error("ist derzeit nicht verfügbar.")

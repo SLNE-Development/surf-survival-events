@@ -1,4 +1,4 @@
-package dev.slne.surf.survival.events.base.command
+package dev.slne.surf.survival.events.base.command.subcommand
 
 import dev.jorel.commandapi.kotlindsl.playerExecutor
 import dev.jorel.commandapi.kotlindsl.subcommand

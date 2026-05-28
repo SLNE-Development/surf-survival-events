@@ -1,4 +1,4 @@
-package dev.slne.surf.survival.events.base.command.arguments
+package dev.slne.surf.survival.events.base.command.argument
 
 
 import dev.jorel.commandapi.CommandAPICommand

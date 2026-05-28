@@ -1,5 +1,6 @@
-package dev.slne.surf.survival.events.base.command
+package dev.slne.surf.survival.events.base.command.subcommand
 
+import dev.jorel.commandapi.kotlindsl.entitySelectorArgumentOnePlayer
 import dev.jorel.commandapi.kotlindsl.getValue
 import dev.jorel.commandapi.kotlindsl.playerExecutor
 import dev.jorel.commandapi.kotlindsl.subcommand
@@ -10,12 +11,13 @@ import org.bukkit.entity.Player
 
 fun kickPlayerCommand() = subcommand("kick") {
     withPermission(PermissionRegistry.COMMAND_COMMUNITY_MANAGER)
+    entitySelectorArgumentOnePlayer("targetPlayer")
     playerExecutor { player, args ->
         val targetPlayer: Player by args
         if (!GameService.isInGameQueue(player) || !GameService.isInWaitingQueue(player)) {
             player.sendText {
                 appendErrorPrefix()
-                error("${targetPlayer.name} konnte nicht gekickt werden, da er sich in keiner Warteschlange befindet.")
+                error("${targetPlayer.name} konnte nicht gekickt werden, da er in keiner Queue ist.")
             }
         }
 
@@ -24,7 +26,7 @@ fun kickPlayerCommand() = subcommand("kick") {
 
         player.sendText {
             appendSuccessPrefix()
-            success("${targetPlayer.name} wurde von der Warteschlange entfernt.")
+            success("${targetPlayer.name} wurde aus der Queue entfernt.")
         }
     }
 }

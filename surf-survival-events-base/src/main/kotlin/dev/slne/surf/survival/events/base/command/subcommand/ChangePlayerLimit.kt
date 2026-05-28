@@ -1,31 +1,29 @@
-package dev.slne.surf.survival.events.base.command
+package dev.slne.surf.survival.events.base.command.subcommand
 
 import dev.jorel.commandapi.kotlindsl.getValue
 import dev.jorel.commandapi.kotlindsl.integerArgument
-import dev.jorel.commandapi.kotlindsl.literalArgument
 import dev.jorel.commandapi.kotlindsl.playerExecutor
 import dev.jorel.commandapi.kotlindsl.subcommand
 import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.survival.events.base.service.GameService
 import dev.slne.surf.survival.events.base.util.commands.PermissionRegistry
 
-fun changeMaxPlayersCommand() = subcommand("maxPlayers") {
+fun changePlayerLimitCommand() = subcommand("spielerlimit") {
     withPermission(PermissionRegistry.COMMAND_COMMUNITY_MANAGER)
-    literalArgument("set")
-    integerArgument("maxPlayers")
+    integerArgument("playerLimit")
     playerExecutor { player, args ->
-        val maxPlayers: Int by args
+        val playerLimit: Int by args
 
 
         if (!GameService.isGameActive()) {
             player.sendText {
                 appendErrorPrefix()
-                error("Es ist derzeit kein Event aktiv.")
+                error("Derzeit ist kein Event aktiv.")
             }
             return@playerExecutor
         }
 
-        if (maxPlayers <= 0) {
+        if (playerLimit <= 0) {
             player.sendText {
                 appendErrorPrefix()
                 error("Die Spieleranzahl muss größer als 0 sein.")
@@ -33,13 +31,13 @@ fun changeMaxPlayersCommand() = subcommand("maxPlayers") {
             return@playerExecutor
         }
 
-        GameService.setMaxPlayers(maxPlayers)
+        GameService.setMaxPlayers(playerLimit)
 
         player.sendText {
             appendSuccessPrefix()
-            success("Die maximale Spieleranzahl wurde auf")
+            success("Spielerlimit auf")
             appendSpace()
-            variableValue(maxPlayers.toString())
+            variableValue(playerLimit.toString())
             appendSpace()
             success("gesetzt.")
         }

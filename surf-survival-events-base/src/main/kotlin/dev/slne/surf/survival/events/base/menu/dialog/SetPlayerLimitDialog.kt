@@ -14,19 +14,19 @@ import dev.slne.surf.survival.events.base.menu.util.eventColored
 @Suppress("UnstableApiUsage")
 fun setMaxPlayerDialog(game: Games) = dialog {
     base {
-        title { eventColored("Maximale Spieleranzahl") }
+        title { eventColored("Spielerlimit") }
         body {
             plainMessage {
-                info("Hier kannst du die maximale Anzahl an Spielern eingeben")
+                info("Hier Spielerlimit einstellen.")
                 appendNewline()
                 appendNewline()
                 appendWarningPrefix()
-                error("Bitte beachte, dass die Zahl größer als 0 sein muss!")
+                error("Nur Werte über 0 sind erlaubt.")
             }
 
             input {
-                text("max_players") {
-                    label { eventColored("Maximale Spieleranzahl:") }
+                text("playerLimit") {
+                    label { eventColored("Spielerlimit:") }
                     width(300)
                     maxLength(64)
                 }
@@ -35,25 +35,15 @@ fun setMaxPlayerDialog(game: Games) = dialog {
 
         type {
             confirmation(actionButton {
-                label { error("Abbrechen") }
-                tooltip { info("Klicke, um zurück zu gelangen.") }
-                width(200)
-
-                action {
-                    customPlayerClick { _, player ->
-                        player.closeDialog()
-                    }
-                }
-            }, actionButton {
                 label { success("Bestätigen") }
                 tooltip { info("Klicke, um die Zahl zu bestätigen.") }
                 width(200)
 
                 action {
                     customPlayerClick { response, player ->
-                        val maxPlayers = response.getText("max_players")?.trim()?.toIntOrNull()
+                        val playerLimit = response.getText("playerLimit")?.trim()?.toIntOrNull()
 
-                        if (maxPlayers == null || maxPlayers <= 0) {
+                        if (playerLimit == null || playerLimit <= 0) {
                             player.closeDialog()
 
                             player.sendText {
@@ -63,7 +53,7 @@ fun setMaxPlayerDialog(game: Games) = dialog {
                             return@customPlayerClick
                         }
 
-                        if (maxPlayers >= Int.MAX_VALUE) {
+                        if (playerLimit >= Int.MAX_VALUE) {
                             player.closeDialog()
 
                             player.sendText {
@@ -73,7 +63,7 @@ fun setMaxPlayerDialog(game: Games) = dialog {
                             return@customPlayerClick
                         }
 
-                        if (GameService.startGame(game, maxPlayers)) {
+                        if (GameService.startGame(game, playerLimit)) {
                             player.sendText {
                                 appendSuccessPrefix()
                                 variableValue(game.displayName)
@@ -87,10 +77,20 @@ fun setMaxPlayerDialog(game: Games) = dialog {
                             return@customPlayerClick
                         }
 
-                         player.sendText {
-                             appendErrorPrefix()
-                             error("Ein Fehler ist aufgetreten.")
-                         }
+                        player.sendText {
+                            appendErrorPrefix()
+                            error("Ein Fehler ist aufgetreten.")
+                        }
+                    }
+                }
+            },actionButton {
+                label { error("Abbrechen") }
+                tooltip { info("Zum Schließen klicken") }
+                width(200)
+
+                action {
+                    customPlayerClick { _, player ->
+                        player.closeDialog()
                     }
                 }
             })

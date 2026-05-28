@@ -1,9 +1,9 @@
-package dev.slne.surf.survival.events.base.command
+package dev.slne.surf.survival.events.base.command.subcommand
 
 
-import dev.jorel.commandapi.kotlindsl.commandTree
 import dev.jorel.commandapi.kotlindsl.integerArgument
 import dev.jorel.commandapi.kotlindsl.playerExecutor
+import dev.jorel.commandapi.kotlindsl.subcommand
 import dev.slne.surf.api.core.messages.adventure.buildText
 import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.api.core.messages.pagination.Pagination
@@ -15,8 +15,8 @@ import org.bukkit.Bukkit
 import org.bukkit.OfflinePlayer
 import org.bukkit.entity.Player
 
-fun queueListCommand() = commandTree("queue-list") {
-    withPermission(PermissionRegistry.COMMAND_COMMUNITY_MANAGER)
+fun showQueueCommand() = subcommand("queue") {
+    withPermission(PermissionRegistry.COMMAND_GAME_SPECTATOR)
     integerArgument("page", optional = true) {
         playerExecutor { player, args ->
             val page: Int = (args.get("page") as? Int) ?: 1
@@ -32,13 +32,13 @@ private fun Player.showParticipants(page: Int) {
     if (players.isEmpty()) {
         sendText {
             appendInfoPrefix()
-            info("Es ist niemand in der Warteschlange.")
+            info("Es ist niemand in der Queue.")
         }
         return
     }
     val pagination = Pagination<OfflinePlayer> {
         title {
-            primary("Spieler in der Warteschlange")
+            primary("Spieler in der Queue")
             spacer(" | (${players.size})")
         }
         rowRenderer { row, _ ->
@@ -57,19 +57,19 @@ private fun Player.showParticipants(page: Int) {
                                     appendSpace()
                                     variableValue(displayName)
                                     appendSpace()
-                                    info("aus der Warteschlange entfernt.")
+                                    info("aus der Queue entfernt.")
                                 }
 
                                 player.sendText {
                                     appendInfoPrefix()
-                                    info("Du wurdest aus der Warteschlange entfernt.")
+                                    info("Du bist aus der Queue geflogen.")
                                 }
                                 GameService.leaveWaitingQueue(player)
                                 GameService.leaveGameQueue(player)
                             }
                         })
                     ).hoverEvent(HoverEvent.showText(buildText {
-                        error("Klicke um den Spieler Entfernen.")
+                        error("Klicke, um den Spieler zu entfernen.")
                     }))
                 }
             )

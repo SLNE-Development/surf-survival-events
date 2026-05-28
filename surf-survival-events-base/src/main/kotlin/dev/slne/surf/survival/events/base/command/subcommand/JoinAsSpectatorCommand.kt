@@ -1,4 +1,4 @@
-package dev.slne.surf.survival.events.base.command
+package dev.slne.surf.survival.events.base.command.subcommand
 
 import dev.jorel.commandapi.kotlindsl.playerExecutor
 import dev.jorel.commandapi.kotlindsl.subcommand
@@ -6,31 +6,32 @@ import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.survival.events.base.service.GameService
 import dev.slne.surf.survival.events.base.util.commands.PermissionRegistry
 
-
-fun joinGameQueueCommand() = subcommand("join") {
-    withPermission(PermissionRegistry.COMMAND_PLAYER)
+fun joinAsSpectatorCommand() = subcommand("spectator") {
+    withPermission(PermissionRegistry.COMMAND_GAME_SPECTATOR)
     playerExecutor { player, _ ->
+
+        val uuid = player.uniqueId
         if (!GameService.isGameActive()) {
             player.sendText {
                 appendErrorPrefix()
-                error("Es ist derzeit kein Event aktiv.")
+                error("Derzeit ist kein Event aktiv.")
             }
             return@playerExecutor
         }
 
-        if (GameService.isInGameQueue(player) || GameService.isInWaitingQueue(player)) {
+        if (GameService.isSpectator(uuid)) {
             player.sendText {
                 appendErrorPrefix()
-                error("Du bist bereits in der Warteschlange.")
+                error("Du bist bereits dabei.")
             }
             return@playerExecutor
         }
 
-
-        GameService.joinWaitingQueue(player)
+        GameService.addSpectator(uuid)
         player.sendText {
             appendInfoPrefix()
-            info("Die Warteschlange ist voll. Du befindest dich nun auf der Ersatzbank.")
+            info("Du bist jetzt Zuschauer des Events.")
         }
+
     }
 }

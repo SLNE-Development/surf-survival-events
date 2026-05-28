@@ -1,20 +1,19 @@
-package dev.slne.surf.survival.events.base.command
+package dev.slne.surf.survival.events.base.command.subcommand
 
 import dev.jorel.commandapi.kotlindsl.anyExecutor
-import dev.jorel.commandapi.kotlindsl.commandAPICommand
+import dev.jorel.commandapi.kotlindsl.subcommand
 import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.survival.events.base.service.NpcService
 import dev.slne.surf.survival.events.base.util.commands.PermissionRegistry
 
-fun spawnEventNpc() = commandAPICommand("spawn-event-npc") {
+fun removeNpc() = subcommand("remove-npc") {
     withPermission(PermissionRegistry.COMMAND_ADMIN)
     anyExecutor { sender, _ ->
         NpcService.hideNpc()
-        NpcService.showNpc()
 
         sender.sendText {
             appendSuccessPrefix()
-            success("Der Event-NPC wurde gespawnt.")
+            success("Der NPC für das Event wurde entfernt.")
         }
     }
 }

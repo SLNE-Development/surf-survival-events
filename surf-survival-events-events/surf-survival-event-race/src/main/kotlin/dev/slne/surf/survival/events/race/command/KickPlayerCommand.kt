@@ -1,7 +1,7 @@
 package dev.slne.surf.survival.events.race.command
 
 import dev.jorel.commandapi.kotlindsl.anyExecutor
-import dev.jorel.commandapi.kotlindsl.entitySelectorArgumentManyEntities
+import dev.jorel.commandapi.kotlindsl.entitySelectorArgumentOnePlayer
 import dev.jorel.commandapi.kotlindsl.getValue
 import dev.jorel.commandapi.kotlindsl.subcommand
 import dev.slne.surf.api.core.messages.adventure.sendText
@@ -12,7 +12,7 @@ import org.bukkit.entity.Player
 
 fun kickPlayerCommand() = subcommand("kick") {
     withPermission(PermissionRegistry.COMMAND_COMMUNITY_MANAGER)
-    entitySelectorArgumentManyEntities("player")
+    entitySelectorArgumentOnePlayer("player")
 
     anyExecutor { sender, args ->
         val player: Player by args

@@ -24,7 +24,6 @@ object GameService {
     private var maxPlayers = NONE
 
     private val spectators = mutableListOf<UUID>()
-
     private val gameQueue = ArrayDeque<UUID>()
     private val waitingQueue = ArrayDeque<UUID>()
 
@@ -37,9 +36,13 @@ object GameService {
         this.maxPlayers = maxPlayers ?: NONE
 
         if (task == null) {
-            task = Bukkit.getAsyncScheduler().runAtFixedRate(plugin, { _ ->
-                tick()
-            }, 0, 1, TimeUnit.SECONDS)
+            task = Bukkit.getAsyncScheduler().runAtFixedRate(
+                plugin,
+                { _ -> tick() },
+                0,
+                1,
+                TimeUnit.SECONDS
+            )
         }
 
         return true
@@ -52,19 +55,17 @@ object GameService {
         task = null
 
         activeGame = null
-        waitingQueue.clear()
         gameQueue.clear()
+        waitingQueue.clear()
         spectators.clear()
 
         return true
     }
 
-    fun isGameActive(): Boolean {
-        return activeGame != null
-    }
+    fun isGameActive() = activeGame != null
 
     fun getActiveGame(): Games =
-        activeGame ?: throw IllegalStateException("No active game found")
+        activeGame ?: error("No active game found")
 
     fun joinGameQueue(player: Player): Boolean {
         val uuid = player.uniqueId
@@ -91,40 +92,47 @@ object GameService {
         return true
     }
 
-    fun leaveWaitingQueue(player: Player): Boolean =
+    fun leaveWaitingQueue(player: Player) =
         waitingQueue.remove(player.uniqueId)
 
-    fun isInGameQueue(player: Player) = player.uniqueId in gameQueue
-    fun isInWaitingQueue(player: Player) = player.uniqueId in waitingQueue
+    fun isInGameQueue(player: Player) =
+        player.uniqueId in gameQueue
+
+    fun isInWaitingQueue(player: Player) =
+        player.uniqueId in waitingQueue
+
+    fun addSpectator(uuid: UUID) {
+        spectators.add(uuid)
+    }
+
+    fun removeSpectator(player: Player) =
+        spectators.remove(player.uniqueId)
+
+    fun isSpectator(uuid: UUID) =
+        uuid in spectators
 
     fun getQueuePlayers(): ArrayDeque<UUID> = gameQueue
 
     fun beginGame() {
         when (activeGame?.displayName) {
-            Games.EXAMPLE.displayName -> {
+            Games.EXAMPLE.displayName ->
                 startExampleGame(getQueuePlayers())
-            }
 
             Games.RACE.displayName -> {
                 RaceService.setRaceState(RaceState.LOBBY)
-                spectators.forEach {
-                    RaceService.addSpectators(it)
-                }
-                gameQueue.forEach { uuid ->
-                    RaceService.addPlayer(uuid)
-                }
+                spectators.forEach(RaceService::addSpectators)
+                gameQueue.forEach(RaceService::addPlayer)
             }
 
-            else -> {
-                throw IllegalStateException("No game found for name: ${activeGame?.displayName}")
-            }
+            else ->
+                error("No game found for name: ${activeGame?.displayName}")
         }
     }
 
-    fun getMaxPlayers(): Int =
+    fun getMaxPlayers() =
         if (maxPlayers == NONE) NONE else maxPlayers
 
-    fun isQueueFull(): Boolean =
+    fun isQueueFull() =
         gameQueue.size >= maxPlayers
 
     fun setMaxPlayers(maxPlayers: Int) {
@@ -133,7 +141,8 @@ object GameService {
         while (gameQueue.size > getMaxPlayers()) {
             val uuid = gameQueue.removeLast()
             val player = Bukkit.getPlayer(uuid) ?: continue
-            waitingQueue.addFirst(player.uniqueId)
+
+            waitingQueue.addFirst(uuid)
 
             player.sendText {
                 appendInfoPrefix()
@@ -146,25 +155,15 @@ object GameService {
         if (isQueueFull()) return
 
         val uuid = waitingQueue.removeFirstOrNull() ?: return
-        val player = Bukkit.getPlayer(uuid) ?: return
-
-        joinGameQueue(player)
+        Bukkit.getPlayer(uuid)?.let(::joinGameQueue)
     }
 
     private fun tick() {
         checkQueue()
 
-        spectators.forEach {uuid ->
-            Bukkit.getPlayer(uuid)?.let(::showPlayerGameQueue)
-        }
-
-        gameQueue.forEach { uuid ->
-            Bukkit.getPlayer(uuid)?.let(::showPlayerGameQueue)
-        }
-
-        waitingQueue.forEach { uuid ->
-            Bukkit.getPlayer(uuid)?.let(::showPlayerWaitingQueue)
-        }
+        spectators.forEach { Bukkit.getPlayer(it)?.let(::showPlayerGameQueue) }
+        gameQueue.forEach { Bukkit.getPlayer(it)?.let(::showPlayerGameQueue) }
+        waitingQueue.forEach { Bukkit.getPlayer(it)?.let(::showPlayerWaitingQueue) }
     }
 
     fun showPlayerGameQueue(player: Player) {
@@ -179,19 +178,7 @@ object GameService {
         val position = waitingQueue.indexOf(player.uniqueId) + 1
 
         player.sendActionBar {
-            text(
-                "Dein Platz in der Warteschlange: $position/${waitingQueue.size}",
-                Colors.INFO
-            )
+            text("Dein Platz in der Warteschlange: $position/${waitingQueue.size}", Colors.INFO)
         }
     }
-
-    fun addSpectator(uuid: UUID) {
-        spectators.add(uuid)
-    }
-
-    fun removeSpectator(player: Player): Boolean =
-        spectators.remove(player.uniqueId)
-
-    fun isSpectator(uuid: UUID): Boolean = spectators.contains(uuid)
 }

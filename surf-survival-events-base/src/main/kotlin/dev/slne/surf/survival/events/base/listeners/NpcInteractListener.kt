@@ -17,7 +17,7 @@ object NpcInteractListener : Listener {
         if (!GameService.isGameActive()) {
             player.sendText {
                 appendErrorPrefix()
-                error("Es ist derzeit kein Event aktiv.")
+                error("Derzeit ist kein Event aktiv.")
             }
             return
         }
@@ -25,7 +25,7 @@ object NpcInteractListener : Listener {
         if (GameService.isSpectator(player.uniqueId)) {
             player.sendText {
                 appendErrorPrefix()
-                error("Das ist nicht Kosmetisch. Du bist bereits Zuschauer des Events.")
+                error("Das ist nicht kosmetisch. Du bist bereits Zuschauer des Events.")
             }
             return
         }
@@ -33,7 +33,7 @@ object NpcInteractListener : Listener {
         if (GameService.isInGameQueue(player) || GameService.isInWaitingQueue(player)) {
             player.sendText {
                 appendErrorPrefix()
-                error("Du bist bereits in der Warteschlange.")
+                error("Du bist bereits in der Queue.")
             }
             return
         }
@@ -42,7 +42,7 @@ object NpcInteractListener : Listener {
         GameService.joinWaitingQueue(player)
         player.sendText {
             appendInfoPrefix()
-            info("Die Warteschlange ist voll. Du befindest dich nun auf der Ersatzbank.")
+            info("Die Queue ist voll. Du befindest dich nun auf der Ersatzbank.")
         }
     }
 }
