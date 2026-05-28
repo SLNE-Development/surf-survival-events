@@ -38,5 +38,14 @@ fun raceStopCommand() = subcommand("stop") {
                 info("Das Rennen wurde gestoppt.")
             }
         }
+
+        RaceService.getSpectatorPlayers().toList().forEach { uuid ->
+            val player = Bukkit.getPlayer(uuid) ?: return@forEach
+            RaceService.removeSpectator(uuid)
+            player.sendText {
+                appendInfoPrefix()
+                info("Das Rennen wurde gestoppt.")
+            }
+        }
     }
 }

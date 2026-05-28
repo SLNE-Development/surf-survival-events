@@ -22,6 +22,14 @@ object NpcInteractListener : Listener {
             return
         }
 
+        if (GameService.isSpectator(player.uniqueId)) {
+            player.sendText {
+                appendErrorPrefix()
+                error("Das ist nicht Kosmetisch. Du bist bereits Zuschauer des Events.")
+            }
+            return
+        }
+
         if (GameService.isInGameQueue(player) || GameService.isInWaitingQueue(player)) {
             player.sendText {
                 appendErrorPrefix()

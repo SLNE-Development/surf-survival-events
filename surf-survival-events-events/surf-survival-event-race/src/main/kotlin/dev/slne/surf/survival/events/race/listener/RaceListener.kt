@@ -8,6 +8,7 @@ import dev.slne.surf.survival.events.race.service.ProgressService
 import dev.slne.surf.survival.events.race.service.RaceService
 import dev.slne.surf.survival.events.race.service.RaceState
 import dev.slne.surf.survival.events.race.service.RegionService
+import org.bukkit.Bukkit
 import org.bukkit.entity.EntityType
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
@@ -149,11 +150,28 @@ object RaceListener : Listener {
 
                     val place = ProgressService.getPlace(uuid)
 
-                    player.sendText {
-                        appendSuccessPrefix()
-                        success("Du hast das Rennen auf Platz $place beendet!")
+                    RaceService.getSpectatorPlayers().forEach { uuid ->
+                        val playerSpectator = Bukkit.getPlayer(uuid) ?: return@forEach
+                        playerSpectator.sendText {
+                            appendInfoPrefix()
+                            variableValue(player.name)
+                            appendSpace()
+                            info("hat das Rennen auf Platz")
+                            appendSpace()
+                            variableValue("$place")
+                            appendSpace()
+                            info("beendet!")
+                        }
                     }
 
+                    player.sendText {
+                        appendSuccessPrefix()
+                        success("Du hast das Rennen auf Platz")
+                        appendSpace()
+                        variableValue(place)
+                        appendSpace()
+                        success("beendet!")
+                    }
                     return
                 }
 

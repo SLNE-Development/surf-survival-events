@@ -17,6 +17,7 @@ fun raceCommand() = commandAPICommand("race") {
         setLapsCommand(),
         getLeaderboardCommand(),
         nextRoundCommand(),
+        kickPlayerCommand(),
     )
     anyExecutor { _, _ -> }
 }

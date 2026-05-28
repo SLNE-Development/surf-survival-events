@@ -29,7 +29,7 @@ fun startRaceCommand() = subcommand("start") {
             }
 
             RegionService.fillBlocks(Material.BARRIER)
-            RaceService.playerToMid()
+            RaceService.playerToStartMid()
 
             return@playerExecutor
         }

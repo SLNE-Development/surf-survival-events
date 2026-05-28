@@ -8,6 +8,7 @@ import dev.slne.surf.api.core.messages.adventure.title
 import dev.slne.surf.survival.events.race.config.SurfRaceConfig
 import dev.slne.surf.survival.events.race.plugin
 import io.papermc.paper.threadedregions.scheduler.ScheduledTask
+import kotlinx.coroutines.future.await
 import kotlinx.coroutines.withContext
 import org.bukkit.Bukkit
 import org.bukkit.Location
@@ -20,6 +21,8 @@ import java.util.concurrent.TimeUnit
 
 object RaceService {
     private val racePlayers = mutableListOf<UUID>()
+
+    private val spectators = mutableListOf<UUID>()
 
     private val playerNautilus = mutableMapOf<UUID, UUID>()
 
@@ -72,9 +75,13 @@ object RaceService {
         Bukkit.getEntity(uuidNautilus)?.remove()
         playerNautilus.remove(player.uniqueId)
 
-        player.teleportAsync(centralSpawn)
-
         ProgressService.removePlayer(uuid)
+
+        plugin.launch {
+            player.teleportAsync(centralSpawn).await()
+        }
+
+
 
         return racePlayers.remove(uuid)
     }
@@ -108,7 +115,6 @@ object RaceService {
                         ProgressService.addPlayer(uuid)
                     }
 
-
                     scheduledTask.cancel()
                     task = null
 
@@ -116,6 +122,11 @@ object RaceService {
                 }
 
                 getRacePlayers().forEach { uuid ->
+                    val player = Bukkit.getPlayer(uuid) ?: return@forEach
+                    showTitle(player)
+                }
+
+                getSpectatorPlayers().forEach { uuid ->
                     val player = Bukkit.getPlayer(uuid) ?: return@forEach
                     showTitle(player)
                 }
@@ -184,10 +195,10 @@ object RaceService {
             }
         }
 
-        playerToMid()
+        playerToStartMid()
     }
 
-    fun playerToMid() {
+    fun playerToStartMid() {
 
         setRaceState(RaceState.WAITING)
 
@@ -199,7 +210,7 @@ object RaceService {
         players.forEachIndexed { index, player ->
 
             val start = starts.getOrNull(index) ?: starts.first()
-            val location = midLocation(start)
+            val location = midStartLocation(start)
 
             plugin.launch {
                 withContext(plugin.entityDispatcher(player)) {
@@ -210,11 +221,9 @@ object RaceService {
                 }
             }
         }
-
-
     }
 
-    private fun midLocation(start: SurfRaceConfig.Start): Location {
+    private fun midStartLocation(start: SurfRaceConfig.Start): Location {
         val world = Bukkit.getWorld(start.world)
 
         val midX = (start.x1 + start.x2) / 2
@@ -229,6 +238,34 @@ object RaceService {
             start.yaw,
             start.pitch
         )
+    }
+
+
+
+    fun addSpectators(uuid: UUID) {
+        val player = Bukkit.getPlayer(uuid)
+        val lobby = SurfRaceConfig.getConfig().let {
+            Location(
+                Bukkit.getWorld(it.lobbyWorld),
+                it.lobbyX,
+                it.lobbyY,
+                it.lobbyZ,
+                it.lobbyYaw,
+                it.lobbyPitch
+            )
+        }
+        plugin.launch {
+            player?.teleportAsync(lobby)
+        }
+        spectators.add(uuid)
+    }
+
+    fun getSpectatorPlayers(): MutableList<UUID> {
+        return spectators
+    }
+
+    fun removeSpectator(uuid: UUID) {
+        spectators.remove(uuid)
     }
 }
 

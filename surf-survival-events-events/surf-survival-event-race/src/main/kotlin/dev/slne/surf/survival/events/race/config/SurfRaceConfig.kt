@@ -40,7 +40,7 @@ data class SurfRaceConfig(
 
         override var x2: Double = 0.0,
         override var y2: Double = 0.0,
-        override var z2: Double = 0.0
+        override var z2: Double = 0.0,
 
     ) : RegionData
 

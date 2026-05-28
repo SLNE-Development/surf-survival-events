@@ -11,8 +11,8 @@ fun openMainMenu() = commandAPICommand("event") {
         eventMenuCommand(),
         changeMaxPlayersCommand(),
         stopEventCommand(),
+        joinAsSpectatorCommand(),
     )
     
-    playerExecutor { player, _ ->
-    }
+    playerExecutor { _, _ -> }
 }

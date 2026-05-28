@@ -6,10 +6,11 @@ import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.survival.events.base.service.GameService
 import dev.slne.surf.survival.events.base.util.commands.PermissionRegistry
 
-fun leaveGameQueueCommand() = subcommand("leave") {
-    withPermission(PermissionRegistry.COMMAND_PLAYER)
-
+fun joinAsSpectatorCommand() = subcommand("spectator") {
+    withPermission(PermissionRegistry.COMMAND_GAME_SPECTATOR)
     playerExecutor { player, _ ->
+
+        val uuid = player.uniqueId
         if (!GameService.isGameActive()) {
             player.sendText {
                 appendErrorPrefix()
@@ -18,17 +19,19 @@ fun leaveGameQueueCommand() = subcommand("leave") {
             return@playerExecutor
         }
 
-        if (GameService.leaveGameQueue(player) || GameService.leaveWaitingQueue(player) || GameService.removeSpectator(player)) {
+        if (GameService.isSpectator(uuid)) {
             player.sendText {
-                appendSuccessPrefix()
-                success("Du hast die Warteschlange verlassen.")
+                appendErrorPrefix()
+                error("Du bist bereits drin!")
             }
             return@playerExecutor
         }
 
+        GameService.addSpectator(uuid)
         player.sendText {
-            appendErrorPrefix()
-            error("Du bist nicht in der Warteschlange.")
+            appendInfoPrefix()
+            info("Du bist nun Zuschauer des Events.")
         }
+
     }
 }

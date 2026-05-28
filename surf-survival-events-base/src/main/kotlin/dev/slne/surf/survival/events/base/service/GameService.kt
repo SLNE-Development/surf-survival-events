@@ -23,6 +23,8 @@ object GameService {
     private var activeGame: Games? = null
     private var maxPlayers = NONE
 
+    private val spectators = mutableListOf<UUID>()
+
     private val gameQueue = ArrayDeque<UUID>()
     private val waitingQueue = ArrayDeque<UUID>()
 
@@ -52,6 +54,7 @@ object GameService {
         activeGame = null
         waitingQueue.clear()
         gameQueue.clear()
+        spectators.clear()
 
         return true
     }
@@ -104,6 +107,9 @@ object GameService {
 
             Games.RACE.displayName -> {
                 RaceService.setRaceState(RaceState.LOBBY)
+                spectators.forEach {
+                    RaceService.addSpectators(it)
+                }
                 gameQueue.forEach { uuid ->
                     RaceService.addPlayer(uuid)
                 }
@@ -148,6 +154,10 @@ object GameService {
     private fun tick() {
         checkQueue()
 
+        spectators.forEach {uuid ->
+            Bukkit.getPlayer(uuid)?.let(::showPlayerGameQueue)
+        }
+
         gameQueue.forEach { uuid ->
             Bukkit.getPlayer(uuid)?.let(::showPlayerGameQueue)
         }
@@ -175,4 +185,13 @@ object GameService {
             )
         }
     }
+
+    fun addSpectator(uuid: UUID) {
+        spectators.add(uuid)
+    }
+
+    fun removeSpectator(player: Player): Boolean =
+        spectators.remove(player.uniqueId)
+
+    fun isSpectator(uuid: UUID): Boolean = spectators.contains(uuid)
 }
