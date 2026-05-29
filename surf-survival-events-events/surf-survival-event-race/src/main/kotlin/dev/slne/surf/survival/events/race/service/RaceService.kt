@@ -21,7 +21,6 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
 object RaceService {
-
     private val racePlayers = ConcurrentHashMap.newKeySet<UUID>()
     private val spectators = ConcurrentHashMap.newKeySet<UUID>()
     private val playerNautilus = mutableMapOf<UUID, UUID>()
