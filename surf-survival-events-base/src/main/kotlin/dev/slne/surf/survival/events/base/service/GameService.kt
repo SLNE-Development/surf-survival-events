@@ -4,10 +4,8 @@ import dev.slne.surf.api.core.messages.Colors
 import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.api.core.messages.adventure.text
 import dev.slne.surf.survival.events.base.util.Games
+import dev.slne.surf.survival.events.base.game.GameRegistry
 import dev.slne.surf.survival.events.base.plugin
-import dev.slne.surf.survival.events.example.ExampleGame.startExampleGame
-import dev.slne.surf.survival.events.race.service.RaceService
-import dev.slne.surf.survival.events.race.service.RaceState
 import io.papermc.paper.threadedregions.scheduler.ScheduledTask
 import org.bukkit.Bukkit
 import org.bukkit.entity.Player
@@ -115,19 +113,11 @@ object GameService {
     fun getQueuePlayers(): ArrayDeque<UUID> = gameQueue
 
     fun beginGame() {
-        when (activeGame) {
-            Games.EXAMPLE ->
-                startExampleGame(getQueuePlayers())
+        val game = activeGame ?: error("No active game found")
+        val handler = GameRegistry.getHandler(game)
+            ?: error("No handler registered for game: ${game.displayName}")
 
-            Games.RACE -> {
-                RaceService.setRaceState(RaceState.LOBBY)
-                spectators.forEach(RaceService::addSpectators)
-                gameQueue.forEach(RaceService::addPlayer)
-            }
-
-            else ->
-                error("No game found for name: ${activeGame?.displayName}")
-        }
+        handler.beginGame(getQueuePlayers(), spectators.toSet())
     }
 
     fun getMaxPlayers() =
