@@ -2,7 +2,6 @@ package dev.slne.surf.survival.events.race.region
 
 
 interface RegionData {
-
     val world: String
 
     val x1: Double
@@ -13,4 +12,3 @@ interface RegionData {
     val y2: Double
     val z2: Double
 }
-

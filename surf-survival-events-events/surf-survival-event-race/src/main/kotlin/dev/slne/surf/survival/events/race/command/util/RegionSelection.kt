@@ -1,14 +1,16 @@
 package dev.slne.surf.survival.events.race.command.util
 
-import dev.jorel.commandapi.CommandTree
 import dev.jorel.commandapi.arguments.LocationType
 import dev.jorel.commandapi.kotlindsl.getValue
-import dev.jorel.commandapi.kotlindsl.literalArgument
 import dev.jorel.commandapi.kotlindsl.locationArgument
 import dev.jorel.commandapi.kotlindsl.multiLiteralArgument
 import dev.jorel.commandapi.kotlindsl.playerExecutor
 import dev.jorel.commandapi.kotlindsl.rotationArgument
+import dev.jorel.commandapi.kotlindsl.subcommand
 import dev.jorel.commandapi.wrappers.Rotation
+import dev.slne.surf.api.core.messages.adventure.sendText
+import dev.slne.surf.api.paper.util.readableString
+import dev.slne.surf.survival.events.race.utils.PermissionRegistry
 import org.bukkit.Location
 import java.util.UUID
 
@@ -19,58 +21,102 @@ data class RegionSelection(
 
 private val selections = mutableMapOf<UUID, RegionSelection>()
 
-fun CommandTree.createRegionCommand(
+fun createRegionCommand(
     name: String,
     requiresRotation: Boolean = false,
-    onCreate: (Location, Location, Rotation?) -> Unit
-) {
-    literalArgument(name) {
-        literalArgument("argument") {
-            multiLiteralArgument("type", "pos1", "pos2", "create") {
-                locationArgument("location", LocationType.BLOCK_POSITION) {
+    onCreate: (
+        pos1: Location,
+        pos2: Location,
+        rotation: Rotation?
+    ) -> Unit
+) = subcommand(name) {
 
-                    if (requiresRotation) {
-                        rotationArgument("rotation")
-                    }
+    withPermission(PermissionRegistry.COMMAND_COMMUNITY_MANAGER)
 
-                    playerExecutor { player, args ->
+    multiLiteralArgument("argument", "pos1", "pos2", "create")
 
-                        val argument: String by args
-                        val location: Location by args
+    locationArgument("location", LocationType.BLOCK_POSITION)
 
-                        val rotation =
-                            if (requiresRotation) args["rotation"] as Rotation
-                            else null
+    if (requiresRotation) {
+        rotationArgument("rotation")
+    }
 
-                        val selection = selections.getOrPut(player.uniqueId) {
-                            RegionSelection()
-                        }
+    playerExecutor { player, args ->
 
-                        when (argument) {
+        val argument: String by args
+        val location: Location by args
 
-                            "pos1" -> {
-                                selection.pos1 = location
-                                player.sendMessage("Pos1 gesetzt")
-                            }
+        val rotation =
+            if (requiresRotation) args["rotation"] as Rotation
+            else null
 
-                            "pos2" -> {
-                                selection.pos2 = location
-                                player.sendMessage("Pos2 gesetzt")
-                            }
+        val selection = selections.getOrPut(player.uniqueId) {
+            RegionSelection()
+        }
 
-                            "create" -> {
+        when (argument) {
 
-                                val pos1 = selection.pos1
-                                val pos2 = selection.pos2
+            "pos1" -> {
 
-                                if (pos1 == null || pos2 == null) return@playerExecutor
+                selection.pos1 = location
 
-                                onCreate(pos1, pos2, rotation)
-                                selections.remove(player.uniqueId)
-                            }
-                        }
-                    }
+                player.sendText {
+                    appendSuccessPrefix()
+                    success("Pos1:")
+                    appendSpace()
+                    variableValue(location.readableString(true))
                 }
+            }
+
+            "pos2" -> {
+
+                selection.pos2 = location
+
+                player.sendText {
+                    appendSuccessPrefix()
+                    success("Pos2:")
+                    appendSpace()
+                    variableValue(location.readableString(true))
+                }
+            }
+
+            "create" -> {
+
+                val pos1 = selection.pos1
+                val pos2 = selection.pos2
+
+                if (pos1 == null || pos2 == null) {
+                    player.sendText {
+                        appendErrorPrefix()
+                        error("Du musst erst pos1 und pos2 setzen!")
+                    }
+                    return@playerExecutor
+                }
+
+                if (pos1.world != pos2.world) {
+                    player.sendText {
+                        appendErrorPrefix()
+                        error("Beide Positionen müssen in derselben Welt sein!")
+                    }
+                    return@playerExecutor
+                }
+
+                onCreate(pos1, pos2, rotation)
+
+                player.sendText {
+                    appendSuccessPrefix()
+                    success("Du hast eine Region zwischen")
+                    appendSpace()
+                    variableValue(pos1.readableString(true))
+                    appendSpace()
+                    success("und")
+                    appendSpace()
+                    variableValue(pos2.readableString(true))
+                    appendSpace()
+                    success("erstellt.")
+                }
+
+                selections.remove(player.uniqueId)
             }
         }
     }

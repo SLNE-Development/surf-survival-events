@@ -24,8 +24,8 @@ fun CommandTree.kickPlayerCommand() {
                     return@playerExecutor
                 }
 
-                GameService.leaveWaitingQueue(player)
-                GameService.leaveGameQueue(player)
+                GameService.leaveWaitingQueue(targetPlayer)
+                GameService.leaveGameQueue(targetPlayer)
 
                 player.sendText {
                     appendSuccessPrefix()

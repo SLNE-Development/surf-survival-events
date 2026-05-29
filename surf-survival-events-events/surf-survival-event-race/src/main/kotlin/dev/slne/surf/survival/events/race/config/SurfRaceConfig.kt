@@ -9,16 +9,10 @@ import org.spongepowered.configurate.objectmapping.ConfigSerializable
 data class SurfRaceConfig(
     var laps: Int = 5,
 
-    var lobbyWorld: String = "world",
-    var lobbyX: Double = 0.5,
-    var lobbyY: Double = 73.0,
-    var lobbyZ: Double = 0.5,
-    var lobbyYaw: Float = 0f,
-    var lobbyPitch: Float = 0f,
-
-    var checkPoints: MutableList<Checkpoint> = mutableListOf(),
-    var barrier: MutableList<Barrier> = mutableListOf(),
-    var start: MutableList<Start> = mutableListOf(),
+    var lobby: MutableList<LobbyConfig> = mutableListOf(),
+    var checkPoints: MutableList<CheckPointConfig> = mutableListOf(),
+    var barrier: MutableList<BarrierConfig> = mutableListOf(),
+    var start: MutableList<StartConfig> = mutableListOf(),
 
     ) {
     companion object : SpongeYmlConfigClass<SurfRaceConfig>(
@@ -28,7 +22,20 @@ data class SurfRaceConfig(
     )
 
     @ConfigSerializable
-    data class Checkpoint(
+    data class LobbyConfig(
+
+        var lobbyWorld: String = "world",
+
+        var lobbyX: Double = 0.5,
+        var lobbyY: Double = 73.0,
+        var lobbyZ: Double = 0.5,
+
+        var lobbyYaw: Float = 0f,
+        var lobbyPitch: Float = 0f,
+    )
+
+    @ConfigSerializable
+    data class CheckPointConfig(
 
         var id: Int = 0,
 
@@ -42,10 +49,10 @@ data class SurfRaceConfig(
         override var y2: Double = 0.0,
         override var z2: Double = 0.0,
 
-    ) : RegionData
+        ) : RegionData
 
     @ConfigSerializable
-    data class Barrier(
+    data class BarrierConfig(
 
         override var world: String = "world",
 
@@ -60,7 +67,7 @@ data class SurfRaceConfig(
     ) : RegionData
 
     @ConfigSerializable
-    data class Start(
+    data class StartConfig(
 
         override var world: String = "world",
 

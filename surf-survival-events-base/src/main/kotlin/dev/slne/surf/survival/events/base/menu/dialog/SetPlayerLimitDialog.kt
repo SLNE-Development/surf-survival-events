@@ -17,11 +17,11 @@ fun setMaxPlayerDialog(game: Games) = dialog {
         title { eventColored("Spielerlimit") }
         body {
             plainMessage {
-                info("Hier Spielerlimit einstellen.")
+                info("Hier kannst du die maximale Anzahl an Spielern eingeben")
                 appendNewline()
                 appendNewline()
                 appendWarningPrefix()
-                error("Nur Werte über 0 sind erlaubt.")
+                error("Bitte beachte, dass die Zahl größer als 0 sein muss!")
             }
 
             input {
@@ -83,7 +83,7 @@ fun setMaxPlayerDialog(game: Games) = dialog {
                         }
                     }
                 }
-            },actionButton {
+            }, actionButton {
                 label { error("Abbrechen") }
                 tooltip { info("Zum Schließen klicken") }
                 width(200)

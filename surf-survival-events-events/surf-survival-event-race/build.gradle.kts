@@ -6,4 +6,6 @@ surfPaperPluginApi {
     mainClass("dev.slne.surf.survival.events.race.PaperMain")
     generateLibraryLoader(false)
     foliaSupported(true)
+
+    authors.addAll("mikey", "red")
 }

@@ -9,7 +9,7 @@ import dev.slne.surf.survival.events.base.util.commands.PermissionRegistry
 
 fun CommandTree.removeNpc() {
     literalArgument("remove-npc") {
-        withPermission(PermissionRegistry.COMMAND_ADMIN)
+        withPermission(PermissionRegistry.COMMAND_COMMUNITY_MANAGER)
         anyExecutor { sender, _ ->
             NpcService.hideNpc()
 

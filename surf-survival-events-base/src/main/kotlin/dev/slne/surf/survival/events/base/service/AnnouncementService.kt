@@ -1,30 +1,20 @@
 package dev.slne.surf.survival.events.base.service
 
-import com.github.shynixn.mccoroutine.folia.launch
-import com.github.shynixn.mccoroutine.folia.regionDispatcher
 import dev.slne.surf.api.core.messages.adventure.sendText
-import dev.slne.surf.survival.events.base.plugin
-import kotlinx.coroutines.withContext
 import net.kyori.adventure.text.format.TextColor
-import org.bukkit.Sound
 import org.bukkit.entity.Player
 
 object AnnouncementService {
-    fun sendOpenEvent(player: Player){
+    fun sendOpenEvent(player: Player) {
         val activeGame = GameService.getActiveGame()
+        //player.playSound(player.location, Sound.ENTITY_ENDER_DRAGON_GROWL, 1f, 1f)
 
-        plugin.launch {
-            val location = player.location
-            withContext(plugin.regionDispatcher(location)) {
-                player.playSound(location, Sound.ENTITY_ENDER_DRAGON_GROWL, 1f, 1f)
-            }
-        }
 
         player.sendText {
             text("--------------------------------------------------", TextColor.color(0x599542))
             appendNewline()
             appendNewline()
-            text("Das ${activeGame.displayName} ist gestartet!", TextColor.color(0xD98E8D))
+            text("${activeGame.displayName} wurde gestartet!", TextColor.color(0xD98E8D))
             appendNewline()
             info("Gehe zum Central Spawn und klicke auf Arty, um teilzunehmen.")
             appendNewline()
@@ -33,7 +23,7 @@ object AnnouncementService {
         }
     }
 
-    fun sendCloseEvent(player: Player){
+    fun sendCloseEvent(player: Player) {
         val activeGame = GameService.getActiveGame()
         player.sendText {
             text("--------------------------------------------------", TextColor.color(0x599542))

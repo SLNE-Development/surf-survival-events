@@ -21,6 +21,14 @@ fun CommandTree.joinAsSpectatorCommand() {
                 return@playerExecutor
             }
 
+            if (GameService.isInGameQueue(player) || GameService.isInWaitingQueue(player)) {
+                player.sendText {
+                    appendErrorPrefix()
+                    error("Du bist bereits als Spieler dabei!")
+                }
+                return@playerExecutor
+            }
+
             if (GameService.isSpectator(uuid)) {
                 player.sendText {
                     appendErrorPrefix()

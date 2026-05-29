@@ -3,6 +3,7 @@ package dev.slne.surf.survival.events.base
 import com.github.shynixn.mccoroutine.folia.SuspendingJavaPlugin
 import dev.slne.surf.api.paper.event.register
 import dev.slne.surf.api.paper.inventory.framework.register
+import dev.slne.surf.survival.events.base.config.SurfRaceConfig
 import dev.slne.surf.survival.events.base.listeners.JoinQuitListener
 import dev.slne.surf.survival.events.base.menu.view.OverviewView
 import dev.slne.surf.survival.events.base.listeners.NpcInteractListener
@@ -15,6 +16,7 @@ val plugin get() = JavaPlugin.getPlugin(PaperMain::class.java)
 class PaperMain : SuspendingJavaPlugin() {
     override suspend fun onLoadAsync() {
         OverviewView.register()
+        SurfRaceConfig.init()
     }
 
     override suspend fun onEnableAsync() {

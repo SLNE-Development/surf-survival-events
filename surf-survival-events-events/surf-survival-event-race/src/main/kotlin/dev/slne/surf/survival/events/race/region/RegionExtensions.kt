@@ -1,27 +1,25 @@
 package dev.slne.surf.survival.events.race.region
 
 import org.bukkit.Location
+import org.bukkit.util.BoundingBox
 
-
-val RegionData.minX get() = minOf(x1, x2)
-val RegionData.maxX get() = maxOf(x1, x2)
-
-val RegionData.minY get() = minOf(y1, y2)
-val RegionData.maxY get() = maxOf(y1, y2)
-
-val RegionData.minZ get() = minOf(z1, z2)
-val RegionData.maxZ get() = maxOf(z1, z2)
+val RegionData.boundingBox: BoundingBox
+    get() = BoundingBox(
+        minOf(x1, x2),
+        minOf(y1, y2),
+        minOf(z1, z2),
+        maxOf(x1, x2),
+        maxOf(y1, y2),
+        maxOf(z1, z2)
+    )
 
 fun RegionData.contains(location: Location): Boolean {
+    val world = location.world ?: return false
+    if (world.name != this.world) return false
 
-    val worldName = location.world?.name ?: return false
-    if (worldName != world) return false
-
-    val x = location.blockX
-    val y = location.blockY
-    val z = location.blockZ
-
-    return x in minX.toInt()..maxX.toInt() &&
-            y in minY.toInt()..maxY.toInt() &&
-            z in minZ.toInt()..maxZ.toInt()
+    return boundingBox.contains(
+        location.x,
+        location.y,
+        location.z
+    )
 }

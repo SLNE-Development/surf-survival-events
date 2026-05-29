@@ -22,7 +22,6 @@ import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 object RaceListener : Listener {
-
     private val messageCooldown = Caffeine.newBuilder()
         .expireAfterWrite(2, TimeUnit.SECONDS)
         .build<UUID, Boolean>()
@@ -190,7 +189,11 @@ object RaceListener : Listener {
 
             player.sendText {
                 appendSuccessPrefix()
-                success("Du bist jetzt in Runde ${lap + 1}!")
+                success("Du bist jetzt in Runde")
+                appendSpace()
+                variableValue(lap + 1)
+                appendSpace()
+                success(".")
             }
         }
     }

@@ -1,16 +1,11 @@
 package dev.slne.surf.survival.events.race.service
 
-import com.github.shynixn.mccoroutine.folia.launch
 import com.github.shynixn.mccoroutine.folia.regionDispatcher
 import dev.slne.surf.survival.events.race.config.SurfRaceConfig
 import dev.slne.surf.survival.events.race.region.contains
 import dev.slne.surf.survival.events.race.plugin
-import dev.slne.surf.survival.events.race.region.maxX
-import dev.slne.surf.survival.events.race.region.maxY
-import dev.slne.surf.survival.events.race.region.maxZ
-import dev.slne.surf.survival.events.race.region.minX
-import dev.slne.surf.survival.events.race.region.minY
-import dev.slne.surf.survival.events.race.region.minZ
+import dev.slne.surf.survival.events.race.region.boundingBox
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import org.bukkit.Bukkit
 import org.bukkit.Location
@@ -18,21 +13,26 @@ import org.bukkit.Material
 
 object RegionService {
 
-    fun fillBlocks(material: Material) {
-        plugin.launch {
-            SurfRaceConfig.getConfig().barrier.forEach { barrier ->
+    suspend fun fillBlocks(material: Material) = coroutineScope {
 
-                val world = Bukkit.getWorld(barrier.world) ?: return@forEach
+        SurfRaceConfig.getConfig().barrier.forEach { barrier ->
 
-                for (x in barrier.minX.toInt()..barrier.maxX.toInt()) {
-                    for (y in barrier.minY.toInt()..barrier.maxY.toInt()) {
-                        for (z in barrier.minZ.toInt()..barrier.maxZ.toInt()) {
+            val world = Bukkit.getWorld(barrier.world) ?: return@forEach
+            val box = barrier.boundingBox
 
-                            val location = Location(world, x.toDouble(), y.toDouble(), z.toDouble())
+            val minX = box.minX.toInt()
+            val minY = box.minY.toInt()
+            val minZ = box.minZ.toInt()
 
-                            launch(plugin.regionDispatcher(location)) {
-                                world.getBlockAt(x, y, z).type = material
-                            }
+            val maxX = box.maxX.toInt()
+            val maxY = box.maxY.toInt()
+            val maxZ = box.maxZ.toInt()
+
+            for (x in minX..maxX) {
+                for (y in minY..maxY) {
+                    for (z in minZ..maxZ) {
+                        launch(plugin.regionDispatcher(Location(world, x.toDouble(), y.toDouble(), z.toDouble()))) {
+                            world.getBlockAt(x, y, z).type = material
                         }
                     }
                 }
@@ -40,18 +40,12 @@ object RegionService {
         }
     }
 
-    fun getCheckpoint(playerLocation: Location): SurfRaceConfig.Checkpoint? {
-
-        return SurfRaceConfig.getConfig()
-            .checkPoints
-            .find { it.contains(playerLocation) }
-    }
-
-    fun getStart(playerLocation: Location): SurfRaceConfig.Start? {
-        return SurfRaceConfig.getConfig()
-            .start
-            .find { it.contains(playerLocation) }
-    }
+    fun getCheckpoint(playerLocation: Location): SurfRaceConfig.CheckPointConfig? = SurfRaceConfig.getConfig()
+        .checkPoints
+        .find { it.contains(playerLocation) }
 
 
+    fun getStart(playerLocation: Location): SurfRaceConfig.StartConfig? = SurfRaceConfig.getConfig()
+        .start
+        .find { it.contains(playerLocation) }
 }

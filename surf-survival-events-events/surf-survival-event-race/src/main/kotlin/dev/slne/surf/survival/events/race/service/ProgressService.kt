@@ -65,11 +65,8 @@ object ProgressService {
         }
     }
 
-    fun getPlace(uuid: UUID): Int {
-        return places.indexOf(uuid) + 1
-    }
+    fun getPlace(uuid: UUID)= places.indexOf(uuid) + 1
 
-    fun getPlaceList(): ArrayDeque<UUID> {
-        return places
-    }
+
+    fun getPlaceList(): ArrayDeque<UUID> = places
 }

@@ -12,6 +12,7 @@ import io.papermc.paper.threadedregions.scheduler.ScheduledTask
 import org.bukkit.Bukkit
 import org.bukkit.entity.Player
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import kotlin.collections.ArrayDeque
 
@@ -23,7 +24,7 @@ object GameService {
     private var activeGame: Games? = null
     private var maxPlayers = NONE
 
-    private val spectators = mutableListOf<UUID>()
+    private val spectators = ConcurrentHashMap.newKeySet<UUID>()
     private val gameQueue = ArrayDeque<UUID>()
     private val waitingQueue = ArrayDeque<UUID>()
 
@@ -114,11 +115,11 @@ object GameService {
     fun getQueuePlayers(): ArrayDeque<UUID> = gameQueue
 
     fun beginGame() {
-        when (activeGame?.displayName) {
-            Games.EXAMPLE.displayName ->
+        when (activeGame) {
+            Games.EXAMPLE ->
                 startExampleGame(getQueuePlayers())
 
-            Games.RACE.displayName -> {
+            Games.RACE -> {
                 RaceService.setRaceState(RaceState.LOBBY)
                 spectators.forEach(RaceService::addSpectators)
                 gameQueue.forEach(RaceService::addPlayer)
