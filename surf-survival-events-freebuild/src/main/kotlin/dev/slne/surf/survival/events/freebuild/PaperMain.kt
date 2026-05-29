@@ -43,14 +43,13 @@ class PaperMain : SuspendingJavaPlugin() {
             displayName {
                 variableValue("Arty".toSmallCaps(), TextDecoration.BOLD)
             }
-            uniqueName = "survival_events"
             location = Location(Bukkit.getWorlds().first(), -4.5, 73.0, 8.5, -140f, 0f)
             type = EntityType.MANNEQUIN
             skin = NpcSkin(
                 "Events",
                 "ewogICJ0aW1lc3RhbXAiIDogMTc4MDA5NzQ1NTU4MiwKICAicHJvZmlsZUlkIiA6ICJlNmEwMjI4ZTdkNmU0NWNkODkyOGZmN2Q1OTdlOWYxMyIsCiAgInByb2ZpbGVOYW1lIiA6ICJhbGVrdHJvX2JvYmVyIiwKICAic2lnbmF0dXJlUmVxdWlyZWQiIDogdHJ1ZSwKICAidGV4dHVyZXMiIDogewogICAgIlNLSU4iIDogewogICAgICAidXJsIiA6ICJodHRwOi8vdGV4dHVyZXMubWluZWNyYWZ0Lm5ldC90ZXh0dXJlL2NkNjBjYmFkZmYzMmMxZDE2YmQ1M2IwYWFiZTMzZjJkNzUxNTgyNzRhNDU2NmZiYmU3MDg0YzNhMmRkM2NlY2QiLAogICAgICAibWV0YWRhdGEiIDogewogICAgICAgICJtb2RlbCIgOiAic2xpbSIKICAgICAgfQogICAgfSwKICAgICJDQVBFIiA6IHsKICAgICAgInVybCIgOiAiaHR0cDovL3RleHR1cmVzLm1pbmVjcmFmdC5uZXQvdGV4dHVyZS8yOGRlNGE4MTY4OGFkMThiNDllNzM1YTI3M2UwODZjMThmMWUzOTY2OTU2MTIzY2NiNTc0MDM0YzA2ZjVkMzM2IgogICAgfQogIH0KfQ==",
                 "iiU2+CVtebLivF8wAagmR3gdPksylEtXhoARGkGAXBkGrLkqkl6RG2URGfLzMsOTiAaufQftasYqkeVFUd6IsVe6D9Xwp7a421cf06MsNUeeKkGqH66jcLqt8ZngJaI52+l+YQslBscUfME76kYUl/mWQfOomLPVeBnHLhiiNzfux1vJkL/IKgMecjzG9pC6An0XcQv4/ZKfMnCtpLwsxgnP3qHK1VxHFNUyzfUyiD3ZOmInS/vUSwBV6Y+DJYppW7y5JSwx/M+rzVIAPC5qm8IZBS5ZuOOUh7X0LVAxaUJDFNFVKWRHXw4vpdnhBvQgp5UYenCEC9vzZwTcr7Jx5N96z8EscrWDHu+X2CQdSbX9ujmm/8ZsbTZ9cgNXH+30Fp9cDQwSNPgTndvF+oFX4ONAYCQMeJOZc5nKeiLb3LGh7pIowq51WXdw3lt5O5XHvj5vW4y11HV88bZSYoABf1Sg22zUDVeXybjBSQWfkx7LUzKu5fE82mM+hPdjs+JxGVccT0xjb93CBLfWZuVKBe0jC3D5u4uj0relLoAqPnv47l/klkCGQcoRH7euj4yNoD1cLiRf9GBt4oKMm7xoyIBV4hyP34XCdXVwHpH9ZqAqY/oRcIJEvcaluQZSX9A+ksFot+RHQtZjKlR6V2aDYPez3r4CuePkvNAWY5n2Ezo=",
-                NpcSkinPart.entries.toObjectSet()
+                NpcSkinPart.entries.filter { it != NpcSkinPart.CAPE }.toObjectSet()
             )
 
             withEventHandler<NpcInteractEvent> { event ->
