@@ -51,6 +51,23 @@ object RegionService {
             .checkPoints
             .find { it.contains(playerLocation) }
 
+    fun getSortedCheckpoints(): List<SurfRaceConfig.CheckPointConfig> =
+        SurfRaceConfig.getConfig()
+            .checkPoints
+            .sortedBy { it.id }
+
+    fun getNextExpectedCheckpointId(currentCheckpointId: Int): Int? {
+        val sorted = getSortedCheckpoints()
+        if (currentCheckpointId == 0) return sorted.firstOrNull()?.id
+        val currentIndex = sorted.indexOfFirst { it.id == currentCheckpointId }
+        if (currentIndex == -1) return sorted.firstOrNull()?.id
+        return sorted.getOrNull(currentIndex + 1)?.id
+    }
+
+    fun getHighestCheckpointId(): Int? =
+        SurfRaceConfig.getConfig()
+            .checkPoints
+            .maxOfOrNull { it.id }
 
     fun getStart(playerLocation: Location): SurfRaceConfig.StartConfig? = SurfRaceConfig.getConfig()
         .start

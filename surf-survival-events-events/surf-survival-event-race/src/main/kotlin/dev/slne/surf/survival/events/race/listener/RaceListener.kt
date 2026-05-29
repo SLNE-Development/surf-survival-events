@@ -115,13 +115,16 @@ object RaceListener : Listener {
 
         val currentCheckpoint = ProgressService.getCheckpoint(uuid)
 
-        if (checkpointFrom == null && checkpointTo != null) {
+        val enteredNewCheckpoint = checkpointTo != null &&
+                (checkpointFrom == null || checkpointFrom.id != checkpointTo.id)
 
-            val expectedCheckpoint = currentCheckpoint + 1
+        if (enteredNewCheckpoint && checkpointTo != null) {
 
-            if (checkpointTo.id == expectedCheckpoint) {
+            val expectedCheckpoint = RegionService.getNextExpectedCheckpointId(currentCheckpoint)
 
-                ProgressService.checkpointUp(uuid)
+            if (expectedCheckpoint != null && checkpointTo.id == expectedCheckpoint) {
+
+                ProgressService.checkpointUp(uuid, checkpointTo.id)
 
                 player.sendText {
                     appendSuccessPrefix()
@@ -135,13 +138,14 @@ object RaceListener : Listener {
                     error("Falscher Checkpoint!")
                 }
             }
-            return
         }
 
-        if (startFrom == null && startTo != null) {
+        val enteredStart = startTo != null &&
+                (startFrom == null || startFrom != startTo)
 
-            val config = SurfRaceConfig.getConfig()
-            val highestCheckpoint = config.checkPoints.maxOfOrNull { it.id } ?: return
+        if (enteredStart && startTo != null) {
+
+            val highestCheckpoint = RegionService.getHighestCheckpointId() ?: return
 
             if (ProgressService.getCheckpoint(uuid) != highestCheckpoint) {
                 return
@@ -149,6 +153,7 @@ object RaceListener : Listener {
 
             ProgressService.lapUp(uuid)
 
+            val config = SurfRaceConfig.getConfig()
             val lap = ProgressService.getLap(uuid)
 
             if (lap >= config.laps) {
