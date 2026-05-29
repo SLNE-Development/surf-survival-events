@@ -33,9 +33,9 @@ object ProgressService {
         playerProgress[uuid]?.currentCheckpoint ?: 0
 
 
-    fun checkpointUp(uuid: UUID) {
+    fun checkpointUp(uuid: UUID, checkpointId: Int) {
         playerProgress[uuid]?.let {
-            it.currentCheckpoint++
+            it.currentCheckpoint = checkpointId
         }
     }
 
