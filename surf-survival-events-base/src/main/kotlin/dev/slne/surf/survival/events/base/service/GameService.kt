@@ -134,7 +134,7 @@ object GameService {
         if (maxPlayers == NONE) NONE else maxPlayers
 
     fun isQueueFull() =
-        gameQueue.size >= maxPlayers
+        maxPlayers != NONE && gameQueue.size >= maxPlayers
 
     fun setMaxPlayers(maxPlayers: Int) {
         this.maxPlayers = maxPlayers
