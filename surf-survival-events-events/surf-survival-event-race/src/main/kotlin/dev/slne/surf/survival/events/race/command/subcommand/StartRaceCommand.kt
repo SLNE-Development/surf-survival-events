@@ -6,6 +6,8 @@ import dev.jorel.commandapi.CommandAPICommand
 import dev.jorel.commandapi.kotlindsl.playerExecutor
 import dev.jorel.commandapi.kotlindsl.subcommand
 import dev.slne.surf.api.core.messages.adventure.sendText
+import dev.slne.surf.survival.events.base.service.GameService
+import dev.slne.surf.survival.events.base.util.Games
 import dev.slne.surf.survival.events.race.plugin
 import dev.slne.surf.survival.events.race.service.RaceService
 import dev.slne.surf.survival.events.race.service.RaceState
@@ -17,11 +19,16 @@ fun CommandAPICommand.startRaceCommand() = subcommand("start") {
     withPermission(PermissionList.COMMAND_COMMUNITY_MANAGER)
     playerExecutor { player, _ ->
         if (RaceService.getRaceState() == RaceState.DEACTIVATED) {
-            player.sendText {
-                appendErrorPrefix()
-                error("Race ist nicht Aktiv.")
+            if (GameService.isGameActive() && GameService.getActiveGame() == Games.RACE) {
+                GameService.beginGame()
+                GameService.stopGame()
+            } else {
+                player.sendText {
+                    appendErrorPrefix()
+                    error("Race ist nicht Aktiv.")
+                }
+                return@playerExecutor
             }
-            return@playerExecutor
         }
 
         if (RaceService.getRaceState() == RaceState.LOBBY) {

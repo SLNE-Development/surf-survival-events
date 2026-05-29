@@ -171,7 +171,7 @@ object RaceService {
 
         survivors.forEach { uuid ->
             Bukkit.getPlayer(uuid)?.let { player ->
-                ProgressService.setFinished(uuid, false)
+                ProgressService.resetProgress(uuid)
 
                 player.sendText {
                     appendInfoPrefix()
@@ -180,6 +180,7 @@ object RaceService {
 
                 playerNautilus[uuid]?.let {
                     Bukkit.getEntity(it)?.remove()
+                    playerNautilus.remove(uuid)
                 }
             }
         }

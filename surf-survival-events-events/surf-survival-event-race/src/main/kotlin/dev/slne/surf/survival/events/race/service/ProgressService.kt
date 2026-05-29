@@ -61,6 +61,11 @@ object ProgressService {
         playerProgress[uuid]?.finished = finished
     }
 
+    fun resetProgress(uuid: UUID) {
+        playerProgress[uuid] = PlayerRaceProgress()
+        places.remove(uuid)
+    }
+
     fun addPlace(uuid: UUID) {
         if (!places.contains(uuid)) {
             places.addLast(uuid)
