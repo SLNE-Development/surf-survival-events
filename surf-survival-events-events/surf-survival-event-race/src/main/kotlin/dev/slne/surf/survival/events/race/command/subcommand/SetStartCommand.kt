@@ -2,6 +2,7 @@ package dev.slne.surf.survival.events.race.command.subcommand
 
 import dev.slne.surf.survival.events.race.command.util.createRegionCommand
 import dev.slne.surf.survival.events.race.config.SurfRaceConfig
+import dev.slne.surf.survival.events.race.region.clearBoundingBoxCache
 
 fun setStartCommand() = createRegionCommand(
     name = "set-start",
@@ -33,5 +34,6 @@ fun setStartCommand() = createRegionCommand(
         )
     }
 
+    clearBoundingBoxCache()
     SurfRaceConfig.save()
 }

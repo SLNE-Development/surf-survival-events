@@ -2,6 +2,7 @@ package dev.slne.surf.survival.events.race.command.subcommand
 
 import dev.slne.surf.survival.events.race.command.util.createRegionCommand
 import dev.slne.surf.survival.events.race.config.SurfRaceConfig
+import dev.slne.surf.survival.events.race.region.clearBoundingBoxCache
 
 
 fun setCheckPointCommand()= createRegionCommand("set-checkpoint") { pos1, pos2, _ ->
@@ -28,5 +29,6 @@ fun setCheckPointCommand()= createRegionCommand("set-checkpoint") { pos1, pos2, 
             )
         )
     }
+    clearBoundingBoxCache()
     SurfRaceConfig.save()
 }

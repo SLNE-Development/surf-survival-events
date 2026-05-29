@@ -170,9 +170,7 @@ object RaceService {
                     info("Du bist leider raus, danke fürs Mitmachen!")
                 }
                 removePlayer(player)
-            }
-
-            ProgressService.removePlayer(uuid)
+            } ?: ProgressService.removePlayer(uuid)
         }
 
         survivors.forEach { uuid ->
@@ -197,6 +195,7 @@ object RaceService {
         setRaceState(RaceState.WAITING)
 
         val starts = SurfRaceConfig.getConfig().start
+        if (starts.isEmpty()) return
 
         racePlayers
             .mapNotNull { Bukkit.getPlayer(it) }
