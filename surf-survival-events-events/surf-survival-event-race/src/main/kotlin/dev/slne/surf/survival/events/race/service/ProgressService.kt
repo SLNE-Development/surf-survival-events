@@ -1,6 +1,9 @@
 package dev.slne.surf.survival.events.race.service
 
 import java.util.UUID
+import kotlin.collections.ArrayDeque
+import kotlin.collections.mutableMapOf
+import kotlin.collections.set
 
 data class PlayerRaceProgress(
     var currentCheckpoint: Int = 0,
@@ -9,7 +12,6 @@ data class PlayerRaceProgress(
 )
 
 object ProgressService {
-
     private val playerProgress = mutableMapOf<UUID, PlayerRaceProgress>()
     private val places = ArrayDeque<UUID>()
 
@@ -65,7 +67,7 @@ object ProgressService {
         }
     }
 
-    fun getPlace(uuid: UUID)= places.indexOf(uuid) + 1
+    fun getPlace(uuid: UUID) = places.indexOf(uuid) + 1
 
 
     fun getPlaceList(): ArrayDeque<UUID> = places

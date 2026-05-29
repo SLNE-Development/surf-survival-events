@@ -1,18 +1,15 @@
 package dev.slne.surf.survival.events.race.command.subcommand
 
+import dev.jorel.commandapi.CommandAPICommand
 import dev.jorel.commandapi.arguments.LocationType
-import dev.jorel.commandapi.kotlindsl.getValue
-import dev.jorel.commandapi.kotlindsl.locationArgument
-import dev.jorel.commandapi.kotlindsl.playerExecutor
-import dev.jorel.commandapi.kotlindsl.rotationArgument
-import dev.jorel.commandapi.kotlindsl.subcommand
+import dev.jorel.commandapi.kotlindsl.*
 import dev.jorel.commandapi.wrappers.Rotation
 import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.api.paper.util.readableString
 import dev.slne.surf.survival.events.race.config.SurfRaceConfig
 import org.bukkit.Location
 
-fun setLobbyCommand() = subcommand("set-lobby") {
+fun CommandAPICommand.setLobbyCommand() = subcommand("set-lobby") {
     locationArgument("location", LocationType.BLOCK_POSITION)
     rotationArgument("rotation")
     playerExecutor { player, args ->

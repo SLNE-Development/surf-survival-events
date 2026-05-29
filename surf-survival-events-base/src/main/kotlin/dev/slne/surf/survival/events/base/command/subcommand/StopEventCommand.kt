@@ -9,37 +9,33 @@ import dev.slne.surf.survival.events.base.service.AnnouncementService
 import dev.slne.surf.survival.events.base.service.GameService
 import dev.slne.surf.survival.events.base.util.commands.PermissionRegistry
 
-fun CommandTree.stopEventCommand() {
-    literalArgument("stop") {
-        withPermission(PermissionRegistry.COMMAND_COMMUNITY_MANAGER)
-
-        playerExecutor { player, _ ->
-
-            if (!GameService.isGameActive()) {
-                player.sendText {
-                    appendErrorPrefix()
-                    error("Es ist kein Event aktiv!")
-                }
-                return@playerExecutor
-            }
-
-            val activeGame = GameService.getActiveGame()
-
+fun CommandTree.stopEventCommand() = literalArgument("stop") {
+    withPermission(PermissionRegistry.COMMAND_COMMUNITY_MANAGER)
+    playerExecutor { player, _ ->
+        if (!GameService.isGameActive()) {
             player.sendText {
-                appendWarningPrefix()
-                warning("Das Spiel ")
-                variableValue(activeGame.displayName)
-                appendSpace()
-                warning("wurde deaktiviert!")
+                appendErrorPrefix()
+                error("Es ist kein Event aktiv!")
             }
-
-            for (onlinePlayer in server.onlinePlayers) {
-                AnnouncementService.sendCloseEvent(onlinePlayer)
-            }
-
-            GameService.stopGame()
             return@playerExecutor
-
         }
+
+        val activeGame = GameService.getActiveGame()
+
+        player.sendText {
+            appendWarningPrefix()
+            warning("Das Spiel ")
+            variableValue(activeGame.displayName)
+            appendSpace()
+            warning("wurde deaktiviert!")
+        }
+
+        for (onlinePlayer in server.onlinePlayers) {
+            AnnouncementService.sendCloseEvent(onlinePlayer)
+        }
+
+        GameService.stopGame()
+        return@playerExecutor
+
     }
 }

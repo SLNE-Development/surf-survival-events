@@ -16,14 +16,12 @@ import org.bukkit.Bukkit
 import org.bukkit.OfflinePlayer
 import org.bukkit.entity.Player
 
-fun CommandTree.showQueueCommand() {
-    literalArgument("queue") {
-        withPermission(PermissionRegistry.COMMAND_GAME_SPECTATOR)
-        integerArgument("page", optional = true) {
-            playerExecutor { player, args ->
-                val page: Int = (args.get("page") as? Int) ?: 1
-                player.showParticipants(page)
-            }
+fun CommandTree.showQueueCommand() = literalArgument("queue") {
+    withPermission(PermissionRegistry.COMMAND_GAME_SPECTATOR)
+    integerArgument("page", optional = true) {
+        playerExecutor { player, args ->
+            val page: Int = (args.get("page") as? Int) ?: 1
+            player.showParticipants(page)
         }
     }
 }

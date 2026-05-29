@@ -23,7 +23,6 @@ data class SurfRaceConfig(
 
     @ConfigSerializable
     data class LobbyConfig(
-
         var lobbyWorld: String = "world",
 
         var lobbyX: Double = 0.5,
@@ -36,9 +35,7 @@ data class SurfRaceConfig(
 
     @ConfigSerializable
     data class CheckPointConfig(
-
         var id: Int = 0,
-
         override var world: String = "world",
 
         override var x1: Double = 0.0,
@@ -53,7 +50,6 @@ data class SurfRaceConfig(
 
     @ConfigSerializable
     data class BarrierConfig(
-
         override var world: String = "world",
 
         override var x1: Double = 0.0,
@@ -68,7 +64,6 @@ data class SurfRaceConfig(
 
     @ConfigSerializable
     data class StartConfig(
-
         override var world: String = "world",
 
         override var x1: Double = 0.0,

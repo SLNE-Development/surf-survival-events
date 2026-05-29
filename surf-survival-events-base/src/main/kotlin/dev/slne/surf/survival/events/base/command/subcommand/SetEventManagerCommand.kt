@@ -12,37 +12,34 @@ import dev.slne.surf.survival.events.base.config.SurfRaceConfig
 import dev.slne.surf.survival.events.base.service.NpcService
 import org.bukkit.Location
 
-fun CommandTree.setEventManagerCommand() {
-    literalArgument("set-event-manager") {
-        locationArgument("location", LocationType.BLOCK_POSITION) {
-            playerExecutor { player, args ->
+fun CommandTree.setEventManagerCommand() = literalArgument("set-event-manager") {
+    locationArgument("location", LocationType.BLOCK_POSITION) {
+        playerExecutor { player, args ->
+            val location: Location by args
 
-                val location: Location by args
+            SurfRaceConfig.edit {
+                eventManager.clear()
+                eventManager.add(
+                    SurfRaceConfig.EventManagerConfig(
+                        eventManagerWorld = location.world.name,
 
-                SurfRaceConfig.edit {
-                    eventManager.clear()
-                    eventManager.add(
-                        SurfRaceConfig.EventManagerConfig(
-                            eventManagerWorld = location.world.name,
-
-                            eventManagerX = location.x,
-                            eventManagerY = location.y,
-                            eventManagerZ = location.z,
-                        )
+                        eventManagerX = location.x,
+                        eventManagerY = location.y,
+                        eventManagerZ = location.z,
                     )
-                }
-
-                player.sendText {
-                    appendSuccessPrefix()
-                    success("Die Position des Event Managers wurde erfolgreich gesetzt!")
-                    appendSpace()
-                    variableValue(location.readableString(true))
-                }
-
-                SurfRaceConfig.save()
-
-                NpcService.newPositionNpc(location)
+                )
             }
+
+            player.sendText {
+                appendSuccessPrefix()
+                success("Die Position des Event Managers wurde erfolgreich gesetzt!")
+                appendSpace()
+                variableValue(location.readableString(true))
+            }
+
+            SurfRaceConfig.save()
+
+            NpcService.newPositionNpc(location)
         }
     }
 }

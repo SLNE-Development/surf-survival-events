@@ -1,18 +1,14 @@
 package dev.slne.surf.survival.events.race.command.util
 
+import dev.jorel.commandapi.CommandAPICommand
 import dev.jorel.commandapi.arguments.LocationType
-import dev.jorel.commandapi.kotlindsl.getValue
-import dev.jorel.commandapi.kotlindsl.locationArgument
-import dev.jorel.commandapi.kotlindsl.multiLiteralArgument
-import dev.jorel.commandapi.kotlindsl.playerExecutor
-import dev.jorel.commandapi.kotlindsl.rotationArgument
-import dev.jorel.commandapi.kotlindsl.subcommand
+import dev.jorel.commandapi.kotlindsl.*
 import dev.jorel.commandapi.wrappers.Rotation
 import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.api.paper.util.readableString
-import dev.slne.surf.survival.events.race.utils.PermissionRegistry
+import dev.slne.surf.survival.events.race.utils.PermissionList
 import org.bukkit.Location
-import java.util.UUID
+import java.util.*
 
 data class RegionSelection(
     var pos1: Location? = null,
@@ -21,7 +17,7 @@ data class RegionSelection(
 
 private val selections = mutableMapOf<UUID, RegionSelection>()
 
-fun createRegionCommand(
+fun CommandAPICommand.createRegionCommand(
     name: String,
     requiresRotation: Boolean = false,
     onCreate: (
@@ -30,11 +26,8 @@ fun createRegionCommand(
         rotation: Rotation?
     ) -> Unit
 ) = subcommand(name) {
-
-    withPermission(PermissionRegistry.COMMAND_COMMUNITY_MANAGER)
-
+    withPermission(PermissionList.COMMAND_COMMUNITY_MANAGER)
     multiLiteralArgument("argument", "pos1", "pos2", "create")
-
     locationArgument("location", LocationType.BLOCK_POSITION)
 
     if (requiresRotation) {
@@ -42,7 +35,6 @@ fun createRegionCommand(
     }
 
     playerExecutor { player, args ->
-
         val argument: String by args
         val location: Location by args
 
@@ -55,9 +47,7 @@ fun createRegionCommand(
         }
 
         when (argument) {
-
             "pos1" -> {
-
                 selection.pos1 = location
 
                 player.sendText {
@@ -69,7 +59,6 @@ fun createRegionCommand(
             }
 
             "pos2" -> {
-
                 selection.pos2 = location
 
                 player.sendText {
@@ -81,7 +70,6 @@ fun createRegionCommand(
             }
 
             "create" -> {
-
                 val pos1 = selection.pos1
                 val pos2 = selection.pos2
 

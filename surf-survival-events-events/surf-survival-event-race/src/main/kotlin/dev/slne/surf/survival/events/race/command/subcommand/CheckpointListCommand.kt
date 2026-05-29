@@ -1,5 +1,6 @@
 package dev.slne.surf.survival.events.race.command.subcommand
 
+import dev.jorel.commandapi.CommandAPICommand
 import dev.jorel.commandapi.kotlindsl.getValue
 import dev.jorel.commandapi.kotlindsl.multiLiteralArgument
 import dev.jorel.commandapi.kotlindsl.playerExecutor
@@ -7,23 +8,21 @@ import dev.jorel.commandapi.kotlindsl.subcommand
 import dev.slne.surf.api.core.messages.adventure.buildText
 import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.survival.events.race.config.SurfRaceConfig
-import dev.slne.surf.survival.events.race.utils.PermissionRegistry
+import dev.slne.surf.survival.events.race.utils.PermissionList
 import net.kyori.adventure.text.event.ClickEvent
 import net.kyori.adventure.text.event.HoverEvent
 import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.entity.Player
 
-fun checkpointListCommand() = subcommand("list") {
-    withPermission(PermissionRegistry.COMMAND_COMMUNITY_MANAGER)
+fun CommandAPICommand.checkpointListCommand() = subcommand("list") {
+    withPermission(PermissionList.COMMAND_COMMUNITY_MANAGER)
     multiLiteralArgument("arguments", "checkpoints", "start", "barrier")
 
     playerExecutor { player, args ->
         val arguments: String by args
 
-
         player.sendText {
-
             when (arguments) {
                 "start" -> {
                     val start = SurfRaceConfig.getConfig().start
@@ -98,12 +97,13 @@ private fun sendCheckpoint(player: Player, checkpoint: SurfRaceConfig.CheckPoint
             buildText {
                 variableValue("${checkpoint.world} | (${checkpoint.x1} ${checkpoint.y1} ${checkpoint.z1})")
             }.clickEvent(ClickEvent.callback {
-                player.teleportAsync(Location(world, checkpoint.x1, checkpoint.y1, checkpoint.z1)).thenRun {
-                    player.sendText {
-                        appendSuccessPrefix()
-                        success("Teleportiert zu Startpunkt.")
+                player.teleportAsync(Location(world, checkpoint.x1, checkpoint.y1, checkpoint.z1))
+                    .thenRun {
+                        player.sendText {
+                            appendSuccessPrefix()
+                            success("Teleportiert zu Startpunkt.")
+                        }
                     }
-                }
             })
         )
 
@@ -115,12 +115,13 @@ private fun sendCheckpoint(player: Player, checkpoint: SurfRaceConfig.CheckPoint
             buildText {
                 variableValue("(${checkpoint.x2} ${checkpoint.y2} ${checkpoint.z2})")
             }.clickEvent(ClickEvent.callback {
-                player.teleportAsync(Location(world, checkpoint.x2, checkpoint.y2, checkpoint.z2)).thenRun {
-                    player.sendText {
-                        appendSuccessPrefix()
-                        success("Teleportiert zu Endpunkt.")
+                player.teleportAsync(Location(world, checkpoint.x2, checkpoint.y2, checkpoint.z2))
+                    .thenRun {
+                        player.sendText {
+                            appendSuccessPrefix()
+                            success("Teleportiert zu Endpunkt.")
+                        }
                     }
-                }
             })
         )
 
@@ -131,7 +132,6 @@ private fun sendCheckpoint(player: Player, checkpoint: SurfRaceConfig.CheckPoint
 }
 
 private fun sendStart(player: Player, start: SurfRaceConfig.StartConfig) {
-
     val world = Bukkit.getWorld(start.world) ?: return
 
     player.sendText {

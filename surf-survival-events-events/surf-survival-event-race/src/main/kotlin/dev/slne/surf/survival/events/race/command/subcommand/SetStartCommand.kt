@@ -1,10 +1,11 @@
 package dev.slne.surf.survival.events.race.command.subcommand
 
+import dev.jorel.commandapi.CommandAPICommand
 import dev.slne.surf.survival.events.race.command.util.createRegionCommand
 import dev.slne.surf.survival.events.race.config.SurfRaceConfig
 import dev.slne.surf.survival.events.race.region.clearBoundingBoxCache
 
-fun setStartCommand() = createRegionCommand(
+fun CommandAPICommand.setStartCommand() = createRegionCommand(
     name = "set-start",
     requiresRotation = true
 ) { pos1, pos2, rotation ->

@@ -1,6 +1,7 @@
 package dev.slne.surf.survival.events.race.command.subcommand
 
 import com.github.shynixn.mccoroutine.folia.launch
+import dev.jorel.commandapi.CommandAPICommand
 import dev.jorel.commandapi.kotlindsl.getValue
 import dev.jorel.commandapi.kotlindsl.integerArgument
 import dev.jorel.commandapi.kotlindsl.playerExecutor
@@ -10,11 +11,11 @@ import dev.slne.surf.survival.events.race.plugin
 import dev.slne.surf.survival.events.race.service.RaceService
 import dev.slne.surf.survival.events.race.service.RaceState
 import dev.slne.surf.survival.events.race.service.RegionService
-import dev.slne.surf.survival.events.race.utils.PermissionRegistry
+import dev.slne.surf.survival.events.race.utils.PermissionList
 import org.bukkit.Material
 
-fun nextRoundCommand() = subcommand("next-round") {
-    withPermission(PermissionRegistry.COMMAND_COMMUNITY_MANAGER)
+fun CommandAPICommand.nextRoundCommand() = subcommand("next-round") {
+    withPermission(PermissionList.COMMAND_COMMUNITY_MANAGER)
     integerArgument("rawInt", 1)
 
     playerExecutor { player, args ->
