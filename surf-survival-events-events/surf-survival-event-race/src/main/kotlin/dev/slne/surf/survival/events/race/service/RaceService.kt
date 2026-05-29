@@ -16,7 +16,7 @@ import org.bukkit.Material
 import org.bukkit.entity.Nautilus
 import org.bukkit.entity.Player
 import org.bukkit.inventory.ItemStack
-import java.util.UUID
+import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
@@ -44,10 +44,7 @@ object RaceService {
             lobby?.lobbyPitch ?: 0f
         )
 
-        plugin.launch {
-            player?.teleportAsync(location)
-        }
-
+        player?.teleportAsync(location)
         racePlayers.add(uuid)
     }
 
@@ -214,7 +211,14 @@ object RaceService {
     }
 
     private fun midStartLocation(start: SurfRaceConfig.StartConfig): Location {
-        val world = Bukkit.getWorld(start.world) ?: return Location(Bukkit.getWorlds().first(), 0.0, 73.0, 0.0, 0f, 0f)
+        val world = Bukkit.getWorld(start.world) ?: return Location(
+            Bukkit.getWorlds().first(),
+            0.0,
+            73.0,
+            0.0,
+            0f,
+            0f
+        )
 
         val midX = (start.x1 + start.x2) / 2
         val midY = (start.y1 + start.y2) / 2
