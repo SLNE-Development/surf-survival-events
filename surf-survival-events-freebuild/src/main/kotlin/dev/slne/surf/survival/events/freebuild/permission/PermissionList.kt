@@ -6,4 +6,5 @@ object PermissionList : PermissionRegistry() {
     private const val BASE = "surf.survival.events.freebuild"
 
     val COMMAND_SWITCH = create("$BASE.switch")
+    val COMMAND_RELOAD = create("$BASE.reload")
 }

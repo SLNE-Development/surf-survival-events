@@ -13,6 +13,7 @@ import dev.slne.surf.npc.api.dsl.npc
 import dev.slne.surf.npc.api.event.NpcInteractEvent
 import dev.slne.surf.npc.api.npc.skin.NpcSkin
 import dev.slne.surf.npc.api.npc.skin.NpcSkinPart
+import dev.slne.surf.survival.events.freebuild.command.reloadFreebuildSurvivalEventsConfigCommand
 import dev.slne.surf.survival.events.freebuild.command.switchFreebuildSurvivalServerEventsServerNpcCommand
 import dev.slne.surf.survival.events.freebuild.config.FreebuildPartConfig
 import net.kyori.adventure.text.format.TextDecoration
@@ -33,6 +34,7 @@ private val npcCooldown = Caffeine.newBuilder()
 class PaperMain : SuspendingJavaPlugin() {
     override suspend fun onLoadAsync() {
         switchFreebuildSurvivalServerEventsServerNpcCommand()
+        reloadFreebuildSurvivalEventsConfigCommand()
     }
 
     override suspend fun onEnableAsync() {
