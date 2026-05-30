@@ -18,7 +18,7 @@ import org.bukkit.event.player.PlayerDropItemEvent
 import org.bukkit.event.player.PlayerMoveEvent
 import org.bukkit.event.vehicle.VehicleEnterEvent
 import org.bukkit.event.vehicle.VehicleExitEvent
-import java.util.UUID
+import java.util.*
 import java.util.concurrent.TimeUnit
 
 object RaceListener : Listener {
@@ -143,13 +143,18 @@ object RaceListener : Listener {
         val enteredStart = startTo != null &&
                 (startFrom == null || startFrom != startTo)
 
-        if (enteredStart && startTo != null) {
+        if (enteredStart) { // TODO: Fix laps
 
             val highestCheckpoint = RegionService.getHighestCheckpointId() ?: return
 
+            println("Highest Checkpoint: $highestCheckpoint")
+
             if (ProgressService.getCheckpoint(uuid) != highestCheckpoint) {
+                println("Player checkpoint: ${ProgressService.getCheckpoint(uuid)}")
                 return
             }
+
+            println("Player entered start region, valid lap up.")
 
             ProgressService.lapUp(uuid)
 
