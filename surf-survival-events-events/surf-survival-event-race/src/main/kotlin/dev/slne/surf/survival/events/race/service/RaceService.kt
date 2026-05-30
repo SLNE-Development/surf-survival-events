@@ -8,6 +8,7 @@ import dev.slne.surf.api.core.messages.adventure.title
 import dev.slne.surf.survival.events.race.config.SurfRaceConfig
 import dev.slne.surf.survival.events.race.plugin
 import io.papermc.paper.threadedregions.scheduler.ScheduledTask
+import kotlinx.coroutines.future.await
 import kotlinx.coroutines.withContext
 import org.bukkit.Bukkit
 import org.bukkit.Location
@@ -210,7 +211,7 @@ object RaceService {
 
                 plugin.launch {
                     withContext(plugin.entityDispatcher(player)) {
-                        player.teleportAsync(location)
+                        player.teleportAsync(location).await()
                         setPlayerOnNautilus(player)
                     }
                 }
