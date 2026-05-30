@@ -41,7 +41,7 @@ class PaperMain : SuspendingJavaPlugin() {
         npc {
             uniqueName = NPC_UNIQUE_NAME
             displayName {
-                variableValue("Arty".toSmallCaps(), TextDecoration.BOLD)
+                variableValue("Survival Events".toSmallCaps(), TextDecoration.BOLD)
             }
             location = Location(Bukkit.getWorlds().first(), -4.5, 73.0, 8.5, -140f, 0f)
             type = EntityType.MANNEQUIN
