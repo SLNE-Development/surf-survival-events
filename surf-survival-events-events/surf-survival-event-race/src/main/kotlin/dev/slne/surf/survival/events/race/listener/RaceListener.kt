@@ -118,17 +118,15 @@ object RaceListener : Listener {
         val enteredNewCheckpoint = checkpointTo != null &&
                 (checkpointFrom == null || checkpointFrom.id != checkpointTo.id)
 
-        if (enteredNewCheckpoint && checkpointTo != null) {
-
+        if (enteredNewCheckpoint) {
             val expectedCheckpoint = RegionService.getNextExpectedCheckpointId(currentCheckpoint)
 
             if (expectedCheckpoint != null && checkpointTo.id == expectedCheckpoint) {
-
                 ProgressService.checkpointUp(uuid, checkpointTo.id)
 
                 player.sendText {
                     appendSuccessPrefix()
-                    success("Du hast den Checkpoint ${checkpointTo.id} erreicht!")
+                    success("Du hast den Checkpoint einen Checkpoint erreicht!")
                 }
 
             } else if (canSendMessage(uuid)) {
@@ -143,18 +141,12 @@ object RaceListener : Listener {
         val enteredStart = startTo != null &&
                 (startFrom == null || startFrom != startTo)
 
-        if (enteredStart) { // TODO: Fix laps
-
+        if (enteredStart) {
             val highestCheckpoint = RegionService.getHighestCheckpointId() ?: return
 
-            println("Highest Checkpoint: $highestCheckpoint")
-
             if (ProgressService.getCheckpoint(uuid) != highestCheckpoint) {
-                println("Player checkpoint: ${ProgressService.getCheckpoint(uuid)}")
                 return
             }
-
-            println("Player entered start region, valid lap up.")
 
             ProgressService.lapUp(uuid)
 
@@ -162,7 +154,6 @@ object RaceListener : Listener {
             val lap = ProgressService.getLap(uuid)
 
             if (lap >= config.laps) {
-
                 ProgressService.setFinished(uuid, true)
                 ProgressService.addPlace(uuid)
 

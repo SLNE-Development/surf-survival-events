@@ -8,7 +8,6 @@ import dev.slne.surf.api.core.messages.adventure.title
 import dev.slne.surf.survival.events.race.config.SurfRaceConfig
 import dev.slne.surf.survival.events.race.plugin
 import io.papermc.paper.threadedregions.scheduler.ScheduledTask
-import kotlinx.coroutines.future.await
 import kotlinx.coroutines.withContext
 import org.bukkit.Bukkit
 import org.bukkit.Location
@@ -49,7 +48,17 @@ object RaceService {
 
     fun removePlayer(player: Player) {
         val uuid = player.uniqueId
-        val centralSpawn = Location(player.world, 0.0, 73.0, 0.0, 0f, 0f)
+        val lobby = SurfRaceConfig.getConfig().lobby.firstOrNull()
+        val world = Bukkit.getWorld(lobby?.lobbyWorld ?: "world")
+            ?: Bukkit.getWorlds().first()
+        val location = Location(
+            world,
+            lobby?.lobbyX ?: 0.0,
+            lobby?.lobbyY ?: 73.0,
+            lobby?.lobbyZ ?: 0.0,
+            lobby?.lobbyYaw ?: 0f,
+            lobby?.lobbyPitch ?: 0f
+        )
 
         playerNautilus[uuid]?.let { nautilusId ->
             Bukkit.getEntity(nautilusId)?.remove()
@@ -59,9 +68,7 @@ object RaceService {
         ProgressService.removePlayer(uuid)
         racePlayers.remove(uuid)
 
-        plugin.launch {
-            player.teleportAsync(centralSpawn).await()
-        }
+        player.teleportAsync(location)
     }
 
     fun isInRace(player: Player) = racePlayers.contains(player.uniqueId)

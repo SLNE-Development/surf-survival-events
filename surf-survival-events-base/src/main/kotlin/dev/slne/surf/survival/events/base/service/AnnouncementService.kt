@@ -16,7 +16,7 @@ object AnnouncementService {
             appendNewline()
             text("${activeGame.displayName} wurde gestartet!", TextColor.color(0xD98E8D))
             appendNewline()
-            info("Gehe zum Central Spawn und klicke auf Arty, um teilzunehmen.")
+            info("Gehe zum Spawn und klicke auf Arty, um teilzunehmen.")
             appendNewline()
             appendNewline()
             text("--------------------------------------------------", TextColor.color(0x599542))
