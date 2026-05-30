@@ -20,11 +20,14 @@ fun CommandAPICommand.getLeaderboardCommand() = subcommand("leaderboard") {
             appendNewline()
             places.forEach { uuid ->
                 val player = Bukkit.getPlayer(uuid)
-                variableValue(player?.name ?: uuid.toString())
                 variableValue("#${places.indexOf(uuid) + 1}")
                 if (places.size != places.indexOf(uuid)) {
                     appendNewline()
                 }
+                appendSpace()
+
+                variableValue(player?.name ?: uuid.toString())
+
             }
             text("--------------------------------------------------", TextColor.color(0x599542))
         }
