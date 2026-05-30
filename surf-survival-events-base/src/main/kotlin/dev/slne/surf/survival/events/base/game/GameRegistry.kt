@@ -1,6 +1,7 @@
 package dev.slne.surf.survival.events.base.game
 
-import dev.slne.surf.survival.events.base.util.Games
+import io.ktor.util.collections.*
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Registry for game handlers. Event plugins register their [GameHandler]
@@ -8,15 +9,36 @@ import dev.slne.surf.survival.events.base.util.Games
  * directly depending on event plugins.
  */
 object GameRegistry {
-    private val handlers = mutableMapOf<Games, GameHandler>()
+    private val games = ConcurrentHashMap<GameKey<*>, GameHandler>()
 
-    fun register(game: Games, handler: GameHandler) {
-        handlers[game] = handler
+    fun <HANDLER : GameHandler> register(key: GameKey<HANDLER>, handler: HANDLER) {
+        val previousHandler = games.putIfAbsent(key, handler)
+
+        require(previousHandler == null) {
+            "Handler for game ${key.displayName} is already registered"
+        }
     }
 
-    fun unregister(game: Games) {
-        handlers.remove(game)
+    fun unregister(key: GameKey<*>) {
+        games.remove(key)
     }
 
-    fun getHandler(game: Games): GameHandler? = handlers[game]
+    @Suppress("UNCHECKED_CAST")
+    fun <HANDLER : GameHandler> getHandler(key: GameKey<HANDLER>): HANDLER? {
+        return games[key] as? HANDLER
+    }
+
+    fun getRawHandler(key: GameKey<*>): GameHandler? {
+        return games[key]
+    }
+
+    fun getRegisteredGames(): List<GameKey<*>> {
+        return games.keys.toList()
+    }
+
+    fun getRegisteredGameKey(key: String): GameKey<*>? {
+        return games.keys.firstOrNull {
+            it.key.equals(key, ignoreCase = true)
+        }
+    }
 }

@@ -14,6 +14,8 @@ import org.bukkit.Location
 import org.bukkit.entity.EntityType
 
 object NpcService {
+    const val SURVIVAL_EVENTS_NPC_NAME = "survival_events"
+
     val npcs = mutableObject2ObjectMapOf<String, Npc>()
 
     fun showNpc() {
@@ -31,7 +33,7 @@ object NpcService {
             displayName {
                 variableValue("Arty".toSmallCaps(), TextDecoration.BOLD)
             }
-            uniqueName = "survival_events"
+            uniqueName = SURVIVAL_EVENTS_NPC_NAME
             location = locationConfig
             type = EntityType.MANNEQUIN
             skin = NpcSkin(
@@ -41,7 +43,7 @@ object NpcService {
                 NpcSkinPart.entries.toObjectSet()
             )
         }
-        npcs["survival_events"] = npc
+        npcs[SURVIVAL_EVENTS_NPC_NAME] = npc
     }
 
     fun hideNpc() {
@@ -56,7 +58,7 @@ object NpcService {
             displayName {
                 variableValue("Arty".toSmallCaps(), TextDecoration.BOLD)
             }
-            uniqueName = "survival_events"
+            uniqueName = SURVIVAL_EVENTS_NPC_NAME
             location = locationConfig
             type = EntityType.MANNEQUIN
             skin = NpcSkin(
@@ -66,6 +68,6 @@ object NpcService {
                 NpcSkinPart.entries.toObjectSet()
             )
         }
-        npcs["survival_events"] = npc
+        npcs[SURVIVAL_EVENTS_NPC_NAME] = npc
     }
 }

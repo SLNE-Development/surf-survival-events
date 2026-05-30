@@ -1,4 +1,4 @@
-package dev.slne.surf.survival.events.base.util.commands
+package dev.slne.surf.survival.events.base.util
 
 import dev.slne.surf.api.paper.permission.PermissionRegistry
 

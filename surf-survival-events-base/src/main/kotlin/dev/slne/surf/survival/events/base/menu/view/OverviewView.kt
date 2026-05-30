@@ -3,8 +3,8 @@ package dev.slne.surf.survival.events.base.menu.view
 import dev.slne.surf.api.core.font.toSmallCaps
 import dev.slne.surf.api.paper.inventory.framework.outlineItem
 import dev.slne.surf.api.paper.inventory.framework.titleBuilder
-import dev.slne.surf.survival.events.base.util.Games
-import dev.slne.surf.survival.events.base.menu.dialog.setMaxPlayerDialog
+import dev.slne.surf.survival.events.base.game.GameRegistry
+import dev.slne.surf.survival.events.base.menu.dialog.createSetMaxPlayerDialog
 import dev.slne.surf.survival.events.base.menu.util.*
 import me.devnatan.inventoryframework.View
 import me.devnatan.inventoryframework.ViewConfigBuilder
@@ -13,14 +13,11 @@ import net.kyori.adventure.text.format.TextDecoration
 
 object OverviewView : View() {
     private val paginationState = buildLazyPaginationState { _ ->
-        Games.entries
-            .filter { Games.isGameEnabled(it.name) }
-            .toMutableList()
-
-    }.elementFactory { _, builder, _, game ->
-        builder.withItem(game.createSkull()).onClick { context ->
+        GameRegistry.getRegisteredGames()
+    }.elementFactory { _, builder, _, gameKey ->
+        builder.withItem(gameKey.createSkull()).onClick { context ->
             context.closeForPlayer()
-            context.player.showDialog(setMaxPlayerDialog(game))
+            context.player.showDialog(createSetMaxPlayerDialog(gameKey))
             context.playGeneralClickSound()
         }
     }.layoutTarget('G').build()

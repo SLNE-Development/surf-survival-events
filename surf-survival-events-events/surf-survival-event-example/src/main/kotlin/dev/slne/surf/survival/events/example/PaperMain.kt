@@ -1,11 +1,8 @@
 package dev.slne.surf.survival.events.example
 
 import com.github.shynixn.mccoroutine.folia.SuspendingJavaPlugin
-import dev.slne.surf.survival.events.base.game.GameHandler
 import dev.slne.surf.survival.events.base.game.GameRegistry
-import dev.slne.surf.survival.events.base.util.Games
 import org.bukkit.plugin.java.JavaPlugin
-import java.util.UUID
 
 val plugin get() = JavaPlugin.getPlugin(PaperMain::class.java)
 
@@ -18,12 +15,12 @@ class PaperMain : SuspendingJavaPlugin() {
     override suspend fun onEnableAsync() {
         plugin.logger.info("Enabling surf-survival-event-example plugin...")
 
-        GameRegistry.register(Games.EXAMPLE, ExampleGameHandler())
+        GameRegistry.register(ExampleGame.KEY, ExampleGame())
     }
 
     override suspend fun onDisableAsync() {
         plugin.logger.info("Disabling surf-survival-event-example plugin...")
 
-        GameRegistry.unregister(Games.EXAMPLE)
+        GameRegistry.unregister(ExampleGame.KEY)
     }
 }

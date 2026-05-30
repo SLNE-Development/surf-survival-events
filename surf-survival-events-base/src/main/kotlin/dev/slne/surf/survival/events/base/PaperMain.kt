@@ -8,7 +8,7 @@ import dev.slne.surf.survival.events.base.listeners.JoinQuitListener
 import dev.slne.surf.survival.events.base.menu.view.OverviewView
 import dev.slne.surf.survival.events.base.listeners.NpcInteractListener
 import dev.slne.surf.survival.events.base.service.NpcService
-import dev.slne.surf.survival.events.base.util.commands.CommandManager
+import dev.slne.surf.survival.events.base.command.CommandManager
 import org.bukkit.plugin.java.JavaPlugin
 
 val plugin get() = JavaPlugin.getPlugin(PaperMain::class.java)

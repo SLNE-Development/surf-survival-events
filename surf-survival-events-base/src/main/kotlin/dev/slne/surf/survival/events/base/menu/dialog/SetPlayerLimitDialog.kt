@@ -1,18 +1,18 @@
 package dev.slne.surf.survival.events.base.menu.dialog
 
 import dev.slne.surf.api.core.messages.adventure.sendText
-import dev.slne.surf.api.paper.dialog.dialog
-import dev.slne.surf.api.paper.dialog.*
+import dev.slne.surf.api.paper.dialog.base
 import dev.slne.surf.api.paper.dialog.builder.actionButton
-import dev.slne.surf.api.paper.extensions.server
+import dev.slne.surf.api.paper.dialog.dialog
+import dev.slne.surf.api.paper.dialog.type
+import dev.slne.surf.survival.events.base.game.GameKey
+import dev.slne.surf.survival.events.base.menu.util.eventColored
 import dev.slne.surf.survival.events.base.service.AnnouncementService
 import dev.slne.surf.survival.events.base.service.GameService
-import dev.slne.surf.survival.events.base.util.Games
-import dev.slne.surf.survival.events.base.menu.util.eventColored
 
 
 @Suppress("UnstableApiUsage")
-fun setMaxPlayerDialog(game: Games) = dialog {
+fun createSetMaxPlayerDialog(gameKey: GameKey<*>) = dialog {
     base {
         title { eventColored("Spielerlimit") }
         body {
@@ -40,7 +40,7 @@ fun setMaxPlayerDialog(game: Games) = dialog {
                 width(200)
 
                 action {
-                    customPlayerClick { response, player ->
+                    customPlayerClick(null, fun(response, player) {
                         val playerLimit = response.getText("playerLimit")?.trim()?.toIntOrNull()
 
                         if (playerLimit == null || playerLimit <= 0) {
@@ -50,7 +50,7 @@ fun setMaxPlayerDialog(game: Games) = dialog {
                                 appendErrorPrefix()
                                 error("Bitte gib eine gültige Zahl ein.")
                             }
-                            return@customPlayerClick
+                            return
                         }
 
                         if (playerLimit >= Int.MAX_VALUE) {
@@ -60,28 +60,27 @@ fun setMaxPlayerDialog(game: Games) = dialog {
                                 appendErrorPrefix()
                                 error("Die Zahl ist zu groß.")
                             }
-                            return@customPlayerClick
+                            return
                         }
 
-                        if (GameService.startGame(game, playerLimit)) {
+                        if (GameService.startGame(gameKey, playerLimit)) {
                             player.sendText {
                                 appendSuccessPrefix()
-                                variableValue(game.displayName)
+                                variableValue(gameKey.displayName)
                                 appendSpace()
                                 success("wurde erfolgreich aktiviert.")
                             }
-                            for (onlinePlayer in server.onlinePlayers) {
-                                AnnouncementService.sendOpenEvent(onlinePlayer)
-                            }
                             player.closeDialog()
-                            return@customPlayerClick
+                            AnnouncementService.broadcastOpenEvent()
+
+                            return
                         }
 
                         player.sendText {
                             appendErrorPrefix()
                             error("Ein Fehler ist aufgetreten.")
                         }
-                    }
+                    })
                 }
             }, actionButton {
                 label { error("Abbrechen") }

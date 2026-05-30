@@ -3,10 +3,9 @@ package dev.slne.surf.survival.events.race
 import com.github.shynixn.mccoroutine.folia.SuspendingJavaPlugin
 import dev.slne.surf.api.paper.event.register
 import dev.slne.surf.survival.events.base.game.GameRegistry
-import dev.slne.surf.survival.events.base.util.Games
 import dev.slne.surf.survival.events.race.command.raceCommand
 import dev.slne.surf.survival.events.race.config.SurfRaceConfig
-import dev.slne.surf.survival.events.race.game.RaceGameHandler
+import dev.slne.surf.survival.events.race.game.RaceGame
 import dev.slne.surf.survival.events.race.listener.QuitListener
 import dev.slne.surf.survival.events.race.listener.RaceListener
 import org.bukkit.plugin.java.JavaPlugin
@@ -23,10 +22,10 @@ class PaperMain : SuspendingJavaPlugin() {
         RaceListener.register()
         QuitListener.register()
 
-        GameRegistry.register(Games.RACE, RaceGameHandler())
+        GameRegistry.register(RaceGame.KEY, RaceGame())
     }
 
     override suspend fun onDisableAsync() {
-        GameRegistry.unregister(Games.RACE)
+        GameRegistry.unregister(RaceGame.KEY)
     }
 }

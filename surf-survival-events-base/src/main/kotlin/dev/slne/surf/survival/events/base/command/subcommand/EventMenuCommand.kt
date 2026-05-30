@@ -5,7 +5,7 @@ import dev.jorel.commandapi.kotlindsl.literalArgument
 import dev.jorel.commandapi.kotlindsl.playerExecutor
 import dev.slne.surf.api.paper.inventory.framework.viewFrame
 import dev.slne.surf.survival.events.base.menu.view.OverviewView
-import dev.slne.surf.survival.events.base.util.commands.PermissionRegistry
+import dev.slne.surf.survival.events.base.util.PermissionRegistry
 
 fun CommandTree.eventMenuCommand() = literalArgument("menu") {
     withPermission(PermissionRegistry.COMMAND_COMMUNITY_MANAGER)
