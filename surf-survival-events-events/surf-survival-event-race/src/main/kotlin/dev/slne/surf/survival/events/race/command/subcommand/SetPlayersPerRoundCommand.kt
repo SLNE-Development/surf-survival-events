@@ -7,20 +7,22 @@ import dev.jorel.commandapi.kotlindsl.integerArgument
 import dev.jorel.commandapi.kotlindsl.subcommand
 import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.survival.events.race.config.RaceConfig
+import dev.slne.surf.survival.events.race.utils.PermissionList
 
-fun CommandAPICommand.setLapsCommand() = subcommand("set-laps") {
+fun CommandAPICommand.setPlayersPerRoundCommand() = subcommand("set-players-per-round") {
+    withPermission(PermissionList.COMMAND_COMMUNITY_MANAGER)
     integerArgument("value", 1)
     anyExecutor { sender, args ->
         val value: Int by args
 
         RaceConfig.edit {
-            gameplay.laps = value
+            gameplay.playersPerRound = value
         }
         RaceConfig.save()
 
         sender.sendText {
             appendSuccessPrefix()
-            success("Die Anzahl der Runden wurde auf")
+            success("Aktive Racer pro Runde wurden auf")
             appendSpace()
             variableValue(value.toString())
             appendSpace()

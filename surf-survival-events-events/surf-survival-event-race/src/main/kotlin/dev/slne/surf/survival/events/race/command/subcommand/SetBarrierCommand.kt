@@ -2,17 +2,18 @@ package dev.slne.surf.survival.events.race.command.subcommand
 
 import dev.jorel.commandapi.CommandAPICommand
 import dev.slne.surf.survival.events.race.command.util.createRegionCommand
-import dev.slne.surf.survival.events.race.config.SurfRaceConfig
+import dev.slne.surf.survival.events.race.config.RaceConfig
 import dev.slne.surf.survival.events.race.region.clearBoundingBoxCache
 
 fun CommandAPICommand.setBarrierCommand() = createRegionCommand("set-barrier") { pos1, pos2, _ ->
 
-    SurfRaceConfig.edit {
+    RaceConfig.edit {
+        eventWorld = pos1.world.name
 
-        barrier.clear()
+        barriers.clear()
 
-        barrier.add(
-            SurfRaceConfig.BarrierConfig(
+        barriers.add(
+            RaceConfig.BarrierConfig(
 
                 world = pos1.world.name,
 
@@ -28,5 +29,5 @@ fun CommandAPICommand.setBarrierCommand() = createRegionCommand("set-barrier") {
     }
 
     clearBoundingBoxCache()
-    SurfRaceConfig.save()
+    RaceConfig.save()
 }

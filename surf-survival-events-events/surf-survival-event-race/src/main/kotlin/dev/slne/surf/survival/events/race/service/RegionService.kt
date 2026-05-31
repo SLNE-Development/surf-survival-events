@@ -1,7 +1,7 @@
 package dev.slne.surf.survival.events.race.service
 
 import com.github.shynixn.mccoroutine.folia.regionDispatcher
-import dev.slne.surf.survival.events.race.config.SurfRaceConfig
+import dev.slne.surf.survival.events.race.config.RaceConfig
 import dev.slne.surf.survival.events.race.plugin
 import dev.slne.surf.survival.events.race.region.boundingBox
 import dev.slne.surf.survival.events.race.region.contains
@@ -13,7 +13,7 @@ import org.bukkit.Material
 
 object RegionService {
     suspend fun fillBlocks(material: Material) = coroutineScope {
-        SurfRaceConfig.getConfig().barrier.forEach { barrier ->
+        RaceConfig.getConfig().barriers.forEach { barrier ->
             val world = Bukkit.getWorld(barrier.world) ?: return@forEach
             val box = barrier.boundingBox
 
@@ -46,14 +46,14 @@ object RegionService {
         }
     }
 
-    fun getCheckpoint(playerLocation: Location): SurfRaceConfig.CheckPointConfig? =
-        SurfRaceConfig.getConfig()
-            .checkPoints
+    fun getCheckpoint(playerLocation: Location): RaceConfig.CheckPointConfig? =
+        RaceConfig.getConfig()
+            .checkpoints
             .find { it.contains(playerLocation) }
 
-    fun getSortedCheckpoints(): List<SurfRaceConfig.CheckPointConfig> =
-        SurfRaceConfig.getConfig()
-            .checkPoints
+    fun getSortedCheckpoints(): List<RaceConfig.CheckPointConfig> =
+        RaceConfig.getConfig()
+            .checkpoints
             .sortedBy { it.id }
 
     fun getNextExpectedCheckpointId(currentCheckpointId: Int): Int? {
@@ -65,11 +65,11 @@ object RegionService {
     }
 
     fun getHighestCheckpointId(): Int? =
-        SurfRaceConfig.getConfig()
-            .checkPoints
+        RaceConfig.getConfig()
+            .checkpoints
             .maxOfOrNull { it.id }
 
-    fun getStart(playerLocation: Location): SurfRaceConfig.StartConfig? = SurfRaceConfig.getConfig()
-        .start
+    fun getStart(playerLocation: Location): RaceConfig.StartConfig? = RaceConfig.getConfig()
+        .starts
         .find { it.contains(playerLocation) }
 }

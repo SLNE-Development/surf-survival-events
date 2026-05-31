@@ -7,6 +7,7 @@ import dev.jorel.commandapi.kotlindsl.playerExecutor
 import dev.slne.surf.api.core.messages.adventure.buildText
 import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.api.core.messages.pagination.Pagination
+import dev.slne.surf.survival.events.base.game.ParticipantRole
 import dev.slne.surf.survival.events.base.service.GameService
 import dev.slne.surf.survival.events.base.util.PermissionRegistry
 import net.kyori.adventure.text.event.ClickEvent
@@ -14,8 +15,9 @@ import net.kyori.adventure.text.event.HoverEvent
 import org.bukkit.Bukkit
 import org.bukkit.OfflinePlayer
 import org.bukkit.entity.Player
+import java.util.UUID
 
-fun CommandTree.showQueueCommand() = literalArgument("queue") {
+internal fun CommandTree.participantsCommand() = literalArgument("participants") {
     withPermission(PermissionRegistry.COMMAND_GAME_SPECTATOR)
 
     integerArgument("page", optional = true) {
@@ -25,6 +27,12 @@ fun CommandTree.showQueueCommand() = literalArgument("queue") {
         }
     }
 }
+
+private data class ParticipantRow(
+    val uuid: UUID,
+    val role: ParticipantRole,
+    val offlinePlayer: OfflinePlayer
+)
 
 private fun Player.showParticipants(page: Int) {
     val snapshot = GameService.snapshot()
@@ -37,32 +45,40 @@ private fun Player.showParticipants(page: Int) {
         return
     }
 
-    val players = snapshot.queuedPlayers.map(Bukkit::getOfflinePlayer)
+    val rows = buildList {
+        snapshot.gamePlayers.forEach { add(ParticipantRow(it, ParticipantRole.PLAYER, Bukkit.getOfflinePlayer(it))) }
+        snapshot.reservePlayers.forEach { add(ParticipantRow(it, ParticipantRole.RESERVE, Bukkit.getOfflinePlayer(it))) }
+        snapshot.spectators.forEach { add(ParticipantRow(it, ParticipantRole.SPECTATOR, Bukkit.getOfflinePlayer(it))) }
+    }
 
-    if (players.isEmpty()) {
+    if (rows.isEmpty()) {
         sendText {
             appendInfoPrefix()
-            info("Es ist niemand in der Queue.")
+            info("Es ist niemand im Event eingetragen.")
         }
         return
     }
 
-    val pagination = Pagination<OfflinePlayer> {
+    val pagination = Pagination<ParticipantRow> {
         title {
-            primary("Spieler in der Queue")
-            spacer(" | (${players.size})")
+            primary("Event-Teilnehmer")
+            spacer(" | ${snapshot.status.name} | (${rows.size})")
         }
 
         rowRenderer { row, _ ->
-            val displayName = row.name ?: "#Unbekannt"
+            val displayName = row.offlinePlayer.name ?: "#Unbekannt"
 
             listOf(
                 buildText {
                     append(
                         buildText {
                             variableValue(displayName)
+                            appendSpace()
+                            info("[")
+                            variableValue(row.role.name)
+                            info("]")
                         }.clickEvent(ClickEvent.callback { audience ->
-                            val result = GameService.remove(row.uniqueId, includeSpectators = false)
+                            val result = GameService.remove(row.uuid, includeSpectators = true)
 
                             if (result.removed) {
                                 audience.sendText {
@@ -71,17 +87,17 @@ private fun Player.showParticipants(page: Int) {
                                     appendSpace()
                                     variableValue(displayName)
                                     appendSpace()
-                                    info("aus der Queue entfernt.")
+                                    info("aus dem Event entfernt.")
                                 }
 
-                                row.player?.sendText {
+                                row.offlinePlayer.player?.sendText {
                                     appendInfoPrefix()
-                                    info("Du bist aus der Queue geflogen.")
+                                    info("Du wurdest aus dem Event entfernt.")
                                 }
                             } else {
                                 audience.sendText {
                                     appendErrorPrefix()
-                                    error("$displayName ist nicht mehr in der Queue.")
+                                    error("$displayName ist nicht mehr im Event eingetragen.")
                                 }
                             }
                         })
@@ -98,6 +114,6 @@ private fun Player.showParticipants(page: Int) {
     }
 
     sendText {
-        append(pagination.renderComponent(players, page))
+        append(pagination.renderComponent(rows, page))
     }
 }

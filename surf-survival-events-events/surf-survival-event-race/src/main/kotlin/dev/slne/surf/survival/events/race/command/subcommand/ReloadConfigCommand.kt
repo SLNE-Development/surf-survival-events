@@ -5,7 +5,7 @@ import dev.jorel.commandapi.CommandAPICommand
 import dev.jorel.commandapi.kotlindsl.anyExecutor
 import dev.jorel.commandapi.kotlindsl.subcommand
 import dev.slne.surf.api.core.messages.adventure.sendText
-import dev.slne.surf.survival.events.race.config.SurfRaceConfig
+import dev.slne.surf.survival.events.race.config.RaceConfig
 import dev.slne.surf.survival.events.race.region.clearBoundingBoxCache
 import dev.slne.surf.survival.events.race.utils.PermissionList
 import kotlin.system.measureTimeMillis
@@ -14,7 +14,7 @@ fun CommandAPICommand.surfModToolsReloadCommand() = subcommand("reload") {
     withPermission(PermissionList.COMMAND_COMMUNITY_MANAGER)
     anyExecutor { sender, _ ->
         val ms = measureTimeMillis {
-            SurfRaceConfig.reloadFromFile()
+            RaceConfig.reloadFromFile()
             clearBoundingBoxCache()
         }
 

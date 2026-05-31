@@ -2,7 +2,7 @@ package dev.slne.surf.survival.events.race.command.subcommand
 
 import dev.jorel.commandapi.CommandAPICommand
 import dev.slne.surf.survival.events.race.command.util.createRegionCommand
-import dev.slne.surf.survival.events.race.config.SurfRaceConfig
+import dev.slne.surf.survival.events.race.config.RaceConfig
 import dev.slne.surf.survival.events.race.region.clearBoundingBoxCache
 
 fun CommandAPICommand.setStartCommand() = createRegionCommand(
@@ -12,12 +12,13 @@ fun CommandAPICommand.setStartCommand() = createRegionCommand(
 
     rotation ?: return@createRegionCommand
 
-    SurfRaceConfig.edit {
+    RaceConfig.edit {
+        eventWorld = pos1.world.name
 
-        start.clear()
+        starts.clear()
 
-        start.add(
-            SurfRaceConfig.StartConfig(
+        starts.add(
+            RaceConfig.StartConfig(
 
                 world = pos1.world.name,
 
@@ -36,5 +37,5 @@ fun CommandAPICommand.setStartCommand() = createRegionCommand(
     }
 
     clearBoundingBoxCache()
-    SurfRaceConfig.save()
+    RaceConfig.save()
 }

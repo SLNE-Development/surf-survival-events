@@ -1,480 +1,768 @@
 package dev.slne.surf.survival.events.base.service
 
-import com.github.shynixn.mccoroutine.folia.scope
-import dev.slne.surf.api.core.messages.Colors
+import com.github.shynixn.mccoroutine.folia.launch
 import dev.slne.surf.api.core.messages.adventure.sendText
-import dev.slne.surf.api.core.messages.adventure.text
-import dev.slne.surf.api.core.util.runAtFixedRate
-import dev.slne.surf.survival.events.base.game.GameKey
-import dev.slne.surf.survival.events.base.game.GameRegistry
+import dev.slne.surf.survival.events.base.config.SurvivalEventsConfig
+import dev.slne.surf.survival.events.base.game.*
 import dev.slne.surf.survival.events.base.plugin
-import kotlinx.coroutines.Job
+import it.unimi.dsi.fastutil.objects.ObjectLinkedOpenHashSet
+import kotlinx.coroutines.future.await
 import org.bukkit.Bukkit
 import org.bukkit.entity.Player
-import java.util.UUID
+import java.util.*
 import java.util.concurrent.locks.ReentrantLock
-import kotlin.collections.ArrayDeque
+import java.util.logging.Level
 import kotlin.concurrent.withLock
-import kotlin.time.Duration.Companion.seconds
 
-object GameService {
-
-    private const val UNLIMITED = -1
+public object GameService {
 
     private val lock = ReentrantLock()
 
-    private var activeGame: GameKey<*>? = null
-    private var maxPlayers = UNLIMITED
+    /** Join order of players on the dedicated event server. Used for deterministic start selection. */
+    private val serverJoinOrder = ObjectLinkedOpenHashSet<UUID>()
 
-    private val lobbyPlayers = linkedSetOf<UUID>()
+    private var session: GameSession? = null
 
-    private val waitingPlayers = ArrayDeque<UUID>()
-    private val waitingPlayerIds = hashSetOf<UUID>()
+    internal fun syncOnlinePlayers(players: Iterable<Player> = Bukkit.getOnlinePlayers()) {
+        lock.withLock {
+            serverJoinOrder.clear()
+            players.forEach { serverJoinOrder.add(it.uniqueId) }
+        }
+    }
 
-    private val spectators = hashSetOf<UUID>()
-
-    private var tickJob: Job? = null
-
-    fun startGame(key: GameKey<*>, maxPlayers: Int? = null): Boolean {
-        val limit = maxPlayers ?: UNLIMITED
-        requireValidLimit(limit)
-
-        return lock.withLock {
-            if (activeGame != null) return false
-
-            activeGame = key
-            this.maxPlayers = limit
-
-            tickJob = plugin.scope.runAtFixedRate(1.seconds) {
-                tick()
+    internal suspend fun startGame(key: GameKey<*>): StartGameResult {
+        val start = lock.withLock {
+            if (session != null) {
+                return@withLock StartUpdate(
+                    result = StartGameResult(
+                        type = StartGameType.ALREADY_ACTIVE,
+                        activeSession = session?.toContext()
+                    )
+                )
             }
 
-            true
-        }
-    }
+            val handler = GameRegistry.getRawHandler(key)
+                ?: return@withLock StartUpdate(StartGameResult(StartGameType.NO_HANDLER_REGISTERED))
+            val options = handler.options
+            val candidates = collectStartCandidateIds()
 
-    fun stopGame(): GameKey<*>? {
-        val stopped = lock.withLock {
-            val game = activeGame ?: return null
+            if (candidates.size < options.minPlayersToStart) {
+                return@withLock StartUpdate(
+                    result = StartGameResult(
+                        type = StartGameType.NOT_ENOUGH_PLAYERS,
+                        selectedPlayers = candidates.size,
+                        minPlayers = options.minPlayersToStart
+                    )
+                )
+            }
 
-            val stopped = StoppedGame(
-                game = game,
-                job = tickJob
+            val selection = selectPlayers(candidates, options)
+            val current = GameSession(
+                key = key,
+                handler = handler,
+                options = options,
+                status = GameStatus.STARTING,
+                gamePlayers = selection.gamePlayers.toMutableLinkedSet(),
+                reservePlayers = selection.reservePlayers.toMutableLinkedSet(),
+                spectators = selection.spectators.toMutableSet()
             )
 
-            activeGame = null
-            maxPlayers = UNLIMITED
-            tickJob = null
+            session = current
 
-            lobbyPlayers.clear()
-            clearWaitingPlayers()
-            spectators.clear()
-
-            stopped
+            StartUpdate(
+                result = StartGameResult(
+                    type = StartGameType.STARTED,
+                    context = current.toContext(),
+                    selectedPlayers = candidates.size,
+                    minPlayers = options.minPlayersToStart
+                ),
+                session = current,
+                handler = handler,
+                startingContext = current.toContext()
+            )
         }
 
-        stopped.job?.cancel()
-        return stopped.game
+        if (start.result.type != StartGameType.STARTED) {
+            return start.result
+        }
+
+        val current = start.session ?: error("Missing started session")
+        val handler = start.handler ?: error("Missing game handler")
+        val startingContext = start.startingContext ?: error("Missing starting context")
+
+        return try {
+            handler.onStarting(startingContext)
+
+            val runningContext = lock.withLock {
+                if (session !== current) {
+                    return StartGameResult(StartGameType.NO_ACTIVE_GAME)
+                }
+
+                current.status = GameStatus.RUNNING
+                current.toContext()
+            }
+
+            handler.onStarted(runningContext)
+
+            val result = StartGameResult(
+                type = StartGameType.STARTED,
+                context = runningContext,
+                selectedPlayers = runningContext.playerCount,
+                minPlayers = runningContext.options.minPlayersToStart
+            )
+
+            if (SurvivalEventsConfig.getConfig().start.announceStart) {
+                AnnouncementService.broadcastStartedEvent(runningContext)
+            }
+
+            result
+        } catch (e: Throwable) {
+            plugin.logger.log(Level.SEVERE, "Failed to start survival event ${key.displayName}", e)
+            val failed = detachSpecificSession(current, GameStopReason.ERROR)
+            failed?.let { stopped ->
+                safeLaunchStopHook(stopped, GameStopReason.ERROR)
+            }
+            StartGameResult(StartGameType.HANDLER_FAILED)
+        }
     }
 
-    fun isGameActive(): Boolean {
+    public fun stopGame(reason: GameStopReason = GameStopReason.COMMAND): GameKey<*>? {
+        val stopped = detachSession(reason) ?: return null
+        launchHook { stopped.handler.onStop(stopped.context, reason) }
+        return stopped.context.key
+    }
+
+    public suspend fun stopGameAndWait(reason: GameStopReason = GameStopReason.COMMAND): GameKey<*>? {
+        val stopped = detachSession(reason) ?: return null
+        safeRunStopHook(stopped, reason)
+        return stopped.context.key
+    }
+
+    public suspend fun endGame(reason: GameStopReason = GameStopReason.HANDLER): GameKey<*>? {
+        return stopGameAndWait(reason)
+    }
+
+    public fun isGameActive(): Boolean {
         return getActiveGameKeyOrNull() != null
     }
 
-    fun getActiveGameKeyOrNull(): GameKey<*>? {
-        return lock.withLock {
-            activeGame
-        }
+    public fun isGameRunning(): Boolean {
+        return lock.withLock { session?.status == GameStatus.RUNNING }
     }
 
-    fun getActiveGameKey(): GameKey<*> {
+    public fun isActiveGame(key: GameKey<*>): Boolean {
+        return getActiveGameKeyOrNull() == key
+    }
+
+    public fun getActiveGameKeyOrNull(): GameKey<*>? {
+        return lock.withLock { session?.key }
+    }
+
+    public fun getActiveGameKey(): GameKey<*> {
         return getActiveGameKeyOrNull() ?: error("No active game found")
     }
 
-    fun onPlayerJoin(player: Player) {
-        if (!isGameActive()) return
-
-        AnnouncementService.sendOpenEvent(player)
+    public fun snapshot(): GameContext? {
+        return lock.withLock { session?.toContext() }
     }
 
-    fun onPlayerQuit(player: Player) {
-        remove(player.uniqueId, includeSpectators = false)
+    public fun getStartCandidateIds(): List<UUID> {
+        return lock.withLock { collectStartCandidateIds() }
     }
 
-    fun queue(player: Player): QueueJoinResult {
-        val uuid = player.uniqueId
+    internal fun onPlayerJoin(player: Player) {
+        val context = lock.withLock {
+            serverJoinOrder.add(player.uniqueId)
+            session?.toContext()
+        }
 
-        return lock.withLock {
-            when {
-                activeGame == null -> {
-                    QueueJoinResult(QueueJoinType.NO_ACTIVE_GAME)
-                }
+        if (context == null) {
+            if (SurvivalEventsConfig.getConfig().join.teleportToServerLobbyWhenIdle) {
+                plugin.launch { teleportToServerLobby(player) }
+            }
+            return
+        }
 
-                uuid in lobbyPlayers || uuid in waitingPlayerIds -> {
-                    QueueJoinResult(QueueJoinType.ALREADY_PLAYER)
-                }
-
-                uuid in spectators -> {
-                    QueueJoinResult(QueueJoinType.ALREADY_SPECTATOR)
-                }
-
-                isLobbyFull() -> {
-                    addWaitingPlayerLast(uuid)
-
-                    QueueJoinResult(
-                        type = QueueJoinType.JOINED_WAITING_LIST,
-                        position = waitingPlayers.indexOf(uuid) + 1,
-                        size = waitingPlayers.size,
-                        maxPlayers = maxPlayersOrNull()
-                    )
-                }
-
-                else -> {
-                    lobbyPlayers.add(uuid)
-
-                    QueueJoinResult(
-                        type = QueueJoinType.JOINED_LOBBY,
-                        position = lobbyPlayers.size,
-                        size = lobbyPlayers.size,
-                        maxPlayers = maxPlayersOrNull()
-                    )
+        when (context.status) {
+            GameStatus.STARTING -> {
+                player.sendText {
+                    appendInfoPrefix()
+                    info("Das Event startet gerade. Bitte warte einen Moment.")
                 }
             }
+
+            GameStatus.RUNNING -> {
+                val joinConfig = SurvivalEventsConfig.getConfig().join
+                if (context.options.autoJoinRunningPlayers && joinConfig.autoJoinRunningEvent) {
+                    plugin.launch {
+                        val result = joinRunningEvent(player)
+                        if (!result.joined && joinConfig.announceRunningEventOnJoin) {
+                            AnnouncementService.sendRunningEvent(player, context.key)
+                        }
+                    }
+                } else if (joinConfig.announceRunningEventOnJoin) {
+                    AnnouncementService.sendRunningEvent(player, context.key)
+                }
+            }
+
+            GameStatus.STOPPING -> Unit
         }
     }
 
-    fun joinSpectator(player: Player): SpectatorJoinResult {
-        val uuid = player.uniqueId
+    internal fun onPlayerQuit(player: Player) {
+        lock.withLock {
+            serverJoinOrder.remove(player.uniqueId)
+        }
+        remove(player.uniqueId, includeSpectators = true, reason = PlayerRemoveReason.DISCONNECT)
+    }
 
-        return lock.withLock {
+    public suspend fun joinRunningEvent(player: Player): JoinEventResult {
+        val uuid = player.uniqueId
+        val request = lock.withLock {
+            val current = session ?: return@withLock RunningJoinRequest(
+                result = JoinEventResult(JoinEventType.NO_ACTIVE_GAME)
+            )
+
             when {
-                activeGame == null -> SpectatorJoinResult.NO_ACTIVE_GAME
-                uuid in lobbyPlayers || uuid in waitingPlayerIds -> SpectatorJoinResult.ALREADY_PLAYER
-                uuid in spectators -> SpectatorJoinResult.ALREADY_SPECTATOR
-                else -> {
-                    spectators.add(uuid)
-                    SpectatorJoinResult.JOINED
+                current.status == GameStatus.STARTING || current.status == GameStatus.STOPPING -> {
+                    RunningJoinRequest(result = JoinEventResult(JoinEventType.EVENT_BUSY))
                 }
+
+                current.status != GameStatus.RUNNING -> {
+                    RunningJoinRequest(result = JoinEventResult(JoinEventType.EVENT_BUSY))
+                }
+
+                current.isParticipant(uuid) -> {
+                    RunningJoinRequest(result = JoinEventResult(JoinEventType.ALREADY_PARTICIPATING))
+                }
+
+                uuid in current.spectators -> {
+                    RunningJoinRequest(result = JoinEventResult(JoinEventType.ALREADY_SPECTATOR))
+                }
+
+                else -> RunningJoinRequest(
+                    session = current,
+                    handler = current.handler,
+                    context = current.toContext()
+                )
             }
         }
-    }
 
-    fun remove(player: Player, includeSpectators: Boolean = true): RemoveResult {
-        return remove(player.uniqueId, includeSpectators)
-    }
+        request.result?.let { return it }
 
-    fun remove(uuid: UUID, includeSpectators: Boolean = true): RemoveResult {
+        val current = request.session ?: error("Missing running session")
+        val handler = request.handler ?: error("Missing running handler")
+        val decision = try {
+            handler.onRunningJoin(request.context ?: current.toContext(), player)
+        } catch (throwable: Throwable) {
+            plugin.componentLogger.error("Failed to decide running join for ${player.name}", throwable)
+            RunningJoinResult.DENIED
+        }
+
         val update = lock.withLock {
-            when {
-                activeGame == null -> {
-                    RemoveUpdate(RemoveResult.NO_ACTIVE_GAME)
-                }
+            if (session !== current || current.status != GameStatus.RUNNING) {
+                return@withLock JoinUpdate(JoinEventResult(JoinEventType.EVENT_BUSY))
+            }
 
-                lobbyPlayers.remove(uuid) -> {
-                    RemoveUpdate(
-                        result = RemoveResult.REMOVED_FROM_LOBBY,
-                        promoted = promoteWaitingPlayers()
+            when {
+                current.isParticipant(uuid) -> JoinUpdate(JoinEventResult(JoinEventType.ALREADY_PARTICIPATING))
+                uuid in current.spectators -> JoinUpdate(JoinEventResult(JoinEventType.ALREADY_SPECTATOR))
+                decision == RunningJoinResult.JOINED_AS_PLAYER -> {
+                    current.gamePlayers.add(uuid)
+                    JoinUpdate(
+                        result = JoinEventResult(JoinEventType.JOINED_AS_PLAYER, ParticipantRole.PLAYER),
+                        handler = current.handler,
+                        context = current.toContext(),
+                        player = player,
+                        role = ParticipantRole.PLAYER
                     )
                 }
 
-                removeWaitingPlayer(uuid) -> {
-                    RemoveUpdate(RemoveResult.REMOVED_FROM_WAITING_LIST)
+                decision == RunningJoinResult.JOINED_AS_RESERVE -> {
+                    current.reservePlayers.add(uuid)
+                    JoinUpdate(
+                        result = JoinEventResult(JoinEventType.JOINED_AS_RESERVE, ParticipantRole.RESERVE),
+                        handler = current.handler,
+                        context = current.toContext(),
+                        player = player,
+                        role = ParticipantRole.RESERVE
+                    )
                 }
 
-                includeSpectators && spectators.remove(uuid) -> {
-                    RemoveUpdate(RemoveResult.REMOVED_SPECTATOR)
+                decision == RunningJoinResult.JOINED_AS_SPECTATOR && current.options.spectatorsEnabled -> {
+                    current.spectators.add(uuid)
+                    JoinUpdate(
+                        result = JoinEventResult(JoinEventType.JOINED_AS_SPECTATOR, ParticipantRole.SPECTATOR),
+                        handler = current.handler,
+                        context = current.toContext(),
+                        player = player,
+                        role = ParticipantRole.SPECTATOR
+                    )
                 }
 
-                else -> {
-                    RemoveUpdate(RemoveResult.NOT_PARTICIPATING)
-                }
+                decision == RunningJoinResult.JOINED_AS_SPECTATOR -> JoinUpdate(
+                    JoinEventResult(JoinEventType.SPECTATORS_DISABLED)
+                )
+
+                else -> JoinUpdate(JoinEventResult(JoinEventType.RUNNING_JOIN_DENIED))
             }
         }
 
-        update.promoted.forEach(::notifyPromoted)
+        dispatchJoinUpdateAwait(update)
         return update.result
     }
 
-    fun setMaxPlayers(maxPlayers: Int?): Boolean {
-        val limit = maxPlayers ?: UNLIMITED
-        requireValidLimit(limit)
+    public suspend fun joinSpectator(player: Player): JoinEventResult {
+        val update = addSpectator(player)
+        dispatchJoinUpdateAwait(update)
+        return update.result
+    }
 
+    public fun remove(player: Player, includeSpectators: Boolean = true): RemoveResult {
+        return remove(player.uniqueId, includeSpectators)
+    }
+
+    public fun remove(
+        uuid: UUID,
+        includeSpectators: Boolean = true,
+        reason: PlayerRemoveReason = PlayerRemoveReason.LEAVE
+    ): RemoveResult {
         val update = lock.withLock {
-            if (activeGame == null) return false
+            val current = session ?: return@withLock RemoveUpdate(RemoveResult.NO_ACTIVE_GAME)
+            val player = Bukkit.getPlayer(uuid)
 
-            this.maxPlayers = limit
+            when {
+                current.status == GameStatus.STARTING || current.status == GameStatus.STOPPING -> {
+                    RemoveUpdate(RemoveResult.EVENT_BUSY)
+                }
 
-            val demoted = mutableListOf<UUID>()
+                current.gamePlayers.remove(uuid) -> RemoveUpdate(
+                    result = RemoveResult.REMOVED_PLAYER,
+                    handler = current.handler,
+                    context = current.toContext(),
+                    uuid = uuid,
+                    player = player,
+                    role = ParticipantRole.PLAYER,
+                    reason = reason
+                )
 
-            while (isLobbyOverLimit()) {
-                val uuid = lobbyPlayers.lastOrNull() ?: break
+                current.reservePlayers.remove(uuid) -> RemoveUpdate(
+                    result = RemoveResult.REMOVED_RESERVE,
+                    handler = current.handler,
+                    context = current.toContext(),
+                    uuid = uuid,
+                    player = player,
+                    role = ParticipantRole.RESERVE,
+                    reason = reason
+                )
 
-                lobbyPlayers.remove(uuid)
-                addWaitingPlayerFirst(uuid)
+                includeSpectators && current.spectators.remove(uuid) -> RemoveUpdate(
+                    result = RemoveResult.REMOVED_SPECTATOR,
+                    handler = current.handler,
+                    context = current.toContext(),
+                    uuid = uuid,
+                    player = player,
+                    role = ParticipantRole.SPECTATOR,
+                    reason = reason
+                )
 
-                demoted += uuid
+                else -> RemoveUpdate(RemoveResult.NOT_PARTICIPATING)
             }
-
-            LimitUpdate(
-                demoted = demoted,
-                promoted = promoteWaitingPlayers()
-            )
         }
 
-        update.demoted.forEach(::notifyDemoted)
-        update.promoted.forEach(::notifyPromoted)
-
-        return true
+        dispatchRemoveUpdate(update)
+        return update.result
     }
 
-    suspend fun beginGame(): Boolean {
-        val snapshot = lock.withLock {
-            val key = activeGame ?: return false
-
-            GameStartSnapshot(
-                key = key,
-                players = ArrayDeque(lobbyPlayers),
-                spectators = spectators.toSet()
-            )
-        }
-
-        val handler = GameRegistry.getRawHandler(snapshot.key)
-            ?: error("No handler registered for game: ${snapshot.key.displayName}")
-
-        handler.beginGame(snapshot.players, snapshot.spectators)
-        return true
+    public fun kick(uuid: UUID, includeSpectators: Boolean = false): RemoveResult {
+        return remove(uuid, includeSpectators, PlayerRemoveReason.KICK)
     }
 
-    fun snapshot(): GameSnapshot? {
+    public fun setParticipantRole(uuid: UUID, role: ParticipantRole): MoveParticipantResult {
         return lock.withLock {
-            val key = activeGame ?: return null
+            val current = session ?: return@withLock MoveParticipantResult.NO_ACTIVE_GAME
+            if (current.status != GameStatus.RUNNING) return@withLock MoveParticipantResult.EVENT_BUSY
+            if (role == ParticipantRole.SPECTATOR && !current.options.spectatorsEnabled) {
+                return@withLock MoveParticipantResult.SPECTATORS_DISABLED
+            }
 
-            GameSnapshot(
-                game = key,
-                maxPlayers = maxPlayersOrNull(),
-                lobbyPlayers = lobbyPlayers.toList(),
-                waitingPlayers = waitingPlayers.toList(),
-                spectators = spectators.toSet()
-            )
+            val currentRole = current.roleOf(uuid) ?: return@withLock MoveParticipantResult.NOT_PARTICIPATING
+            if (currentRole == role) return@withLock MoveParticipantResult.ALREADY_IN_ROLE
+
+            current.removeFromAll(uuid)
+            current.addToRole(uuid, role)
+            MoveParticipantResult.MOVED
         }
     }
 
-    private fun tick() {
-        val snapshot = lock.withLock {
-            if (activeGame == null) return
-
-            val promoted = promoteWaitingPlayers()
-
-            TickSnapshot(
-                lobbyViewers = (spectators.asSequence() + lobbyPlayers.asSequence())
-                    .distinct()
-                    .toList(),
-                waitingPlayers = waitingPlayers.toList(),
-                lobbySize = lobbyPlayers.size,
-                maxPlayers = maxPlayersOrNull(),
-                promoted = promoted
-            )
-        }
-
-        snapshot.promoted.forEach(::notifyPromoted)
-
-        snapshot.lobbyViewers.forEach { uuid ->
-            showLobbyActionBar(
-                uuid = uuid,
-                lobbySize = snapshot.lobbySize,
-                maxPlayers = snapshot.maxPlayers
-            )
-        }
-
-        snapshot.waitingPlayers.forEachIndexed { index, uuid ->
-            showWaitingActionBar(
-                uuid = uuid,
-                position = index + 1,
-                waitingSize = snapshot.waitingPlayers.size
-            )
-        }
+    public fun isParticipant(player: Player): Boolean {
+        return isParticipant(player.uniqueId)
     }
 
-    private fun promoteWaitingPlayers(): List<Promotion> {
-        val promoted = mutableListOf<Promotion>()
+    public fun isParticipant(uuid: UUID): Boolean {
+        return lock.withLock { session?.isParticipant(uuid) ?: false }
+    }
 
-        while (!isLobbyFull()) {
-            val uuid = pollWaitingPlayer() ?: break
+    public fun isPlayer(uuid: UUID): Boolean {
+        return lock.withLock { uuid in (session?.gamePlayers ?: return@withLock false) }
+    }
 
-            if (lobbyPlayers.add(uuid)) {
-                promoted += Promotion(uuid)
+    public fun isReserve(uuid: UUID): Boolean {
+        return lock.withLock { uuid in (session?.reservePlayers ?: return@withLock false) }
+    }
+
+    public fun isSpectator(uuid: UUID): Boolean {
+        return lock.withLock { uuid in (session?.spectators ?: return@withLock false) }
+    }
+
+    public fun participantPosition(uuid: UUID): ParticipantPosition? {
+        return lock.withLock {
+            val current = session ?: return@withLock null
+
+            when (uuid) {
+                in current.gamePlayers -> ParticipantPosition(
+                    role = ParticipantRole.PLAYER,
+                    position = current.gamePlayers.indexOf(uuid) + 1,
+                    size = current.gamePlayers.size
+                )
+
+                in current.reservePlayers -> ParticipantPosition(
+                    role = ParticipantRole.RESERVE,
+                    position = current.reservePlayers.indexOf(uuid) + 1,
+                    size = current.reservePlayers.size
+                )
+
+                in current.spectators -> ParticipantPosition(
+                    role = ParticipantRole.SPECTATOR,
+                    position = -1,
+                    size = current.spectators.size
+                )
+
+                else -> null
             }
         }
-
-        return promoted
     }
 
-    private fun isLobbyFull(): Boolean {
-        return maxPlayers != UNLIMITED && lobbyPlayers.size >= maxPlayers
+    private fun collectStartCandidateIds(): List<UUID> {
+        require(lock.isHeldByCurrentThread) { "Must be called from the game thread" }
+
+        val onlinePlayers = Bukkit.getOnlinePlayers().toList()
+        val onlineById = onlinePlayers.associateBy { it.uniqueId }
+
+        serverJoinOrder.removeAll { it !in onlineById }
+        onlinePlayers.forEach { serverJoinOrder.add(it.uniqueId) }
+
+        return serverJoinOrder
+            .asSequence()
+            .mapNotNull { onlineById[it] }
+            .filter(::shouldUseAsStartCandidate)
+            .map { it.uniqueId }
+            .toList()
     }
 
-    private fun isLobbyOverLimit(): Boolean {
-        return maxPlayers != UNLIMITED && lobbyPlayers.size > maxPlayers
-    }
+    private fun shouldUseAsStartCandidate(player: Player): Boolean {
+        val config = SurvivalEventsConfig.getConfig().start
 
-    private fun maxPlayersOrNull(): Int? {
-        return if (maxPlayers == UNLIMITED) null else maxPlayers
-    }
-
-    private fun addWaitingPlayerLast(uuid: UUID): Boolean {
-        if (!waitingPlayerIds.add(uuid)) return false
-
-        waitingPlayers.addLast(uuid)
-        return true
-    }
-
-    private fun addWaitingPlayerFirst(uuid: UUID): Boolean {
-        if (!waitingPlayerIds.add(uuid)) {
-            waitingPlayers.remove(uuid)
-        }
-
-        waitingPlayers.addFirst(uuid)
-        return true
-    }
-
-    private fun removeWaitingPlayer(uuid: UUID): Boolean {
-        if (!waitingPlayerIds.remove(uuid)) return false
-
-        waitingPlayers.remove(uuid)
-        return true
-    }
-
-    private fun pollWaitingPlayer(): UUID? {
-        val uuid = waitingPlayers.removeFirstOrNull() ?: return null
-
-        waitingPlayerIds.remove(uuid)
-        return uuid
-    }
-
-    private fun clearWaitingPlayers() {
-        waitingPlayers.clear()
-        waitingPlayerIds.clear()
-    }
-
-    private fun requireValidLimit(maxPlayers: Int) {
-        require(maxPlayers == UNLIMITED || maxPlayers > 0) {
-            "maxPlayers must be positive or null"
+        return config.excludedPermissions.none { permission ->
+            permission.isNotBlank() && player.hasPermission(permission)
         }
     }
 
-    private fun notifyPromoted(promotion: Promotion) {
-        val player = Bukkit.getPlayer(promotion.uuid) ?: return
+    private fun selectPlayers(candidates: List<UUID>, options: GameOptions): PlayerSelection {
+        val limit = options.start.activePlayerLimit
+        if (limit == null || candidates.size <= limit) {
+            return PlayerSelection(gamePlayers = candidates)
+        }
 
-        player.sendText {
-            appendSuccessPrefix()
-            success("Ein Platz ist frei geworden. Du bist jetzt in der Game Lobby!")
+        val active = candidates.take(limit)
+        val overflow = candidates.drop(limit)
+
+        return when (options.start.overflow) {
+            StartOverflowPolicy.SPECTATOR -> PlayerSelection(
+                gamePlayers = active,
+                spectators = overflow.toSet()
+            )
+
+            StartOverflowPolicy.RESERVE -> PlayerSelection(
+                gamePlayers = active,
+                reservePlayers = overflow
+            )
+
+            StartOverflowPolicy.IGNORE -> PlayerSelection(gamePlayers = active)
         }
     }
 
-    private fun notifyDemoted(uuid: UUID) {
-        val player = Bukkit.getPlayer(uuid) ?: return
+    private fun addSpectator(player: Player): JoinUpdate {
+        val uuid = player.uniqueId
 
-        player.sendText {
-            appendInfoPrefix()
-            info("Du wurdest wegen des neuen Limits in die Warteliste verschoben.")
+        return lock.withLock {
+            val current = session ?: return@withLock JoinUpdate(JoinEventResult(JoinEventType.NO_ACTIVE_GAME))
+
+            when {
+                current.status == GameStatus.STARTING || current.status == GameStatus.STOPPING -> {
+                    JoinUpdate(JoinEventResult(JoinEventType.EVENT_BUSY))
+                }
+
+                !current.options.spectatorsEnabled -> JoinUpdate(JoinEventResult(JoinEventType.SPECTATORS_DISABLED))
+                current.isParticipant(uuid) -> JoinUpdate(JoinEventResult(JoinEventType.ALREADY_PARTICIPATING))
+                uuid in current.spectators -> JoinUpdate(JoinEventResult(JoinEventType.ALREADY_SPECTATOR))
+                else -> {
+                    current.spectators.add(uuid)
+                    JoinUpdate(
+                        result = JoinEventResult(JoinEventType.JOINED_AS_SPECTATOR, ParticipantRole.SPECTATOR),
+                        handler = current.handler,
+                        context = current.toContext(),
+                        player = player,
+                        role = ParticipantRole.SPECTATOR
+                    )
+                }
+            }
         }
     }
 
-    private fun showLobbyActionBar(uuid: UUID, lobbySize: Int, maxPlayers: Int?) {
-        val player = Bukkit.getPlayer(uuid) ?: return
-        val max = maxPlayers?.toString() ?: "unbegrenzt"
-
-        player.sendActionBar {
-            text("Game Lobby: $lobbySize/$max", Colors.INFO)
+    private suspend fun dispatchJoinUpdateAwait(update: JoinUpdate) {
+        val handler = update.handler ?: return
+        val context = update.context ?: return
+        val player = update.player ?: return
+        when (update.role ?: return) {
+            ParticipantRole.PLAYER -> handler.onRunningPlayerJoin(context, player)
+            ParticipantRole.RESERVE -> handler.onRunningReserveJoin(context, player)
+            ParticipantRole.SPECTATOR -> handler.onRunningSpectatorJoin(context, player)
         }
     }
 
-    private fun showWaitingActionBar(uuid: UUID, position: Int, waitingSize: Int) {
-        val player = Bukkit.getPlayer(uuid) ?: return
+    private fun dispatchRemoveUpdate(update: RemoveUpdate) {
+        val handler = update.handler ?: return
+        val context = update.context ?: return
+        val uuid = update.uuid ?: return
+        val role = update.role ?: return
+        val reason = update.reason ?: return
 
-        player.sendActionBar {
-            text("Dein Platz in der Warteliste: $position/$waitingSize", Colors.INFO)
+        launchHook {
+            handler.onParticipantRemove(context, uuid, update.player, role, reason)
         }
     }
 
-    data class QueueJoinResult(
-        val type: QueueJoinType,
-        val position: Int = -1,
-        val size: Int = 0,
-        val maxPlayers: Int? = null
+    private fun detachSession(reason: GameStopReason): StoppedGame? {
+        return lock.withLock {
+            val current = session ?: return@withLock null
+            current.status = GameStatus.STOPPING
+
+            val stopped = StoppedGame(
+                handler = current.handler,
+                context = current.toContext()
+            )
+
+            session = null
+            stopped
+        }
+    }
+
+    private fun detachSpecificSession(current: GameSession, reason: GameStopReason): StoppedGame? {
+        return lock.withLock {
+            if (session !== current) return@withLock null
+            current.status = GameStatus.STOPPING
+
+            val stopped = StoppedGame(
+                handler = current.handler,
+                context = current.toContext()
+            )
+
+            session = null
+            stopped
+        }
+    }
+
+    private suspend fun safeRunStopHook(stopped: StoppedGame, reason: GameStopReason) {
+        try {
+            stopped.handler.onStop(stopped.context, reason)
+        } catch (throwable: Throwable) {
+            plugin.componentLogger.error("Survival event stop hook failed", throwable)
+        }
+    }
+
+    private fun safeLaunchStopHook(stopped: StoppedGame, reason: GameStopReason) {
+        launchHook {
+            stopped.handler.onStop(stopped.context, reason)
+        }
+    }
+
+    private fun launchHook(block: suspend () -> Unit) {
+        plugin.launch {
+            try {
+                block()
+            } catch (throwable: Throwable) {
+                plugin.componentLogger.error("Survival event hook failed", throwable)
+            }
+        }
+    }
+
+    private suspend fun teleportToServerLobby(player: Player) {
+        try {
+            player.teleportAsync(SurvivalEventsConfig.getConfig().serverLobby).await()
+        } catch (throwable: Throwable) {
+            plugin.componentLogger.error("Failed to teleport ${player.name} to the event server lobby", throwable)
+        }
+    }
+
+    internal data class StartGameResult(
+        val type: StartGameType,
+        val context: GameContext? = null,
+        val activeSession: GameContext? = null,
+        val selectedPlayers: Int = 0,
+        val minPlayers: Int = 0
+    ) {
+        val started: Boolean
+            get() = type == StartGameType.STARTED
+    }
+
+    internal enum class StartGameType {
+        STARTED,
+        ALREADY_ACTIVE,
+        NO_ACTIVE_GAME,
+        NO_HANDLER_REGISTERED,
+        NOT_ENOUGH_PLAYERS,
+        HANDLER_FAILED
+    }
+
+    public data class JoinEventResult(
+        val type: JoinEventType,
+        val role: ParticipantRole? = null
     ) {
         val joined: Boolean
             get() = type.joined
     }
 
-    enum class QueueJoinType(
-        val joined: Boolean
+    public enum class JoinEventType(
+        public val joined: Boolean
     ) {
         NO_ACTIVE_GAME(false),
-        ALREADY_PLAYER(false),
+        EVENT_BUSY(false),
+        RUNNING_JOIN_DENIED(false),
+        SPECTATORS_DISABLED(false),
+        ALREADY_PARTICIPATING(false),
         ALREADY_SPECTATOR(false),
-        JOINED_LOBBY(true),
-        JOINED_WAITING_LIST(true)
+        JOINED_AS_PLAYER(true),
+        JOINED_AS_RESERVE(true),
+        JOINED_AS_SPECTATOR(true)
     }
 
-    enum class SpectatorJoinResult {
-        NO_ACTIVE_GAME,
-        ALREADY_PLAYER,
-        ALREADY_SPECTATOR,
-        JOINED
-    }
-
-    enum class RemoveResult(
-        val removed: Boolean
+    public enum class RemoveResult(
+        public val removed: Boolean
     ) {
         NO_ACTIVE_GAME(false),
+        EVENT_BUSY(false),
         NOT_PARTICIPATING(false),
-        REMOVED_FROM_LOBBY(true),
-        REMOVED_FROM_WAITING_LIST(true),
+        REMOVED_PLAYER(true),
+        REMOVED_RESERVE(true),
         REMOVED_SPECTATOR(true)
     }
 
-    data class GameSnapshot(
-        val game: GameKey<*>,
-        val maxPlayers: Int?,
-        val lobbyPlayers: List<UUID>,
-        val waitingPlayers: List<UUID>,
-        val spectators: Set<UUID>
-    ) {
-        val queuedPlayers: List<UUID>
-            get() = lobbyPlayers + waitingPlayers
+    public enum class MoveParticipantResult {
+        NO_ACTIVE_GAME,
+        EVENT_BUSY,
+        NOT_PARTICIPATING,
+        SPECTATORS_DISABLED,
+        ALREADY_IN_ROLE,
+        MOVED
     }
+
+    public data class ParticipantPosition(
+        val role: ParticipantRole,
+        val position: Int,
+        val size: Int
+    )
+
+    private class GameSession(
+        val key: GameKey<*>,
+        val handler: GameHandler,
+        val options: GameOptions,
+        var status: GameStatus,
+        val gamePlayers: MutableSet<UUID>,
+        val reservePlayers: MutableSet<UUID>,
+        val spectators: MutableSet<UUID>
+    ) {
+        fun toContext() = GameContext(
+            key = key,
+            options = options,
+            status = status,
+            gamePlayers = gamePlayers.toList(),
+            reservePlayers = reservePlayers.toList(),
+            spectators = spectators.toSet()
+        )
+
+        fun isParticipant(uuid: UUID): Boolean {
+            return uuid in gamePlayers || uuid in reservePlayers
+        }
+
+        fun roleOf(uuid: UUID): ParticipantRole? {
+            return when (uuid) {
+                in gamePlayers -> ParticipantRole.PLAYER
+                in reservePlayers -> ParticipantRole.RESERVE
+                in spectators -> ParticipantRole.SPECTATOR
+                else -> null
+            }
+        }
+
+        fun removeFromAll(uuid: UUID) {
+            gamePlayers.remove(uuid)
+            reservePlayers.remove(uuid)
+            spectators.remove(uuid)
+        }
+
+        fun addToRole(uuid: UUID, role: ParticipantRole) {
+            when (role) {
+                ParticipantRole.PLAYER -> gamePlayers.add(uuid)
+                ParticipantRole.RESERVE -> reservePlayers.add(uuid)
+                ParticipantRole.SPECTATOR -> spectators.add(uuid)
+            }
+        }
+    }
+
+    private data class PlayerSelection(
+        val gamePlayers: List<UUID> = emptyList(),
+        val reservePlayers: List<UUID> = emptyList(),
+        val spectators: Set<UUID> = emptySet()
+    )
+
+    private data class StartUpdate(
+        val result: StartGameResult,
+        val session: GameSession? = null,
+        val handler: GameHandler? = null,
+        val startingContext: GameContext? = null
+    )
+
+    private data class RunningJoinRequest(
+        val result: JoinEventResult? = null,
+        val session: GameSession? = null,
+        val handler: GameHandler? = null,
+        val context: GameContext? = null
+    )
+
+    private data class JoinUpdate(
+        val result: JoinEventResult,
+        val handler: GameHandler? = null,
+        val context: GameContext? = null,
+        val player: Player? = null,
+        val role: ParticipantRole? = null
+    )
 
     private data class RemoveUpdate(
         val result: RemoveResult,
-        val promoted: List<Promotion> = emptyList()
-    )
-
-    private data class LimitUpdate(
-        val demoted: List<UUID>,
-        val promoted: List<Promotion>
-    )
-
-    private data class Promotion(
-        val uuid: UUID
-    )
-
-    private data class TickSnapshot(
-        val lobbyViewers: List<UUID>,
-        val waitingPlayers: List<UUID>,
-        val lobbySize: Int,
-        val maxPlayers: Int?,
-        val promoted: List<Promotion>
-    )
-
-    private data class GameStartSnapshot(
-        val key: GameKey<*>,
-        val players: ArrayDeque<UUID>,
-        val spectators: Set<UUID>
+        val handler: GameHandler? = null,
+        val context: GameContext? = null,
+        val uuid: UUID? = null,
+        val player: Player? = null,
+        val role: ParticipantRole? = null,
+        val reason: PlayerRemoveReason? = null
     )
 
     private data class StoppedGame(
-        val game: GameKey<*>,
-        val job: Job?
+        val handler: GameHandler,
+        val context: GameContext
     )
+}
+
+private fun Iterable<UUID>.toMutableLinkedSet(): MutableSet<UUID> = linkedSetOf<UUID>().also { target ->
+    target.addAll(this)
 }

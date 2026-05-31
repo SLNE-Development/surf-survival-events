@@ -8,7 +8,7 @@ import dev.slne.surf.survival.events.base.service.GameService
 import dev.slne.surf.survival.events.base.service.GameService.RemoveResult
 import dev.slne.surf.survival.events.base.util.PermissionRegistry
 
-internal fun CommandTree.leaveQueueCommand() = literalArgument("leave") {
+internal fun CommandTree.leaveEventCommand() = literalArgument("leave") {
     withPermission(PermissionRegistry.COMMAND_PLAYER)
 
     playerExecutor { player, _ ->
@@ -30,16 +30,22 @@ internal fun CommandTree.leaveQueueCommand() = literalArgument("leave") {
             RemoveResult.NOT_PARTICIPATING -> {
                 player.sendText {
                     appendErrorPrefix()
-                    error("Du bist aktuell nicht für das Event eingetragen.")
+                    error("Du bist aktuell nicht im Event eingetragen.")
                 }
             }
 
             RemoveResult.REMOVED_PLAYER,
-            RemoveResult.REMOVED_RESERVE,
-            RemoveResult.REMOVED_SPECTATOR -> {
+            RemoveResult.REMOVED_RESERVE -> {
                 player.sendText {
                     appendSuccessPrefix()
                     success("Du hast das Event verlassen.")
+                }
+            }
+
+            RemoveResult.REMOVED_SPECTATOR -> {
+                player.sendText {
+                    appendSuccessPrefix()
+                    success("Du bist kein Zuschauer des Events mehr.")
                 }
             }
         }

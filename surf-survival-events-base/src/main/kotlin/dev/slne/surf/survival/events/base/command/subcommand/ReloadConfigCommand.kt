@@ -4,18 +4,21 @@ import dev.jorel.commandapi.CommandTree
 import dev.jorel.commandapi.kotlindsl.anyExecutor
 import dev.jorel.commandapi.kotlindsl.literalArgument
 import dev.slne.surf.api.core.messages.adventure.sendText
-import dev.slne.surf.survival.events.base.service.NpcService
+import dev.slne.surf.survival.events.base.config.SurvivalEventsConfig
 import dev.slne.surf.survival.events.base.util.PermissionRegistry
+import kotlin.time.measureTime
 
-fun CommandTree.spawnNpc() = literalArgument("spawn-npc") {
+internal fun CommandTree.reloadCommand() = literalArgument("reload") {
     withPermission(PermissionRegistry.COMMAND_COMMUNITY_MANAGER)
     anyExecutor { sender, _ ->
-        NpcService.hideNpc()
-        NpcService.showNpc()
+        val duration = measureTime {
+            SurvivalEventsConfig.reloadFromFile()
+        }
 
         sender.sendText {
             appendSuccessPrefix()
-            success("Event-NPC wurde gespawnt.")
+            success("Die Konfiguration wurde erfolgreich neu geladen ")
+            spacer("($duration)")
         }
     }
 }

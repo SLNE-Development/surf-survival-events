@@ -4,40 +4,41 @@ import com.destroystokyo.paper.profile.ProfileProperty
 import dev.slne.surf.api.core.font.toSmallCaps
 import dev.slne.surf.api.paper.builder.buildItem
 import dev.slne.surf.api.paper.builder.displayName
-import dev.slne.surf.survival.events.base.menu.util.eventColored
+import dev.slne.surf.survival.events.base.comp.eventColored
 import io.papermc.paper.datacomponent.DataComponentTypes
 import io.papermc.paper.datacomponent.item.ResolvableProfile
 import io.papermc.paper.datacomponent.item.TooltipDisplay
 import org.bukkit.Material
+import org.bukkit.inventory.ItemStack
 
-class GameKey<HANDLER : GameHandler> private constructor(
-    val displayName: String,
-    val key: String,
-    val skullTexture: String,
+public class GameKey<HANDLER : GameHandler> private constructor(
+    public val displayName: String,
+    public val key: String,
+    public val skullTexture: String,
 ) {
 
-    companion object {
-        fun <HANDLER : GameHandler> of(displayName: String, key: String, skullTexture: String): GameKey<HANDLER> {
+    public companion object {
+        public fun <HANDLER : GameHandler> of(displayName: String, key: String, skullTexture: String): GameKey<HANDLER> {
             return GameKey(displayName, key, skullTexture)
         }
 
-        inline fun <reified HANDLER : GameHandler> builder() = Builder<HANDLER>()
+        public inline fun <reified HANDLER : GameHandler> builder(): Builder<HANDLER> = Builder()
 
-        class Builder<HANDLER : GameHandler> {
+        public class Builder<HANDLER : GameHandler> {
             private lateinit var displayName: String
             private lateinit var key: String
             private lateinit var skullTexture: String
 
-            fun displayName(displayName: String) = apply { this.displayName = displayName }
-            fun key(key: String) = apply { this.key = key }
-            fun skullTexture(skullTexture: String) = apply { this.skullTexture = skullTexture }
+            public fun displayName(displayName: String): Builder<HANDLER> = apply { this.displayName = displayName }
+            public fun key(key: String): Builder<HANDLER> = apply { this.key = key }
+            public fun skullTexture(skullTexture: String): Builder<HANDLER> = apply { this.skullTexture = skullTexture }
 
-            fun build() = GameKey<HANDLER>(displayName, key, skullTexture)
+            public fun build(): GameKey<HANDLER> = GameKey(displayName, key, skullTexture)
         }
     }
 
     @Suppress("UnstableApiUsage")
-    fun createSkull() = buildItem(Material.PLAYER_HEAD) {
+    public fun createSkull(): ItemStack = buildItem(Material.PLAYER_HEAD) {
         displayName {
             eventColored(displayName.toSmallCaps())
         }

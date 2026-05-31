@@ -13,26 +13,26 @@ import dev.slne.surf.api.paper.util.readableString
 import dev.slne.surf.survival.events.race.config.RaceConfig
 import org.bukkit.Location
 
-fun CommandAPICommand.setLobbyCommand() = subcommand("set-lobby") {
+fun CommandAPICommand.setSpectatorCommand() = subcommand("set-spectator") {
     locationArgument("location", LocationType.BLOCK_POSITION)
     rotationArgument("rotation")
     playerExecutor { player, args ->
         val location: Location by args
         val rotation: Rotation by args
 
-        val lobby = location.setRotation(rotation.yaw, rotation.pitch)
+        val spectatorLocation = location.setRotation(rotation.yaw, rotation.pitch)
 
         RaceConfig.edit {
             eventWorld = location.world.name
-            roundLobbyLocation = lobby
+            this.spectatorLocation = spectatorLocation
         }
         RaceConfig.save()
 
         player.sendText {
             appendSuccessPrefix()
-            success("Die Race-Round-Lobby wurde erfolgreich gesetzt!")
+            success("Die Spectator-Location wurde erfolgreich gesetzt!")
             appendSpace()
-            variableValue(lobby.readableString(true))
+            variableValue(spectatorLocation.readableString(true))
         }
     }
 }

@@ -10,7 +10,7 @@ import dev.slne.surf.api.core.messages.adventure.buildText
 import dev.slne.surf.survival.events.base.game.GameKey
 import dev.slne.surf.survival.events.base.game.GameRegistry
 
-class GameKeyArgument(nodeName: String) : CustomArgument<GameKey<*>, String>(
+public class GameKeyArgument(nodeName: String) : CustomArgument<GameKey<*>, String>(
     StringArgument(nodeName),
     { info ->
         val normalizedInput = info.input.trim()
@@ -31,13 +31,13 @@ class GameKeyArgument(nodeName: String) : CustomArgument<GameKey<*>, String>(
     init {
         replaceSuggestions(
             ArgumentSuggestions.stringCollection {
-                GameRegistry.getRegisteredGames().map { it.key }
+                GameRegistry.getRegisteredGameKeys().map { it.key }
             }
         )
     }
 }
 
-inline fun CommandAPICommand.gameKeyArgument(
+public inline fun CommandAPICommand.gameKeyArgument(
     nodeName: String,
     optional: Boolean = false,
     block: Argument<*>.() -> Unit = {}

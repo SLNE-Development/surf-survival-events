@@ -1,6 +1,6 @@
 package dev.slne.surf.survival.events.base.command
 
-object CommandManager {
+internal object CommandManager {
     fun registerCommands() {
         eventCommand()
     }

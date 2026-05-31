@@ -1,10 +1,22 @@
 package dev.slne.surf.survival.events.race.game
 
+import dev.slne.surf.survival.events.base.game.GameContext
 import dev.slne.surf.survival.events.base.game.GameHandler
 import dev.slne.surf.survival.events.base.game.GameKey
+import dev.slne.surf.survival.events.base.game.GameMode
+import dev.slne.surf.survival.events.base.game.GameOptions
+import dev.slne.surf.survival.events.base.game.GameStartOptions
+import dev.slne.surf.survival.events.base.game.GameStopReason
+import dev.slne.surf.survival.events.base.game.ParticipantRole
+import dev.slne.surf.survival.events.base.game.PlayerRemoveReason
+import dev.slne.surf.survival.events.base.game.RunningJoinPolicy
+import dev.slne.surf.survival.events.base.game.RunningJoinResult
+import dev.slne.surf.survival.events.base.game.StartOverflowPolicy
+import dev.slne.surf.survival.events.race.config.RaceConfig
 import dev.slne.surf.survival.events.race.service.RaceService
 import dev.slne.surf.survival.events.race.service.RaceState
-import java.util.*
+import org.bukkit.entity.Player
+import java.util.UUID
 
 class RaceGame : GameHandler {
     companion object {
@@ -15,10 +27,74 @@ class RaceGame : GameHandler {
             .build()
     }
 
-    override suspend fun beginGame(players: List<UUID>, spectators: Set<UUID>) {
+    override val options: GameOptions
+        get() {
+            val config = RaceConfig.getConfig()
+            val gameplay = config.gameplay
+
+            return GameOptions(
+                eventWorld = config.eventWorld,
+                minPlayersToStart = gameplay.minPlayersToStart,
+                mode = GameMode.BATCHED,
+                start = GameStartOptions(
+                    activePlayerLimit = gameplay.playersPerRound,
+                    overflow = StartOverflowPolicy.SPECTATOR
+                ),
+                spectatorsEnabled = true,
+                runningJoinPolicy = if (gameplay.lateJoinAsSpectator) {
+                    RunningJoinPolicy.SPECTATOR
+                } else {
+                    RunningJoinPolicy.DENY
+                },
+                autoJoinRunningPlayers = gameplay.autoJoinServerPlayersAsSpectators
+            )
+        }
+
+    override suspend fun onStarted(context: GameContext) {
         RaceService.setRaceState(RaceState.LOBBY)
 
-        spectators.forEach(RaceService::addSpectators)
-        players.forEach(RaceService::addPlayer)
+        context.gamePlayers.forEach(RaceService::addPlayer)
+        context.reservePlayers.forEach(RaceService::addSpectators)
+        context.spectators.forEach(RaceService::addSpectators)
+    }
+
+    override suspend fun onRunningJoin(context: GameContext, player: Player): RunningJoinResult {
+        return if (RaceConfig.getConfig().gameplay.lateJoinAsSpectator) {
+            RunningJoinResult.JOINED_AS_SPECTATOR
+        } else {
+            RunningJoinResult.DENIED
+        }
+    }
+
+    override suspend fun onRunningSpectatorJoin(context: GameContext, player: Player) {
+        RaceService.addSpectators(player.uniqueId)
+    }
+
+    override suspend fun onParticipantRemove(
+        context: GameContext,
+        uuid: UUID,
+        player: Player?,
+        role: ParticipantRole,
+        reason: PlayerRemoveReason
+    ) {
+        if (role == ParticipantRole.PLAYER || uuid in RaceService.getRacePlayers()) {
+            if (player != null) {
+                RaceService.removePlayer(
+                    player = player,
+                    teleportToServerLobby = reason != PlayerRemoveReason.DISCONNECT
+                )
+            } else {
+                RaceService.removePlayer(uuid)
+            }
+        } else {
+            RaceService.removeSpectator(
+                uuid = uuid,
+                teleportToServerLobby = reason != PlayerRemoveReason.DISCONNECT
+            )
+        }
+    }
+
+    override suspend fun onStop(context: GameContext, reason: GameStopReason) {
+        RaceService.stopRace(notifyPlayers = reason != GameStopReason.PLUGIN_DISABLE)
     }
 }

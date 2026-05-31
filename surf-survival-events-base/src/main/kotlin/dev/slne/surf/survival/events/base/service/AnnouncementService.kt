@@ -2,51 +2,72 @@ package dev.slne.surf.survival.events.base.service
 
 import dev.slne.surf.api.core.messages.adventure.buildText
 import dev.slne.surf.api.paper.extensions.server
+import dev.slne.surf.survival.events.base.game.GameContext
 import dev.slne.surf.survival.events.base.game.GameKey
 import net.kyori.adventure.text.format.TextColor
 import org.bukkit.entity.Player
 
-object AnnouncementService {
+internal object AnnouncementService {
 
-    fun broadcastOpenEvent() {
-        val activeGameKey = GameService.getActiveGameKey()
-        server.sendMessage(createOpenEventMessage(activeGameKey))
+    fun broadcastStartedEvent(context: GameContext) {
+        server.sendMessage(createStartedEventMessage(context))
     }
 
-    fun sendOpenEvent(player: Player) {
-        val activeGameKey = GameService.getActiveGameKey()
-        //player.playSound(player.location, Sound.ENTITY_ENDER_DRAGON_GROWL, 1f, 1f)
-
-        player.sendMessage(createOpenEventMessage(activeGameKey))
+    fun broadcastRunningEvent(key: GameKey<*> = GameService.getActiveGameKey()) {
+        server.sendMessage(createRunningEventMessage(key))
     }
 
-    private fun createOpenEventMessage(key: GameKey<*>) = buildText {
+    fun sendRunningEvent(player: Player, key: GameKey<*> = GameService.getActiveGameKey()) {
+        player.sendMessage(createRunningEventMessage(key))
+    }
+
+    fun broadcastCloseEvent(key: GameKey<*>) {
+        server.sendMessage(createCloseEventMessage(key))
+    }
+
+    private fun createStartedEventMessage(context: GameContext) = buildText {
         text("--------------------------------------------------", TextColor.color(0x599542))
         appendNewline()
         appendNewline()
-        text("${key.displayName} wurde gestartet!", TextColor.color(0xD98E8D))
+        text("${context.key.displayName} wurde gestartet!", TextColor.color(0xD98E8D))
         appendNewline()
-        info("Gehe zum Spawn und klicke auf Arty, um teilzunehmen.")
+        info("Aktive Spieler:")
+        appendSpace()
+        variableValue(context.activePlayerCount.toString())
+        if (context.reservePlayerCount > 0) {
+            appendSpace()
+            info("| Reserve:")
+            appendSpace()
+            variableValue(context.reservePlayerCount.toString())
+        }
+        if (context.spectatorCount > 0) {
+            appendSpace()
+            info("| Zuschauer:")
+            appendSpace()
+            variableValue(context.spectatorCount.toString())
+        }
         appendNewline()
         appendNewline()
         text("--------------------------------------------------", TextColor.color(0x599542))
     }
 
-    fun broadcastCloseEvent() {
-        val activeGame = GameService.getActiveGameKey()
-        server.sendMessage(createCloseEventMessage(activeGame))
-    }
-
-    fun sendCloseEvent(player: Player) {
-        val activeGame = GameService.getActiveGameKey()
-        player.sendMessage(createCloseEventMessage(activeGame))
+    private fun createRunningEventMessage(key: GameKey<*>) = buildText {
+        text("--------------------------------------------------", TextColor.color(0x599542))
+        appendNewline()
+        appendNewline()
+        text("${key.displayName} läuft bereits!", TextColor.color(0xD98E8D))
+        appendNewline()
+        info("Je nach Event wirst du automatisch als Spieler oder Zuschauer hinzugefügt.")
+        appendNewline()
+        appendNewline()
+        text("--------------------------------------------------", TextColor.color(0x599542))
     }
 
     private fun createCloseEventMessage(key: GameKey<*>) = buildText {
         text("--------------------------------------------------", TextColor.color(0x599542))
         appendNewline()
         appendNewline()
-        error("Das ${key.displayName} wurde abgebrochen!")
+        error("Das ${key.displayName} wurde gestoppt!")
         appendNewline()
         appendNewline()
         text("--------------------------------------------------", TextColor.color(0x599542))

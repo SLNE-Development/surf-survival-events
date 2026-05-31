@@ -3,7 +3,7 @@ package dev.slne.surf.survival.events.race.listener
 import com.github.benmanes.caffeine.cache.Caffeine
 import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.api.paper.event.cancel
-import dev.slne.surf.survival.events.race.config.SurfRaceConfig
+import dev.slne.surf.survival.events.race.config.RaceConfig
 import dev.slne.surf.survival.events.race.service.ProgressService
 import dev.slne.surf.survival.events.race.service.RaceService
 import dev.slne.surf.survival.events.race.service.RaceState
@@ -115,10 +115,7 @@ object RaceListener : Listener {
 
         val currentCheckpoint = ProgressService.getCheckpoint(uuid)
 
-        val enteredNewCheckpoint = checkpointTo != null &&
-                (checkpointFrom == null || checkpointFrom.id != checkpointTo.id)
-
-        if (enteredNewCheckpoint) {
+        if (checkpointTo != null && (checkpointFrom == null || checkpointFrom.id != checkpointTo.id)) {
             val expectedCheckpoint = RegionService.getNextExpectedCheckpointId(currentCheckpoint)
 
             if (expectedCheckpoint != null && checkpointTo.id == expectedCheckpoint) {
@@ -150,10 +147,10 @@ object RaceListener : Listener {
 
             ProgressService.lapUp(uuid)
 
-            val config = SurfRaceConfig.getConfig()
+            val config = RaceConfig.getConfig()
             val lap = ProgressService.getLap(uuid)
 
-            if (lap >= config.laps) {
+            if (lap >= config.gameplay.laps) {
                 ProgressService.setFinished(uuid, true)
                 ProgressService.addPlace(uuid)
 

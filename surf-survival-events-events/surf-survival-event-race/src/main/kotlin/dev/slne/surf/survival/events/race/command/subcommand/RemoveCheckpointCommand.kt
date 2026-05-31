@@ -6,7 +6,7 @@ import dev.jorel.commandapi.kotlindsl.integerArgument
 import dev.jorel.commandapi.kotlindsl.playerExecutor
 import dev.jorel.commandapi.kotlindsl.subcommand
 import dev.slne.surf.api.core.messages.adventure.sendText
-import dev.slne.surf.survival.events.race.config.SurfRaceConfig
+import dev.slne.surf.survival.events.race.config.RaceConfig
 import dev.slne.surf.survival.events.race.region.clearBoundingBoxCache
 import dev.slne.surf.survival.events.race.utils.PermissionList
 
@@ -17,10 +17,9 @@ fun CommandAPICommand.removeCheckpoint() = subcommand("remove-checkpoint") {
     playerExecutor { player, args ->
         val checkpointNumber: Int by args
 
-        SurfRaceConfig.edit {
+        RaceConfig.edit {
 
-            val removed =
-                SurfRaceConfig.getConfig().checkPoints.removeIf { it.id == checkpointNumber }
+            val removed = checkpoints.removeIf { it.id == checkpointNumber }
 
             if (!removed) {
                 player.sendText {
@@ -34,14 +33,14 @@ fun CommandAPICommand.removeCheckpoint() = subcommand("remove-checkpoint") {
                 return@playerExecutor
             }
 
-            checkPoints.forEach {
+            checkpoints.forEach {
                 if (it.id > checkpointNumber) {
                     it.id -= 1
                 }
             }
         }
         clearBoundingBoxCache()
-        SurfRaceConfig.save()
+        RaceConfig.save()
 
         player.sendText {
             appendSuccessPrefix()

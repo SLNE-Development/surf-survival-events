@@ -7,7 +7,7 @@ import dev.jorel.commandapi.kotlindsl.playerExecutor
 import dev.jorel.commandapi.kotlindsl.subcommand
 import dev.slne.surf.api.core.messages.adventure.buildText
 import dev.slne.surf.api.core.messages.adventure.sendText
-import dev.slne.surf.survival.events.race.config.SurfRaceConfig
+import dev.slne.surf.survival.events.race.config.RaceConfig
 import dev.slne.surf.survival.events.race.utils.PermissionList
 import net.kyori.adventure.text.event.ClickEvent
 import net.kyori.adventure.text.event.HoverEvent
@@ -25,7 +25,7 @@ fun CommandAPICommand.checkpointListCommand() = subcommand("list") {
         player.sendText {
             when (arguments) {
                 "start" -> {
-                    val start = SurfRaceConfig.getConfig().start
+                    val start = RaceConfig.getConfig().starts
                     if (start.isEmpty()) {
                         player.sendText {
                             appendErrorPrefix()
@@ -42,7 +42,7 @@ fun CommandAPICommand.checkpointListCommand() = subcommand("list") {
                 }
 
                 "barrier" -> {
-                    val barrier = SurfRaceConfig.getConfig().barrier
+                    val barrier = RaceConfig.getConfig().barriers
                     if (barrier.isEmpty()) {
                         player.sendText {
                             appendErrorPrefix()
@@ -59,7 +59,7 @@ fun CommandAPICommand.checkpointListCommand() = subcommand("list") {
                 }
 
                 "checkpoints" -> {
-                    val checkpoints = SurfRaceConfig.getConfig().checkPoints
+                    val checkpoints = RaceConfig.getConfig().checkpoints
                     if (checkpoints.isEmpty()) {
                         player.sendText {
                             appendErrorPrefix()
@@ -86,7 +86,7 @@ fun CommandAPICommand.checkpointListCommand() = subcommand("list") {
     }
 }
 
-private fun sendCheckpoint(player: Player, checkpoint: SurfRaceConfig.CheckPointConfig) {
+private fun sendCheckpoint(player: Player, checkpoint: RaceConfig.CheckPointConfig) {
 
     val world = Bukkit.getWorld(checkpoint.world) ?: return
 
@@ -131,7 +131,7 @@ private fun sendCheckpoint(player: Player, checkpoint: SurfRaceConfig.CheckPoint
     }
 }
 
-private fun sendStart(player: Player, start: SurfRaceConfig.StartConfig) {
+private fun sendStart(player: Player, start: RaceConfig.StartConfig) {
     val world = Bukkit.getWorld(start.world) ?: return
 
     player.sendText {
@@ -171,7 +171,7 @@ private fun sendStart(player: Player, start: SurfRaceConfig.StartConfig) {
     }
 }
 
-private fun sendBarrier(player: Player, barrier: SurfRaceConfig.BarrierConfig) {
+private fun sendBarrier(player: Player, barrier: RaceConfig.BarrierConfig) {
 
     val world = Bukkit.getWorld(barrier.world) ?: return
 

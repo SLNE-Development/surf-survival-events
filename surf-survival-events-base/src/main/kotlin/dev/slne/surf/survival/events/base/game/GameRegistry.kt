@@ -1,6 +1,5 @@
 package dev.slne.surf.survival.events.base.game
 
-import io.ktor.util.collections.*
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -8,10 +7,10 @@ import java.util.concurrent.ConcurrentHashMap
  * implementations here so the base plugin can delegate game logic without
  * directly depending on event plugins.
  */
-object GameRegistry {
+public object GameRegistry {
     private val games = ConcurrentHashMap<GameKey<*>, GameHandler>()
 
-    fun <HANDLER : GameHandler> register(key: GameKey<HANDLER>, handler: HANDLER) {
+    public fun <HANDLER : GameHandler> register(key: GameKey<HANDLER>, handler: HANDLER) {
         val previousHandler = games.putIfAbsent(key, handler)
 
         require(previousHandler == null) {
@@ -19,24 +18,36 @@ object GameRegistry {
         }
     }
 
-    fun unregister(key: GameKey<*>) {
+    public fun unregister(key: GameKey<*>) {
         games.remove(key)
     }
 
+    public fun isRegistered(key: GameKey<*>): Boolean {
+        return games.containsKey(key)
+    }
+
     @Suppress("UNCHECKED_CAST")
-    fun <HANDLER : GameHandler> getHandler(key: GameKey<HANDLER>): HANDLER? {
+    public fun <HANDLER : GameHandler> getHandler(key: GameKey<HANDLER>): HANDLER? {
         return games[key] as? HANDLER
     }
 
-    fun getRawHandler(key: GameKey<*>): GameHandler? {
+    public fun getRawHandler(key: GameKey<*>): GameHandler? {
         return games[key]
     }
 
-    fun getRegisteredGames(): List<GameKey<*>> {
-        return games.keys.toList()
+    public fun requireRawHandler(key: GameKey<*>): GameHandler {
+        return getRawHandler(key) ?: error("No handler registered for game: ${key.displayName}")
     }
 
-    fun getRegisteredGameKey(key: String): GameKey<*>? {
+    public fun getOptions(key: GameKey<*>): GameOptions? {
+        return getRawHandler(key)?.options
+    }
+
+    public fun getRegisteredGameKeys(): List<GameKey<*>> {
+        return games.keys.sortedBy { it.displayName.lowercase() }
+    }
+
+    public fun getRegisteredGameKey(key: String): GameKey<*>? {
         return games.keys.firstOrNull {
             it.key.equals(key, ignoreCase = true)
         }
