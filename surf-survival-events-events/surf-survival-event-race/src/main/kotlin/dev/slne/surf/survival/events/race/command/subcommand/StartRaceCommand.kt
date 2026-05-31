@@ -1,0 +1,68 @@
+package dev.slne.surf.survival.events.race.command.subcommand
+
+
+import com.github.shynixn.mccoroutine.folia.launch
+import dev.jorel.commandapi.CommandAPICommand
+import dev.jorel.commandapi.kotlindsl.playerExecutor
+import dev.jorel.commandapi.kotlindsl.subcommand
+import dev.slne.surf.api.core.messages.adventure.sendText
+import dev.slne.surf.survival.events.base.service.GameService
+import dev.slne.surf.survival.events.base.util.Games
+import dev.slne.surf.survival.events.race.plugin
+import dev.slne.surf.survival.events.race.service.RaceService
+import dev.slne.surf.survival.events.race.service.RaceState
+import dev.slne.surf.survival.events.race.service.RegionService
+import dev.slne.surf.survival.events.race.utils.PermissionList
+import org.bukkit.Material
+
+fun CommandAPICommand.startRaceCommand() = subcommand("start") {
+    withPermission(PermissionList.COMMAND_COMMUNITY_MANAGER)
+    playerExecutor { player, _ ->
+        if (RaceService.getRaceState() == RaceState.DEACTIVATED) {
+            if (GameService.isGameActive() && GameService.getActiveGame() == Games.RACE) {
+                GameService.beginGame()
+                GameService.stopGame()
+            } else {
+                player.sendText {
+                    appendErrorPrefix()
+                    error("Race ist nicht Aktiv.")
+                }
+                return@playerExecutor
+            }
+        }
+
+        if (RaceService.getRaceState() == RaceState.LOBBY) {
+
+            player.sendText {
+                appendSuccessPrefix()
+                success("Du hast dir die Spieler geholt")
+            }
+            plugin.launch {
+                RegionService.fillBlocks(Material.BARRIER)
+            }
+            RaceService.playerToStartMid()
+
+            return@playerExecutor
+        }
+
+        if (RaceService.getRaceState() == RaceState.WAITING) {
+
+            player.sendText {
+                appendSuccessPrefix()
+                success("Das Spiel startet...")
+            }
+            RaceService.setRaceState(RaceState.COUNTDOWN)
+            RaceService.startCountdown()
+            return@playerExecutor
+        }
+
+        player.sendText {
+            appendErrorPrefix()
+            error("Du kannst den Command nicht ausführen.")
+            appendNewline()
+            error("Aktuelle State:")
+            appendSpace()
+            variableValue(RaceService.getRaceState().name)
+        }
+    }
+}

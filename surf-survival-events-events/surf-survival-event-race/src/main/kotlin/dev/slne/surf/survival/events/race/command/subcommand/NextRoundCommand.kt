@@ -1,0 +1,40 @@
+package dev.slne.surf.survival.events.race.command.subcommand
+
+import com.github.shynixn.mccoroutine.folia.launch
+import dev.jorel.commandapi.CommandAPICommand
+import dev.jorel.commandapi.kotlindsl.getValue
+import dev.jorel.commandapi.kotlindsl.integerArgument
+import dev.jorel.commandapi.kotlindsl.playerExecutor
+import dev.jorel.commandapi.kotlindsl.subcommand
+import dev.slne.surf.api.core.messages.adventure.sendText
+import dev.slne.surf.survival.events.race.plugin
+import dev.slne.surf.survival.events.race.service.RaceService
+import dev.slne.surf.survival.events.race.service.RaceState
+import dev.slne.surf.survival.events.race.service.RegionService
+import dev.slne.surf.survival.events.race.utils.PermissionList
+import org.bukkit.Material
+
+fun CommandAPICommand.nextRoundCommand() = subcommand("next-round") {
+    withPermission(PermissionList.COMMAND_COMMUNITY_MANAGER)
+    integerArgument("rawInt", 1)
+
+    playerExecutor { player, args ->
+        val rawInt: Int by args
+
+        if (RaceService.getRaceState() != RaceState.RUNNING) {
+            player.sendText {
+                appendErrorPrefix()
+                error("Du kannst die nächste Runde nur starten, wenn das Rennen läuft.")
+            }
+            return@playerExecutor
+        }
+        plugin.launch {
+            RegionService.fillBlocks(Material.BARRIER)
+        }
+        RaceService.nextRound(rawInt)
+        player.sendText {
+            appendSuccessPrefix()
+            success("Die Nächste Runde startet...")
+        }
+    }
+}

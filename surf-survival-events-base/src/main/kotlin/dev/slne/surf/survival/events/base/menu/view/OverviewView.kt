@@ -3,7 +3,7 @@ package dev.slne.surf.survival.events.base.menu.view
 import dev.slne.surf.api.core.font.toSmallCaps
 import dev.slne.surf.api.paper.inventory.framework.outlineItem
 import dev.slne.surf.api.paper.inventory.framework.titleBuilder
-import dev.slne.surf.survival.events.base.games.util.Games
+import dev.slne.surf.survival.events.base.util.Games
 import dev.slne.surf.survival.events.base.menu.dialog.setMaxPlayerDialog
 import dev.slne.surf.survival.events.base.menu.util.*
 import me.devnatan.inventoryframework.View

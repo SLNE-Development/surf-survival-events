@@ -1,9 +1,11 @@
+import dev.slne.surf.api.gradle.util.registerRequired
+
 plugins {
     id("dev.slne.surf.api.gradle.paper-plugin")
 }
 
 dependencies {
-    compileOnly(project(":surf-survival-events-events:surf-survival-event-example"))
+    compileOnly("dev.slne.surf.npc:surf-npc-api:+")
 }
 
 surfPaperPluginApi {
@@ -12,4 +14,7 @@ surfPaperPluginApi {
     foliaSupported(true)
 
     authors.addAll("red", "mikey", "jo_field")
+    serverDependencies {
+        registerRequired("surf-npc-paper")
+    }
 }
