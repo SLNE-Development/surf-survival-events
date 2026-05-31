@@ -16,10 +16,11 @@ internal val plugin: PaperMain get() = JavaPlugin.getPlugin(PaperMain::class.jav
 internal class PaperMain : SuspendingJavaPlugin() {
     override suspend fun onLoadAsync() {
         eventGamesOverviewView.register()
-        SurvivalEventsConfig.init()
     }
 
     override suspend fun onEnableAsync() {
+        SurvivalEventsConfig.init()
+
         CommandManager.registerCommands()
         JoinQuitListener.register()
         GameService.syncOnlinePlayers()
