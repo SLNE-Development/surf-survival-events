@@ -10,7 +10,6 @@ import dev.slne.surf.survival.events.base.service.GameService
 import dev.slne.surf.survival.events.base.util.commands.PermissionRegistry
 
 fun CommandTree.changePlayerLimitCommand() = literalArgument("spielerlimit") {
-
     withPermission(PermissionRegistry.COMMAND_COMMUNITY_MANAGER)
     integerArgument("playerLimit") {
         playerExecutor { player, args ->
