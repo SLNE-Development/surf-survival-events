@@ -1,27 +1,25 @@
 package dev.slne.surf.survival.events.race.config
 
 import dev.slne.surf.api.core.config.SpongeYmlConfigClass
-import dev.slne.surf.api.paper.extensions.server
+import dev.slne.surf.api.core.config.constraints.PositiveNumber
+import dev.slne.surf.survival.events.base.util.GamePosition
 import dev.slne.surf.survival.events.race.plugin
-import dev.slne.surf.survival.events.race.region.RegionData
-import org.bukkit.Location
+import org.bukkit.util.BoundingBox
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
+import org.spongepowered.configurate.objectmapping.meta.Comment
 
 @ConfigSerializable
 data class RaceConfig(
-    /** The dedicated world where the race takes place. */
-    var eventWorld: String = "event_race",
-
     var gameplay: GameplayConfig = GameplayConfig(),
 
-    /** Where selected racers are sent in the event world before a round starts. */
-    var roundLobbyLocation: Location = Location(server.getWorld("event_race"), 0.0, 0.0, 0.0),
+    @param:Comment("Where selected racers are sent in the event world before a round starts.")
+    var roundLobbyLocation: GamePosition = GamePosition(0.0, 0.0, 0.0),
 
-    /** Where non-racing players should watch from. */
-    var spectatorLocation: Location = Location(server.getWorld("event_race"), 0.0, 0.0, 0.0),
+    @param:Comment("Where non-racing players should watch from.")
+    var spectatorLocation: GamePosition = GamePosition(0.0, 0.0, 0.0),
 
     var checkpoints: MutableList<CheckPointConfig> = mutableListOf(),
-    var barriers: MutableList<BarrierConfig> = mutableListOf(),
+    var barriers: MutableList<BoundingBox> = mutableListOf(),
     var starts: MutableList<StartConfig> = mutableListOf()
 ) {
     companion object : SpongeYmlConfigClass<RaceConfig>(
@@ -32,49 +30,33 @@ data class RaceConfig(
 
     @ConfigSerializable
     data class GameplayConfig(
-        /** Minimum online players required on the dedicated event server. */
-        var minPlayersToStart: Int = 1,
-
-        /** Active racers at event start. Other online players become spectators. */
+        @param:Comment("Active racers in one heat/final at the same time. Other participants wait as reserves.")
+        @PositiveNumber
         var playersPerRound: Int = 10,
-        var laps: Int = 5,
+
+        @param:Comment("Default amount of players that advance when /race next-round is used without an argument")
+        var qualifiersPerRound: Int = 1,
+
+        @param:Comment("Default amount of winners kept when the final is resolved.")
+        var finalWinnerCount: Int = 3,
+
+        @param:Comment("How many laps are there in the race.")
+        var laps: Int = 2,
+
+        @param:Comment("Allow players to join the race late, but they will be spectators.")
         var lateJoinAsSpectator: Boolean = true,
-        var autoJoinServerPlayersAsSpectators: Boolean = true
     )
 
     @ConfigSerializable
     data class CheckPointConfig(
-        var id: Int = 0,
-        override var world: String = "event_race",
-        override var x1: Double = 0.0,
-        override var y1: Double = 0.0,
-        override var z1: Double = 0.0,
-        override var x2: Double = 0.0,
-        override var y2: Double = 0.0,
-        override var z2: Double = 0.0
-    ) : RegionData
+        var id: Int,
+        val x1: Double, val y1: Double, val z1: Double,
+        val x2: Double, val y2: Double, val z2: Double
+    ) : BoundingBox(x1, y1, z1, x2, y2, z2)
 
-    @ConfigSerializable
-    data class BarrierConfig(
-        override var world: String = "event_race",
-        override var x1: Double = 0.0,
-        override var y1: Double = 0.0,
-        override var z1: Double = 0.0,
-        override var x2: Double = 0.0,
-        override var y2: Double = 0.0,
-        override var z2: Double = 0.0
-    ) : RegionData
-
-    @ConfigSerializable
     data class StartConfig(
-        override var world: String = "event_race",
-        override var x1: Double = 0.0,
-        override var y1: Double = 0.0,
-        override var z1: Double = 0.0,
-        override var x2: Double = 0.0,
-        override var y2: Double = 0.0,
-        override var z2: Double = 0.0,
-        var yaw: Float = 0f,
-        var pitch: Float = 0f
-    ) : RegionData
+        val x1: Double, val y1: Double, val z1: Double,
+        val x2: Double, val y2: Double, val z2: Double,
+        val yaw: Float, val pitch: Float,
+    ) : BoundingBox(x1, y1, z1, x2, y2, z2)
 }

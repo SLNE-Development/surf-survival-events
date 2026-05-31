@@ -1,5 +1,7 @@
 package dev.slne.surf.survival.events.race.game
 
+import dev.slne.surf.api.paper.event.register
+import dev.slne.surf.api.paper.event.unregister
 import dev.slne.surf.survival.events.base.game.GameContext
 import dev.slne.surf.survival.events.base.game.GameHandler
 import dev.slne.surf.survival.events.base.game.GameKey
@@ -13,8 +15,8 @@ import dev.slne.surf.survival.events.base.game.RunningJoinPolicy
 import dev.slne.surf.survival.events.base.game.RunningJoinResult
 import dev.slne.surf.survival.events.base.game.StartOverflowPolicy
 import dev.slne.surf.survival.events.race.config.RaceConfig
+import dev.slne.surf.survival.events.race.listener.RaceListener
 import dev.slne.surf.survival.events.race.service.RaceService
-import dev.slne.surf.survival.events.race.service.RaceState
 import org.bukkit.entity.Player
 import java.util.UUID
 
@@ -29,16 +31,14 @@ class RaceGame : GameHandler {
 
     override val options: GameOptions
         get() {
-            val config = RaceConfig.getConfig()
-            val gameplay = config.gameplay
+            val gameplay = RaceConfig.getConfig().gameplay
 
             return GameOptions(
-                eventWorld = config.eventWorld,
-                minPlayersToStart = gameplay.minPlayersToStart,
+                minPlayersToStart = 1,
                 mode = GameMode.BATCHED,
                 start = GameStartOptions(
                     activePlayerLimit = gameplay.playersPerRound,
-                    overflow = StartOverflowPolicy.SPECTATOR
+                    overflow = StartOverflowPolicy.RESERVE
                 ),
                 spectatorsEnabled = true,
                 runningJoinPolicy = if (gameplay.lateJoinAsSpectator) {
@@ -46,16 +46,16 @@ class RaceGame : GameHandler {
                 } else {
                     RunningJoinPolicy.DENY
                 },
-                autoJoinRunningPlayers = gameplay.autoJoinServerPlayersAsSpectators
+                autoJoinRunningPlayers = true
             )
         }
 
-    override suspend fun onStarted(context: GameContext) {
-        RaceService.setRaceState(RaceState.LOBBY)
+    override suspend fun onStarting(context: GameContext) {
+        RaceListener.register()
+    }
 
-        context.gamePlayers.forEach(RaceService::addPlayer)
-        context.reservePlayers.forEach(RaceService::addSpectators)
-        context.spectators.forEach(RaceService::addSpectators)
+    override suspend fun onStarted(context: GameContext) {
+        RaceService.startSession(context)
     }
 
     override suspend fun onRunningJoin(context: GameContext, player: Player): RunningJoinResult {
@@ -66,8 +66,12 @@ class RaceGame : GameHandler {
         }
     }
 
+    override suspend fun onRunningReserveJoin(context: GameContext, player: Player) {
+        RaceService.addReserve(player.uniqueId)
+    }
+
     override suspend fun onRunningSpectatorJoin(context: GameContext, player: Player) {
-        RaceService.addSpectators(player.uniqueId)
+        RaceService.addSpectator(player.uniqueId)
     }
 
     override suspend fun onParticipantRemove(
@@ -77,24 +81,18 @@ class RaceGame : GameHandler {
         role: ParticipantRole,
         reason: PlayerRemoveReason
     ) {
-        if (role == ParticipantRole.PLAYER || uuid in RaceService.getRacePlayers()) {
-            if (player != null) {
-                RaceService.removePlayer(
-                    player = player,
-                    teleportToServerLobby = reason != PlayerRemoveReason.DISCONNECT
-                )
-            } else {
-                RaceService.removePlayer(uuid)
-            }
-        } else {
-            RaceService.removeSpectator(
-                uuid = uuid,
-                teleportToServerLobby = reason != PlayerRemoveReason.DISCONNECT
-            )
+        val teleportBack = reason != PlayerRemoveReason.DISCONNECT
+
+        when (role) {
+            ParticipantRole.PLAYER,
+            ParticipantRole.RESERVE -> RaceService.removeParticipant(uuid, teleportBack)
+
+            ParticipantRole.SPECTATOR -> RaceService.removeSpectator(uuid, teleportBack)
         }
     }
 
     override suspend fun onStop(context: GameContext, reason: GameStopReason) {
+        RaceListener.unregister()
         RaceService.stopRace(notifyPlayers = reason != GameStopReason.PLUGIN_DISABLE)
     }
 }

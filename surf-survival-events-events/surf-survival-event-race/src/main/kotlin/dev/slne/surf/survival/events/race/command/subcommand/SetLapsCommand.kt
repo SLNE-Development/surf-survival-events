@@ -16,7 +16,6 @@ fun CommandAPICommand.setLapsCommand() = subcommand("set-laps") {
         RaceConfig.edit {
             gameplay.laps = value
         }
-        RaceConfig.save()
 
         sender.sendText {
             appendSuccessPrefix()

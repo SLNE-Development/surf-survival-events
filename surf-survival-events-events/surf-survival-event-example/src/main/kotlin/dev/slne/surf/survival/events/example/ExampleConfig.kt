@@ -1,15 +1,18 @@
 package dev.slne.surf.survival.events.example
 
 import dev.slne.surf.api.core.config.SpongeYmlConfigClass
+import dev.slne.surf.api.paper.extensions.server
+import dev.slne.surf.survival.events.base.game.RunningJoinPolicy
+import dev.slne.surf.survival.events.base.game.StartOverflowPolicy
+import org.bukkit.Location
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 
 @ConfigSerializable
 data class ExampleConfig(
-    var eventWorld: String = "event_example",
     var gameplay: GameplayConfig = GameplayConfig(),
-//    var playerSpawn: EventLocationConfig = EventLocationConfig(world = "event_example"),
-//    var spectatorSpawn: EventLocationConfig = EventLocationConfig(world = "event_example"),
-//    var reserveSpawn: EventLocationConfig = EventLocationConfig(world = "event_example")
+    var playerSpawn: Location = Location(server.getWorld("event_example"), 0.0, 0.0, 0.0),
+    var spectatorSpawn: Location = Location(server.getWorld("event_example"), 0.0, 0.0, 0.0),
+    var reserveSpawn: Location = Location(server.getWorld("event_example"), 0.0, 0.0, 0.0)
 ) {
     companion object : SpongeYmlConfigClass<ExampleConfig>(
         ExampleConfig::class.java,
@@ -25,10 +28,10 @@ data class ExampleConfig(
         var activePlayerLimit: Int? = null,
 
         /** SPECTATOR, RESERVE or IGNORE for players beyond activePlayerLimit. */
-        var overflowPolicy: String = "SPECTATOR",
+        var overflowPolicy: StartOverflowPolicy = StartOverflowPolicy.SPECTATOR,
 
         /** DENY, SPECTATOR, PLAYER, RESERVE or CUSTOM for joins after the event started. */
-        var runningJoinPolicy: String = "SPECTATOR",
+        var runningJoinPolicy: RunningJoinPolicy = RunningJoinPolicy.SPECTATOR,
 
         /** Useful on a dedicated event server: new joins can be auto-added while the event runs. */
         var autoJoinRunningPlayers: Boolean = true

@@ -1,21 +1,22 @@
 package dev.slne.surf.survival.events.race.service
 
 import com.github.shynixn.mccoroutine.folia.regionDispatcher
+import dev.slne.surf.survival.events.base.service.GameService
 import dev.slne.surf.survival.events.race.config.RaceConfig
 import dev.slne.surf.survival.events.race.plugin
-import dev.slne.surf.survival.events.race.region.boundingBox
-import dev.slne.surf.survival.events.race.region.contains
+import dev.slne.surf.survival.events.race.utils.containsComplete
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
-import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.Material
+import org.bukkit.util.BoundingBox
 
 object RegionService {
     suspend fun fillBlocks(material: Material) = coroutineScope {
-        RaceConfig.getConfig().barriers.forEach { barrier ->
-            val world = Bukkit.getWorld(barrier.world) ?: return@forEach
-            val box = barrier.boundingBox
+        val context = GameService.snapshot() ?: error("Could not get current game context")
+
+        RaceConfig.getConfig().barriers.forEach { box ->
+            val world = context.eventWorld
 
             val minX = box.minX.toInt()
             val minY = box.minY.toInt()
@@ -49,7 +50,7 @@ object RegionService {
     fun getCheckpoint(playerLocation: Location): RaceConfig.CheckPointConfig? =
         RaceConfig.getConfig()
             .checkpoints
-            .find { it.contains(playerLocation) }
+            .find { it.containsComplete(playerLocation) }
 
     fun getSortedCheckpoints(): List<RaceConfig.CheckPointConfig> =
         RaceConfig.getConfig()
@@ -69,7 +70,7 @@ object RegionService {
             .checkpoints
             .maxOfOrNull { it.id }
 
-    fun getStart(playerLocation: Location): RaceConfig.StartConfig? = RaceConfig.getConfig()
+    fun getStart(playerLocation: Location): BoundingBox? = RaceConfig.getConfig()
         .starts
-        .find { it.contains(playerLocation) }
+        .find { it.containsComplete(playerLocation) }
 }

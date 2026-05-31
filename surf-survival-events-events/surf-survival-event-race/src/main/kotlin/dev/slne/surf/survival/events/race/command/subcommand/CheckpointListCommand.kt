@@ -7,13 +7,16 @@ import dev.jorel.commandapi.kotlindsl.playerExecutor
 import dev.jorel.commandapi.kotlindsl.subcommand
 import dev.slne.surf.api.core.messages.adventure.buildText
 import dev.slne.surf.api.core.messages.adventure.sendText
+import dev.slne.surf.survival.events.base.game.GameWorldService
 import dev.slne.surf.survival.events.race.config.RaceConfig
+import dev.slne.surf.survival.events.race.game.RaceGame
 import dev.slne.surf.survival.events.race.utils.PermissionList
 import net.kyori.adventure.text.event.ClickEvent
 import net.kyori.adventure.text.event.HoverEvent
 import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.entity.Player
+import org.bukkit.util.BoundingBox
 
 fun CommandAPICommand.checkpointListCommand() = subcommand("list") {
     withPermission(PermissionList.COMMAND_COMMUNITY_MANAGER)
@@ -87,16 +90,16 @@ fun CommandAPICommand.checkpointListCommand() = subcommand("list") {
 }
 
 private fun sendCheckpoint(player: Player, checkpoint: RaceConfig.CheckPointConfig) {
-
-    val world = Bukkit.getWorld(checkpoint.world) ?: return
+    val world = GameWorldService.getEventWorld(RaceGame.KEY)
 
     player.sendText {
         success("#${checkpoint.id}")
         appendNewline()
         append(
             buildText {
-                variableValue("${checkpoint.world} | (${checkpoint.x1} ${checkpoint.y1} ${checkpoint.z1})")
+                variableValue("${world ?: "Welt nicht geladen"} | (${checkpoint.x1} ${checkpoint.y1} ${checkpoint.z1})")
             }.clickEvent(ClickEvent.callback {
+                val world = GameWorldService.getEventWorld(RaceGame.KEY) ?: return@callback
                 player.teleportAsync(Location(world, checkpoint.x1, checkpoint.y1, checkpoint.z1))
                     .thenRun {
                         player.sendText {
@@ -132,13 +135,14 @@ private fun sendCheckpoint(player: Player, checkpoint: RaceConfig.CheckPointConf
 }
 
 private fun sendStart(player: Player, start: RaceConfig.StartConfig) {
-    val world = Bukkit.getWorld(start.world) ?: return
+    val world = GameWorldService.getEventWorld(RaceGame.KEY)
 
     player.sendText {
         append(
             buildText {
-                variableValue("${start.world} | (${start.x1} ${start.y1} ${start.z1})")
+                variableValue("${world ?: "Welt nicht geladen"} | (${start.x1} ${start.y1} ${start.z1})")
             }.clickEvent(ClickEvent.callback {
+                val world = GameWorldService.getEventWorld(RaceGame.KEY) ?: return@callback
                 player.teleportAsync(Location(world, start.x1, start.y1, start.z1)).thenRun {
                     player.sendText {
                         appendSuccessPrefix()
@@ -171,16 +175,17 @@ private fun sendStart(player: Player, start: RaceConfig.StartConfig) {
     }
 }
 
-private fun sendBarrier(player: Player, barrier: RaceConfig.BarrierConfig) {
-
-    val world = Bukkit.getWorld(barrier.world) ?: return
+private fun sendBarrier(player: Player, barrier: BoundingBox) {
+    val world = GameWorldService.getEventWorld(RaceGame.KEY)
 
     player.sendText {
         append(
             buildText {
-                variableValue("${barrier.world} | (${barrier.x1} ${barrier.y1} ${barrier.z1})")
+                variableValue("${world ?: "Welt nicht geladen"} | (${barrier.minX} ${barrier.minY} ${barrier.minZ})")
             }.clickEvent(ClickEvent.callback {
-                player.teleportAsync(Location(world, barrier.x1, barrier.y1, barrier.z1)).thenRun {
+                val world = GameWorldService.getEventWorld(RaceGame.KEY) ?: return@callback
+
+                player.teleportAsync(Location(world, barrier.minX, barrier.minY, barrier.minZ)).thenRun {
                     player.sendText {
                         appendSuccessPrefix()
                         success("Teleportiert zu Startpunkt.")
@@ -195,9 +200,11 @@ private fun sendBarrier(player: Player, barrier: RaceConfig.BarrierConfig) {
 
         append(
             buildText {
-                variableValue("(${barrier.x2} ${barrier.y2} ${barrier.z2})")
+                variableValue("(${barrier.maxX} ${barrier.maxY} ${barrier.maxZ})")
             }.clickEvent(ClickEvent.callback {
-                player.teleportAsync(Location(world, barrier.x2, barrier.y2, barrier.z2)).thenRun {
+                val world = GameWorldService.getEventWorld(RaceGame.KEY) ?: return@callback
+
+                player.teleportAsync(Location(world, barrier.maxX, barrier.maxY, barrier.maxZ)).thenRun {
                     player.sendText {
                         appendSuccessPrefix()
                         success("Teleportiert zu Endpunkt.")

@@ -12,11 +12,12 @@ class PaperMain : SuspendingJavaPlugin() {
     override suspend fun onLoadAsync() {
         plugin.logger.info("Loading surf-survival-event-example plugin...")
         plugin.logger.warning("This plugin should not be used in production!")
-        ExampleConfig.init()
     }
 
     override suspend fun onEnableAsync() {
         plugin.logger.info("Enabling surf-survival-event-example plugin...")
+        ExampleConfig.init() // Call init after worlds are loaded
+
         GameRegistry.register(ExampleGame.KEY, ExampleGame())
     }
 

@@ -42,8 +42,8 @@ fun CommandAPICommand.startRaceCommand() = subcommand("start") {
 
             plugin.launch {
                 RegionService.fillBlocks(Material.BARRIER)
+                RaceService.playerToStartMid()
             }
-            RaceService.playerToStartMid()
 
             return@playerExecutorSuspend
         }

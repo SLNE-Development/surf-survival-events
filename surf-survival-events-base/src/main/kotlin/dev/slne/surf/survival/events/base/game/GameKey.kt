@@ -11,17 +11,33 @@ import io.papermc.paper.datacomponent.item.TooltipDisplay
 import org.bukkit.Material
 import org.bukkit.inventory.ItemStack
 
+/**
+ * Stable identity of one event type.
+ *
+ * [key] is the command/config identity, for example `race`. It is also used by
+ * [GameWorldService.worldKeyFor] to derive the default event world (`event_race`). Keep it stable
+ * after release because configs, commands and world folders depend on it.
+ *
+ * [displayName] is only for UI/messages, and [skullTexture] is used by the event overview menu.
+ */
 public class GameKey<HANDLER : GameHandler> private constructor(
+    /** Human-readable name shown in menus and command feedback. */
     public val displayName: String,
+
+    /** Stable lowercase command key, for example `race` or `spleef`. */
     public val key: String,
+
+    /** Base64 skull texture used by [createSkull]. */
     public val skullTexture: String,
 ) {
 
     public companion object {
+        /** Creates a key directly. Prefer [builder] when call-site readability matters. */
         public fun <HANDLER : GameHandler> of(displayName: String, key: String, skullTexture: String): GameKey<HANDLER> {
             return GameKey(displayName, key, skullTexture)
         }
 
+        /** Starts a typed builder for an event key. */
         public inline fun <reified HANDLER : GameHandler> builder(): Builder<HANDLER> = Builder()
 
         public class Builder<HANDLER : GameHandler> {
@@ -37,6 +53,7 @@ public class GameKey<HANDLER : GameHandler> private constructor(
         }
     }
 
+    /** Creates the menu item used by the event overview. */
     @Suppress("UnstableApiUsage")
     public fun createSkull(): ItemStack = buildItem(Material.PLAYER_HEAD) {
         displayName {

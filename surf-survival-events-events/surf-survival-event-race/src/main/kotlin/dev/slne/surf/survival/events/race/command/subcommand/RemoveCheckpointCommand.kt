@@ -7,7 +7,6 @@ import dev.jorel.commandapi.kotlindsl.playerExecutor
 import dev.jorel.commandapi.kotlindsl.subcommand
 import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.survival.events.race.config.RaceConfig
-import dev.slne.surf.survival.events.race.region.clearBoundingBoxCache
 import dev.slne.surf.survival.events.race.utils.PermissionList
 
 fun CommandAPICommand.removeCheckpoint() = subcommand("remove-checkpoint") {
@@ -39,8 +38,6 @@ fun CommandAPICommand.removeCheckpoint() = subcommand("remove-checkpoint") {
                 }
             }
         }
-        clearBoundingBoxCache()
-        RaceConfig.save()
 
         player.sendText {
             appendSuccessPrefix()

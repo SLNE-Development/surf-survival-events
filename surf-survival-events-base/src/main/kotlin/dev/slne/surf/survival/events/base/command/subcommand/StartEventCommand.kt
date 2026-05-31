@@ -59,6 +59,11 @@ internal fun CommandTree.startEventCommand() = literalArgument("start") {
                                 appendSpace()
                                 variableValue(context.spectatorCount.toString())
                             }
+
+                            appendNewline()
+                            info("Event-Welt:")
+                            appendSpace()
+                            variableValue(context.eventWorldName)
                         }
                     }
                 }
@@ -96,6 +101,21 @@ internal fun CommandTree.startEventCommand() = literalArgument("start") {
                         info("| Benötigt:")
                         appendSpace()
                         variableValue(result.minPlayers.toString())
+                    }
+                }
+
+                StartGameType.WORLD_FAILED -> {
+                    player.sendText {
+                        appendErrorPrefix()
+                        error("Die Event-Welt konnte nicht geladen oder erstellt werden.")
+                        result.eventWorldKey?.let { worldKey ->
+                            appendSpace()
+                            info("Welt:")
+                            appendSpace()
+                            variableValue(worldKey.toString())
+                        }
+                        appendNewline()
+                        info("Details stehen in der Konsole.")
                     }
                 }
 

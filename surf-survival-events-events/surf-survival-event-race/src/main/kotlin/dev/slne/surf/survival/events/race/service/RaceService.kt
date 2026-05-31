@@ -2,16 +2,20 @@ package dev.slne.surf.survival.events.race.service
 
 import com.github.shynixn.mccoroutine.folia.entityDispatcher
 import com.github.shynixn.mccoroutine.folia.launch
+import com.github.shynixn.mccoroutine.folia.scope
 import dev.slne.surf.api.core.messages.Colors
 import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.api.core.messages.adventure.title
-import dev.slne.surf.survival.events.base.game.PlayerRemoveReason
+import dev.slne.surf.api.core.util.runAtFixedRate
+import dev.slne.surf.survival.events.base.game.GameContext
+import dev.slne.surf.survival.events.base.game.ParticipantRole
 import dev.slne.surf.survival.events.base.service.GameService
 import dev.slne.surf.survival.events.race.config.RaceConfig
 import dev.slne.surf.survival.events.race.plugin
-import io.papermc.paper.threadedregions.scheduler.ScheduledTask
+import it.unimi.dsi.fastutil.objects.ObjectArrayList
+import it.unimi.dsi.fastutil.objects.ObjectLinkedOpenHashSet
+import kotlinx.coroutines.*
 import kotlinx.coroutines.future.await
-import kotlinx.coroutines.withContext
 import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.Material
@@ -20,84 +24,235 @@ import org.bukkit.entity.Player
 import org.bukkit.inventory.ItemStack
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
+import kotlin.time.Duration.Companion.seconds
 
 object RaceService {
-    private val racePlayers = ConcurrentHashMap.newKeySet<UUID>()
-    private val spectators = ConcurrentHashMap.newKeySet<UUID>()
+    private val lock = ReentrantLock()
+
+    /** Players currently racing in the active heat/final. */
+    private val racePlayers = ObjectLinkedOpenHashSet<UUID>()
+
+    /** Participants that have not raced in the current qualification stage yet. */
+    private val waitingPlayers = ArrayDeque<UUID>()
+
+    /** Players that advanced from heats and are waiting for the next stage/final. */
+    private val qualifiedPlayers = ObjectArrayList<UUID>()
+
+    /** Players that are out of the bracket but can keep watching. */
+    private val eliminatedPlayers = ObjectLinkedOpenHashSet<UUID>()
+
+    /** Players that are pure spectators from the base service or late joins. */
+    private val spectators = ObjectLinkedOpenHashSet<UUID>()
+
+    private val finalWinners = ObjectArrayList<UUID>()
     private val playerNautilus = ConcurrentHashMap<UUID, UUID>()
 
     @Volatile
     private var raceState = RaceState.DEACTIVATED
 
     @Volatile
-    private var countdown = 10
+    private var raceStage = RaceStage.NONE
+
+    private val roundNumber = AtomicInteger(0)
+    private val countdown = AtomicInteger(10)
 
     @Volatile
-    private var task: ScheduledTask? = null
+    private var countdownJob: Job? = null
+
+    suspend fun startSession(context: GameContext) {
+        countdownJob?.cancel("A new race session has been started.")
+        ProgressService.clear()
+
+        supervisorScope {
+            for ((_, entityUuid) in playerNautilus) {
+                val entity = Bukkit.getEntity(entityUuid) ?: continue
+                launch(plugin.entityDispatcher(entity)) {
+                    entity.remove()
+                }
+            }
+        }
+
+        playerNautilus.clear()
+
+        lock.withLock {
+            racePlayers.clear()
+            waitingPlayers.clear()
+            qualifiedPlayers.clear()
+            eliminatedPlayers.clear()
+            spectators.clear()
+            finalWinners.clear()
+
+            racePlayers.addAll(context.gamePlayers)
+            waitingPlayers.addAll(context.reservePlayers)
+            spectators.addAll(context.spectators)
+
+            raceStage = if (waitingPlayers.isEmpty()) RaceStage.FINAL else RaceStage.QUALIFYING
+            raceState = RaceState.LOBBY
+            roundNumber.set(if (racePlayers.isEmpty()) 0 else 1)
+        }
+
+        context.onlineGamePlayers.forEach { player ->
+            teleportToRoundLobby(context, player.uniqueId)
+        }
+        context.reservePlayers.forEach { uuid ->
+            teleportToSpectatorLocation(context, uuid)
+        }
+        context.spectators.forEach { uuid ->
+            teleportToSpectatorLocation(context, uuid)
+        }
+    }
 
     fun addPlayer(uuid: UUID) {
-        racePlayers.add(uuid)
-        teleportToRaceLobby(uuid)
+        lock.withLock {
+            removeFromCollections(uuid)
+            racePlayers.add(uuid)
+            if (raceStage == RaceStage.NONE) {
+                raceStage = RaceStage.FINAL
+            }
+            if (raceState == RaceState.DEACTIVATED) {
+                raceState = RaceState.LOBBY
+            }
+            roundNumber.getAndUpdate { number ->
+                if (number == 0) {
+                    1
+                } else {
+                    number
+                }
+            }
+        }
+        GameService.setParticipantRole(uuid, ParticipantRole.PLAYER)
+
+        val context = GameService.snapshot() ?: error("Could not get current game context")
+        teleportToRoundLobby(context, uuid)
+    }
+
+    fun addReserve(uuid: UUID) {
+        lock.withLock {
+            removeFromCollections(uuid)
+            waitingPlayers.add(uuid)
+            if (raceStage == RaceStage.NONE || raceStage == RaceStage.FINAL) {
+                raceStage = RaceStage.QUALIFYING
+            }
+            if (raceState == RaceState.DEACTIVATED) {
+                raceState = RaceState.LOBBY
+            }
+        }
+        GameService.setParticipantRole(uuid, ParticipantRole.RESERVE)
+
+        val context = GameService.snapshot() ?: error("Could not get current game context")
+        teleportToSpectatorLocation(context, uuid)
+    }
+
+    fun addSpectator(uuid: UUID) {
+        lock.withLock {
+            removeFromCollections(uuid)
+            spectators.add(uuid)
+        }
+
+        val context = GameService.snapshot() ?: error("Could not get current game context")
+        teleportToSpectatorLocation(context, uuid)
     }
 
     fun removePlayer(uuid: UUID) {
-        removeNautilus(uuid)
-        ProgressService.removePlayer(uuid)
-        racePlayers.remove(uuid)
+        removeParticipant(uuid, teleportToServerLobby = false)
     }
 
     fun removePlayer(player: Player, teleportToServerLobby: Boolean = true) {
-        val uuid = player.uniqueId
+        removeParticipant(player.uniqueId, teleportToServerLobby)
+    }
 
-        removePlayer(uuid)
+    fun removeParticipant(uuid: UUID, teleportToServerLobby: Boolean = false) {
+        lock.withLock {
+            removeFromCollections(uuid)
+        }
 
-        GameService.remove(uuid, includeSpectators = true, reason = PlayerRemoveReason.KICK)
+        removeNautilus(uuid)
+        ProgressService.removePlayer(uuid)
+
         if (teleportToServerLobby) {
-            teleportToRaceLobby(uuid)
+            teleportToServerLobby(uuid)
         }
     }
 
     fun eliminatePlayer(player: Player) {
-        val uuid = player.uniqueId
+        eliminatePlayer(player.uniqueId)
+    }
+
+    fun eliminatePlayer(uuid: UUID) {
+        lock.withLock {
+            removeFromCollections(uuid)
+            eliminatedPlayers.add(uuid)
+        }
 
         removeNautilus(uuid)
         ProgressService.removePlayer(uuid)
-        racePlayers.remove(uuid)
-        spectators.add(uuid)
+        GameService.setParticipantRole(uuid, ParticipantRole.SPECTATOR)
 
-        teleportToSpectatorLocation(uuid)
+        val context = GameService.snapshot() ?: error("Could not get current game context")
+        teleportToSpectatorLocation(context, uuid)
     }
 
-    fun isInRace(player: Player) = racePlayers.contains(player.uniqueId)
-
-    fun getRacePlayers(): Set<UUID> = racePlayers.toSet()
-
-    fun addSpectators(uuid: UUID) {
-        spectators.add(uuid)
-        teleportToSpectatorLocation(uuid)
+    fun isInRace(player: Player): Boolean = lock.withLock {
+        player.uniqueId in racePlayers
     }
 
-    fun getSpectatorPlayers(): Set<UUID> = spectators.toSet()
+    fun getRacePlayers(): Set<UUID> = lock.withLock {
+        racePlayers.toSet()
+    }
 
-    fun removeSpectator(uuid: UUID, teleportToServerLobby: Boolean = true) {
-        spectators.remove(uuid)
+    fun getWaitingPlayers(): List<UUID> = lock.withLock {
+        waitingPlayers.toList()
+    }
 
-        GameService.remove(uuid, includeSpectators = true, reason = PlayerRemoveReason.KICK)
-        if (teleportToServerLobby) {
-            teleportToRaceLobby(uuid)
+    fun getQualifiedPlayers(): List<UUID> = lock.withLock {
+        qualifiedPlayers.toList()
+    }
+
+    fun getFinalWinners(): List<UUID> = lock.withLock {
+        finalWinners.toList()
+    }
+
+    fun getSpectatorPlayers(): Set<UUID> = lock.withLock {
+        buildSet {
+            addAll(spectators)
+            addAll(waitingPlayers)
+            addAll(qualifiedPlayers)
+            addAll(eliminatedPlayers)
+            removeAll(racePlayers)
         }
     }
 
-    fun getRaceState() = raceState
+    fun removeSpectator(uuid: UUID, teleportToServerLobby: Boolean = true) {
+        lock.withLock {
+            spectators.remove(uuid)
+            eliminatedPlayers.remove(uuid)
+            waitingPlayers.remove(uuid)
+            qualifiedPlayers.remove(uuid)
+            finalWinners.remove(uuid)
+        }
+
+        if (teleportToServerLobby) {
+            teleportToServerLobby(uuid)
+        }
+    }
+
+    fun getRaceState(): RaceState = raceState
 
     fun setRaceState(state: RaceState) {
         raceState = state
     }
 
-    fun setPlayerOnNautilus(player: Player) {
-        val location = player.location
+    fun getRaceStage(): RaceStage = raceStage
 
+    fun getRoundNumber(): Int = roundNumber.get()
+
+    fun setPlayerOnNautilus(player: Player) {
+        removeNautilus(player.uniqueId)
+
+        val location = player.location
         val nautilus = location.world.spawn(location, Nautilus::class.java) { entity ->
             entity.inventory.addItem(ItemStack(Material.SADDLE))
             entity.owner = player
@@ -110,73 +265,89 @@ object RaceService {
 
     fun startCountdown() {
         if (raceState != RaceState.COUNTDOWN) return
-        if (task != null) return
+        if (countdownJob != null) return
 
-        countdown = 10
+        countdown.set(10)
 
-        task = Bukkit.getAsyncScheduler().runAtFixedRate(
-            plugin,
-            { scheduledTask ->
-                if (countdown <= 0) {
-                    setRaceState(RaceState.RUNNING)
-                    plugin.launch {
-                        RegionService.fillBlocks(Material.AIR)
-                    }
-                    racePlayers.forEach { ProgressService.addPlayer(it) }
-
-                    scheduledTask.cancel()
-                    task = null
-                    return@runAtFixedRate
+        countdownJob = plugin.scope.runAtFixedRate(1.seconds) {
+            val currentCountdown = countdown.getAndDecrement()
+            if (currentCountdown <= 0) {
+                setRaceState(RaceState.RUNNING)
+                plugin.launch {
+                    RegionService.fillBlocks(Material.AIR)
                 }
+                getRacePlayers().forEach { ProgressService.addPlayer(it) }
 
-                racePlayers.forEach { uuid ->
-                    Bukkit.getPlayer(uuid)?.let { showTitle(it) }
-                }
+                countdownJob = null
+                cancel("Countdown has finished.")
+                return@runAtFixedRate
+            }
 
-                spectators.forEach { uuid ->
-                    Bukkit.getPlayer(uuid)?.let { showTitle(it) }
-                }
-
-                countdown--
-            },
-            0L,
-            1,
-            TimeUnit.SECONDS
-        )
+            val titleTargets = getRacePlayers() + getSpectatorPlayers()
+            titleTargets.forEach { uuid ->
+                Bukkit.getPlayer(uuid)?.let { showTitle(it) }
+            }
+        }
     }
 
-    fun nextRound(int: Int) {
-        val places = ProgressService.getPlaceList().toList()
+    fun nextRound(advanceCount: Int): RaceRoundAdvanceResult {
+        val currentState = raceState
+        if (currentState == RaceState.DEACTIVATED) {
+            return RaceRoundAdvanceResult(RaceRoundAdvanceType.NO_ACTIVE_RACE, raceStage, roundNumber.get())
+        }
+        if (currentState != RaceState.RUNNING) {
+            return RaceRoundAdvanceResult(RaceRoundAdvanceType.RACE_NOT_RUNNING, raceStage, roundNumber.get())
+        }
 
-        val survivors = places.take(int)
-        val eliminated = places.drop(int)
+        val activeBefore = getRacePlayers().toList()
+        if (activeBefore.isEmpty()) {
+            return RaceRoundAdvanceResult(RaceRoundAdvanceType.NO_ACTIVE_RACERS, raceStage, roundNumber.get())
+        }
+
+        val ranked = rankActivePlayers(activeBefore)
+        val effectiveAdvanceCount = advanceCount.coerceIn(1, activeBefore.size)
+        val advanced = ranked.take(effectiveAdvanceCount)
+        val advancedSet = advanced.toSet()
+        val eliminated = activeBefore.filter { it !in advancedSet }
+        val stageBefore = raceStage
 
         eliminated.forEach { uuid ->
-            Bukkit.getPlayer(uuid)?.let { player ->
-                player.sendText {
-                    appendInfoPrefix()
-                    info("Du bist leider raus, danke fürs Mitmachen!")
-                }
-                eliminatePlayer(player)
-            } ?: run {
-                removePlayer(uuid)
+            Bukkit.getPlayer(uuid)?.sendText {
+                appendInfoPrefix()
+                info("Du bist leider raus, danke fürs Mitmachen!")
             }
+            eliminatePlayer(uuid)
         }
 
-        survivors.forEach { uuid ->
-            Bukkit.getPlayer(uuid)?.let { player ->
-                ProgressService.resetProgress(uuid)
-
-                player.sendText {
-                    appendInfoPrefix()
+        advanced.forEach { uuid ->
+            removeNautilus(uuid)
+            ProgressService.resetProgress(uuid)
+            Bukkit.getPlayer(uuid)?.sendText {
+                appendInfoPrefix()
+                if (stageBefore == RaceStage.FINAL) {
+                    info("Du bist in den Top")
+                    appendSpace()
+                    variableValue(advanced.size.toString())
+                    appendSpace()
+                    info("gelandet!")
+                } else {
                     info("Du hast es in die nächste Runde geschafft!")
                 }
-
-                removeNautilus(uuid)
             }
         }
 
-        playerToStartMid()
+        return when (stageBefore) {
+            RaceStage.FINAL -> finishFinal(advanced, eliminated)
+            RaceStage.QUALIFYING -> finishQualificationHeat(advanced, eliminated)
+            RaceStage.NONE,
+            RaceStage.FINISHED -> RaceRoundAdvanceResult(
+                RaceRoundAdvanceType.NO_ACTIVE_RACE,
+                stageBefore,
+                roundNumber.get(),
+                advanced,
+                eliminated
+            )
+        }
     }
 
     fun playerToStartMid() {
@@ -185,15 +356,23 @@ object RaceService {
         val starts = RaceConfig.getConfig().starts
         if (starts.isEmpty()) return
 
-        racePlayers
+        val active = getRacePlayers().toList()
+        active.forEach { uuid ->
+            GameService.setParticipantRole(uuid, ParticipantRole.PLAYER)
+            ProgressService.resetProgress(uuid)
+        }
+
+        val context = GameService.snapshot() ?: error("Could not get current game context")
+
+        active
             .mapNotNull { Bukkit.getPlayer(it) }
             .forEachIndexed { index, player ->
                 val start = starts.getOrNull(index) ?: starts.first()
-                val location = midStartLocation(start)
+                val location = midStartLocation(context, start)
 
                 plugin.launch {
+                    player.teleportAsync(location).await()
                     withContext(plugin.entityDispatcher(player)) {
-                        player.teleportAsync(location).await()
                         setPlayerOnNautilus(player)
                     }
                 }
@@ -201,49 +380,211 @@ object RaceService {
     }
 
     suspend fun stopRace(notifyPlayers: Boolean = true) {
-        task?.cancel()
-        task = null
-        setRaceState(RaceState.DEACTIVATED)
+        countdownJob?.cancel("Race has been stopped.")
+
+        val playersToClean = lock.withLock {
+            buildSet {
+                addAll(racePlayers)
+                addAll(waitingPlayers)
+                addAll(qualifiedPlayers)
+                addAll(eliminatedPlayers)
+                addAll(spectators)
+                addAll(finalWinners)
+            }.also {
+                racePlayers.clear()
+                waitingPlayers.clear()
+                qualifiedPlayers.clear()
+                eliminatedPlayers.clear()
+                spectators.clear()
+                finalWinners.clear()
+                raceStage = RaceStage.NONE
+                raceState = RaceState.DEACTIVATED
+                roundNumber.set(0)
+            }
+        }
+
         ProgressService.clear()
         RegionService.fillBlocks(Material.AIR)
 
-        getRacePlayers().forEach { uuid ->
+        playersToClean.forEach { uuid ->
+            removeNautilus(uuid)
             val player = Bukkit.getPlayer(uuid)
             if (player != null) {
-                removePlayer(player)
                 if (notifyPlayers) {
                     player.sendText {
                         appendInfoPrefix()
                         info("Das Rennen wurde gestoppt.")
                     }
                 }
-            } else {
-                removePlayer(uuid)
-            }
-        }
-
-        getSpectatorPlayers().forEach { uuid ->
-            removeSpectator(uuid, teleportToServerLobby = true)
-            if (notifyPlayers) {
-                Bukkit.getPlayer(uuid)?.sendText {
-                    appendInfoPrefix()
-                    info("Das Rennen wurde gestoppt.")
-                }
+                GameService.teleportToServerLobby(player)
             }
         }
 
         playerNautilus.clear()
     }
 
-    private fun teleportToRaceLobby(uuid: UUID) {
-        val player = Bukkit.getPlayer(uuid) ?: return
-        player.teleportAsync(RaceConfig.getConfig().roundLobbyLocation)
+    private fun finishQualificationHeat(
+        advanced: List<UUID>,
+        eliminated: List<UUID>
+    ): RaceRoundAdvanceResult {
+        val preparation = lock.withLock {
+            racePlayers.clear()
+
+            advanced.forEach { uuid ->
+                if (uuid !in qualifiedPlayers) {
+                    qualifiedPlayers.add(uuid)
+                }
+            }
+
+            if (waitingPlayers.isNotEmpty()) {
+                val next = pollNextBatch()
+                racePlayers.addAll(next)
+                roundNumber.getAndIncrement()
+                raceState = RaceState.WAITING
+                RoundPreparation(RaceRoundAdvanceType.NEXT_HEAT_PREPARED, RaceStage.QUALIFYING, next)
+            } else if (qualifiedPlayers.isEmpty) {
+                raceStage = RaceStage.FINISHED
+                raceState = RaceState.FINISHED
+                RoundPreparation(RaceRoundAdvanceType.FINISHED, RaceStage.FINISHED, emptyList())
+            } else if (qualifiedPlayers.size <= configuredPlayersPerRound()) {
+                val finalists = qualifiedPlayers.toList()
+                qualifiedPlayers.clear()
+                racePlayers.addAll(finalists)
+                raceStage = RaceStage.FINAL
+                roundNumber.getAndIncrement()
+                raceState = RaceState.WAITING
+                RoundPreparation(RaceRoundAdvanceType.FINAL_PREPARED, RaceStage.FINAL, finalists)
+            } else {
+                val nextStagePlayers = qualifiedPlayers.toList()
+                qualifiedPlayers.clear()
+                waitingPlayers.addAll(nextStagePlayers)
+                val next = pollNextBatch()
+                racePlayers.addAll(next)
+                roundNumber.getAndIncrement()
+                raceState = RaceState.WAITING
+                RoundPreparation(RaceRoundAdvanceType.NEXT_STAGE_PREPARED, RaceStage.QUALIFYING, next)
+            }
+        }
+
+        val nextRacerSet = preparation.nextRacers.toSet()
+        val context = GameService.snapshot() ?: error("Could not get current game context")
+
+        advanced
+            .filter { it !in nextRacerSet }
+            .forEach { uuid ->
+                GameService.setParticipantRole(uuid, ParticipantRole.RESERVE)
+                teleportToSpectatorLocation(context, uuid)
+            }
+
+        preparation.nextRacers.forEach { uuid ->
+            GameService.setParticipantRole(uuid, ParticipantRole.PLAYER)
+        }
+
+        if (preparation.nextRacers.isNotEmpty()) {
+            playerToStartMid()
+        }
+
+        return RaceRoundAdvanceResult(
+            type = preparation.type,
+            stage = preparation.stage,
+            roundNumber = roundNumber.get(),
+            advanced = advanced,
+            eliminated = eliminated,
+            nextRacers = preparation.nextRacers
+        )
     }
 
-    private fun teleportToSpectatorLocation(uuid: UUID) {
+    private fun finishFinal(
+        winners: List<UUID>,
+        eliminated: List<UUID>
+    ): RaceRoundAdvanceResult {
+        lock.withLock {
+            racePlayers.clear()
+            finalWinners.clear()
+            finalWinners.addAll(winners)
+            winners.forEach { uuid ->
+                spectators.add(uuid)
+            }
+            raceStage = RaceStage.FINISHED
+            raceState = RaceState.FINISHED
+        }
+
+        val context = GameService.snapshot() ?: error("Could not get current game context")
+
+        winners.forEachIndexed { index, uuid ->
+            removeNautilus(uuid)
+            ProgressService.resetProgress(uuid)
+            GameService.setParticipantRole(uuid, ParticipantRole.SPECTATOR)
+            teleportToSpectatorLocation(context, uuid)
+            Bukkit.getPlayer(uuid)?.sendText {
+                appendSuccessPrefix()
+                success("Du hast Platz")
+                appendSpace()
+                variableValue("#${index + 1}")
+                appendSpace()
+                success("im Race Event erreicht!")
+            }
+        }
+
+        broadcastFinalWinners(winners)
+
+        return RaceRoundAdvanceResult(
+            type = RaceRoundAdvanceType.FINISHED,
+            stage = RaceStage.FINISHED,
+            roundNumber = roundNumber.get(),
+            advanced = winners,
+            eliminated = eliminated,
+            nextRacers = emptyList()
+        )
+    }
+
+    private fun rankActivePlayers(active: List<UUID>): List<UUID> {
+        val activeSet = active.toSet()
+        val finished = ProgressService.getPlaceList().filter { it in activeSet }
+        val unfinished = active.filter { it !in finished }
+        return finished + unfinished
+    }
+
+    private fun pollNextBatch(): List<UUID> {
+        val size = configuredPlayersPerRound()
+        val next = mutableListOf<UUID>()
+
+        while (next.size < size && waitingPlayers.isNotEmpty()) {
+            next.add(waitingPlayers.removeFirst())
+        }
+
+        return next
+    }
+
+    private fun configuredPlayersPerRound(): Int {
+        return RaceConfig.getConfig().gameplay.playersPerRound.coerceAtLeast(1)
+    }
+
+    private fun removeFromCollections(uuid: UUID) {
+        racePlayers.remove(uuid)
+        waitingPlayers.remove(uuid)
+        qualifiedPlayers.remove(uuid)
+        eliminatedPlayers.remove(uuid)
+        spectators.remove(uuid)
+        finalWinners.remove(uuid)
+    }
+
+    private fun teleportToRoundLobby(context: GameContext, uuid: UUID) {
+        val player = Bukkit.getPlayer(uuid) ?: return
+        player.teleportAsync(RaceConfig.getConfig().roundLobbyLocation.toLocation(context))
+    }
+
+    private fun teleportToSpectatorLocation(context: GameContext, uuid: UUID) {
         val player = Bukkit.getPlayer(uuid) ?: return
         plugin.launch {
-            player.teleportAsync(RaceConfig.getConfig().spectatorLocation)
+            player.teleportAsync(RaceConfig.getConfig().spectatorLocation.toLocation(context))
+        }
+    }
+
+    private fun teleportToServerLobby(uuid: UUID) {
+        val player = Bukkit.getPlayer(uuid) ?: return
+        plugin.launch {
+            GameService.teleportToServerLobby(player)
         }
     }
 
@@ -253,15 +594,13 @@ object RaceService {
         }
     }
 
-    private fun midStartLocation(start: RaceConfig.StartConfig): Location {
-        val world = Bukkit.getWorld(start.world)
-            ?: error("Configured race start world '${start.world}' is not loaded")
 
-        val midX = (start.x1 + start.x2) / 2
-        val midY = (start.y1 + start.y2) / 2
-        val midZ = (start.z1 + start.z2) / 2
+    private fun midStartLocation(context: GameContext, start: RaceConfig.StartConfig): Location {
+//        val midX = (start.x1 + start.x2) / 2
+//        val midY = (start.y1 + start.y2) / 2
+//        val midZ = (start.z1 + start.z2) / 2
 
-        return Location(world, midX, midY, midZ, start.yaw, start.pitch)
+        return start.center.toLocation(context.eventWorld).setRotation(start.yaw, start.pitch)
     }
 
     private fun showTitle(player: Player) {
@@ -271,7 +610,7 @@ object RaceService {
                     title {
                         title {
                             text(
-                                if (countdown <= 0) "LOS!" else countdown.toString(),
+                                if (countdown.get() <= 0) "LOS!" else countdown.toString(),
                                 Colors.VARIABLE_VALUE
                             )
                         }
@@ -285,4 +624,48 @@ object RaceService {
             }
         }
     }
+
+    private fun broadcastFinalWinners(winners: List<UUID>) {
+        (getRacePlayers() + getSpectatorPlayers() + getFinalWinners()).distinct().forEach { uuid ->
+            Bukkit.getPlayer(uuid)?.sendText {
+                appendSuccessPrefix()
+                success("Das Race Event ist beendet.")
+                if (winners.isNotEmpty()) {
+                    appendNewline()
+                    info("Gewinner:")
+                    winners.forEachIndexed { index, winnerUuid ->
+                        appendNewline()
+                        variableValue("#${index + 1}")
+                        appendSpace()
+                        variableValue(Bukkit.getOfflinePlayer(winnerUuid).name ?: winnerUuid.toString())
+                    }
+                }
+            }
+        }
+    }
+
+    private data class RoundPreparation(
+        val type: RaceRoundAdvanceType,
+        val stage: RaceStage,
+        val nextRacers: List<UUID>
+    )
+}
+
+data class RaceRoundAdvanceResult(
+    val type: RaceRoundAdvanceType,
+    val stage: RaceStage,
+    val roundNumber: Int,
+    val advanced: List<UUID> = emptyList(),
+    val eliminated: List<UUID> = emptyList(),
+    val nextRacers: List<UUID> = emptyList()
+)
+
+enum class RaceRoundAdvanceType {
+    NO_ACTIVE_RACE,
+    RACE_NOT_RUNNING,
+    NO_ACTIVE_RACERS,
+    NEXT_HEAT_PREPARED,
+    NEXT_STAGE_PREPARED,
+    FINAL_PREPARED,
+    FINISHED
 }

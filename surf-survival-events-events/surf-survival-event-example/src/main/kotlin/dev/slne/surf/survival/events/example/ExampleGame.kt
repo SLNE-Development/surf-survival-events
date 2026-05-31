@@ -1,6 +1,8 @@
 package dev.slne.surf.survival.events.example
 
 import dev.slne.surf.survival.events.base.game.*
+import dev.slne.surf.survival.events.base.service.GameService
+import kotlinx.coroutines.future.await
 import org.bukkit.Bukkit
 import org.bukkit.GameMode.ADVENTURE
 import org.bukkit.entity.Player
@@ -38,22 +40,21 @@ class ExampleGame : GameHandler {
             val gameplay = config.gameplay
 
             return GameOptions(
-                eventWorld = config.eventWorld,
                 minPlayersToStart = gameplay.minPlayersToStart,
                 mode = if (gameplay.activePlayerLimit == null) GameMode.ALL_AT_ONCE else GameMode.BATCHED,
                 start = GameStartOptions(
                     activePlayerLimit = gameplay.activePlayerLimit,
-                    overflow = gameplay.overflowPolicy.toStartOverflowPolicy()
+                    overflow = gameplay.overflowPolicy
                 ),
                 spectatorsEnabled = true,
-                runningJoinPolicy = gameplay.runningJoinPolicy.toRunningJoinPolicy(),
+                runningJoinPolicy = gameplay.runningJoinPolicy,
                 autoJoinRunningPlayers = gameplay.autoJoinRunningPlayers
             )
         }
 
     override suspend fun onStarting(context: GameContext) {
         plugin.logger.info(
-            "Starting ${context.key.displayName}: " +
+            "Starting ${context.key.displayName} in ${context.eventWorldName}: " +
                     "players=${context.activePlayerCount}, reserve=${context.reservePlayerCount}, spectators=${context.spectatorCount}"
         )
     }
@@ -115,18 +116,16 @@ class ExampleGame : GameHandler {
         player?.inventory?.clear()
 
         if (player != null && reason != PlayerRemoveReason.DISCONNECT) {
-//            player.teleportAsync(SurvivalEventsConfig.getConfig().serverLobby.toLocation()).await()
+            GameService.teleportToServerLobby(player)
         }
 
         plugin.logger.info("${player?.name ?: uuid} left example event as $role because of $reason")
     }
 
     override suspend fun onStop(context: GameContext, reason: GameStopReason) {
-//        val serverLobby = SurvivalEventsConfig.getConfig().serverLobby.toLocation()
-
         context.onlineEventPlayers.forEach { player ->
             player.inventory.clear()
-//            player.teleportAsync(serverLobby).await()
+            GameService.teleportToServerLobby(player)
         }
 
         activePlayers.clear()
@@ -141,7 +140,7 @@ class ExampleGame : GameHandler {
         activeSpectators.remove(player.uniqueId)
 
         player.gameMode = ADVENTURE
-//        player.teleportAsync(ExampleConfig.getConfig().playerSpawn.toLocation()).await()
+        player.teleportAsync(ExampleConfig.getConfig().playerSpawn).await()
     }
 
     private suspend fun setupReserve(player: Player) {
@@ -150,7 +149,7 @@ class ExampleGame : GameHandler {
         activeSpectators.remove(player.uniqueId)
 
         player.gameMode = ADVENTURE
-//        player.teleportAsync(ExampleConfig.getConfig().reserveSpawn.toLocation()).await()
+        player.teleportAsync(ExampleConfig.getConfig().reserveSpawn).await()
     }
 
     private suspend fun setupSpectator(player: Player) {
@@ -158,16 +157,6 @@ class ExampleGame : GameHandler {
         activePlayers.remove(player.uniqueId)
         reservePlayers.remove(player.uniqueId)
 
-//        player.teleportAsync(ExampleConfig.getConfig().spectatorSpawn.toLocation()).await()
-    }
-
-    private fun String.toRunningJoinPolicy(): RunningJoinPolicy {
-        return runCatching { RunningJoinPolicy.valueOf(uppercase()) }
-            .getOrDefault(RunningJoinPolicy.SPECTATOR)
-    }
-
-    private fun String.toStartOverflowPolicy(): StartOverflowPolicy {
-        return runCatching { StartOverflowPolicy.valueOf(uppercase()) }
-            .getOrDefault(StartOverflowPolicy.SPECTATOR)
+        player.teleportAsync(ExampleConfig.getConfig().spectatorSpawn).await()
     }
 }

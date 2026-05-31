@@ -1,6 +1,7 @@
 package dev.slne.surf.survival.events.race.listener
 
 import com.github.benmanes.caffeine.cache.Caffeine
+import com.sksamuel.aedile.core.expireAfterWrite
 import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.api.paper.event.cancel
 import dev.slne.surf.survival.events.race.config.RaceConfig
@@ -19,11 +20,11 @@ import org.bukkit.event.player.PlayerMoveEvent
 import org.bukkit.event.vehicle.VehicleEnterEvent
 import org.bukkit.event.vehicle.VehicleExitEvent
 import java.util.*
-import java.util.concurrent.TimeUnit
+import kotlin.time.Duration.Companion.seconds
 
 object RaceListener : Listener {
     private val messageCooldown = Caffeine.newBuilder()
-        .expireAfterWrite(2, TimeUnit.SECONDS)
+        .expireAfterWrite(2.seconds)
         .build<UUID, Boolean>()
 
     private fun canSendMessage(uuid: UUID): Boolean {
@@ -88,24 +89,16 @@ object RaceListener : Listener {
 
     @EventHandler
     fun onPlayerMove(event: PlayerMoveEvent) {
+        if (!event.hasChangedBlock()) return
         val player = event.player
         val uuid = player.uniqueId
-        val raceState = RaceService.getRaceState()
 
         if (!RaceService.isInRace(player)) return
-        if (raceState != RaceState.RUNNING) return
+        if (RaceService.getRaceState() != RaceState.RUNNING) return
         if (ProgressService.isFinished(uuid)) return
 
         val from = event.from
         val to = event.to
-
-        if (
-            from.blockX == to.blockX &&
-            from.blockY == to.blockY &&
-            from.blockZ == to.blockZ
-        ) {
-            return
-        }
 
         val checkpointFrom = RegionService.getCheckpoint(from)
         val checkpointTo = RegionService.getCheckpoint(to)
