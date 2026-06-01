@@ -610,8 +610,9 @@ object RaceService {
                 player.showTitle(
                     title {
                         title {
+                            val countdown = countdown.get()
                             text(
-                                if (countdown.get() <= 0) "LOS!" else countdown.toString(),
+                                if (countdown <= 0) "LOS!" else countdown.toString(),
                                 Colors.VARIABLE_VALUE
                             )
                         }
