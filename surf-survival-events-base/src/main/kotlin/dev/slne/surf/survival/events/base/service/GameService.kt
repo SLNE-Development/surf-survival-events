@@ -15,9 +15,11 @@ import org.bukkit.NamespacedKey
 import org.bukkit.World
 import org.bukkit.entity.Player
 import java.util.*
-import java.util.concurrent.locks.ReentrantLock
+import java.util.concurrent.locks.ReentrantReadWriteLock
 import java.util.logging.Level
+import kotlin.concurrent.read
 import kotlin.concurrent.withLock
+import kotlin.concurrent.write
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.InvocationKind
 import kotlin.contracts.contract
@@ -36,7 +38,7 @@ import kotlin.contracts.contract
  */
 public object GameService {
 
-    private val lock = ReentrantLock()
+    private val lock = ReentrantReadWriteLock()
 
     /** Join order of players on the dedicated event server. Used for deterministic start selection. */
     private val serverJoinOrder = ObjectLinkedOpenHashSet<UUID>()
@@ -44,7 +46,7 @@ public object GameService {
     private var session: GameSession? = null
 
     internal fun syncOnlinePlayers(players: Iterable<Player> = Bukkit.getOnlinePlayers()) {
-        lock.withLock {
+        lock.write {
             serverJoinOrder.clear()
             players.forEach { serverJoinOrder.add(it.uniqueId) }
         }
@@ -52,9 +54,9 @@ public object GameService {
 
     internal suspend fun startGame(key: GameKey<*>): StartGameResult {
         val start = withContext(plugin.globalRegionDispatcher) { // switch context for loading world
-            lock.withLock {
+            lock.write(fun(): StartUpdate {
                 if (session != null) {
-                    return@withLock StartUpdate(
+                    return StartUpdate(
                         result = StartGameResult(
                             type = StartGameType.ALREADY_ACTIVE,
                             activeSession = session?.toContext()
@@ -63,12 +65,12 @@ public object GameService {
                 }
 
                 val handler = GameRegistry.getRawHandler(key)
-                    ?: return@withLock StartUpdate(StartGameResult(StartGameType.NO_HANDLER_REGISTERED))
+                    ?: return StartUpdate(StartGameResult(StartGameType.NO_HANDLER_REGISTERED))
                 val options = handler.options
                 val candidates = collectStartCandidateIds()
 
                 if (candidates.size < options.minPlayersToStart) {
-                    return@withLock StartUpdate(
+                    return StartUpdate(
                         result = StartGameResult(
                             type = StartGameType.NOT_ENOUGH_PLAYERS,
                             selectedPlayers = candidates.size,
@@ -90,7 +92,7 @@ public object GameService {
                         "Failed to load or create survival event world ${GameWorldService.worldKeyFor(key)}",
                         throwable
                     )
-                    return@withLock StartUpdate(
+                    return StartUpdate(
                         StartGameResult(
                             type = StartGameType.WORLD_FAILED,
                             eventWorldKey = GameWorldService.worldKeyFor(key)
@@ -112,7 +114,7 @@ public object GameService {
 
                 session = current
 
-                StartUpdate(
+                return StartUpdate(
                     result = StartGameResult(
                         type = StartGameType.STARTED,
                         context = current.toContext(),
@@ -123,7 +125,7 @@ public object GameService {
                     handler = handler,
                     startingContext = current.toContext()
                 )
-            }
+            })
         }
 
         if (start.result.type != StartGameType.STARTED) {
@@ -139,7 +141,7 @@ public object GameService {
                 handler.onStarting()
             }
 
-            val runningContext = lock.withLock {
+            val runningContext = lock.write {
                 if (session !== current) {
                     return StartGameResult(StartGameType.NO_ACTIVE_GAME)
                 }
@@ -212,7 +214,7 @@ public object GameService {
     }
 
     public fun isGameRunning(): Boolean {
-        return lock.withLock { session?.status == GameStatus.RUNNING }
+        return lock.read { session?.status == GameStatus.RUNNING }
     }
 
     public fun isActiveGame(key: GameKey<*>): Boolean {
@@ -220,7 +222,7 @@ public object GameService {
     }
 
     public fun getActiveGameKeyOrNull(): GameKey<*>? {
-        return lock.withLock { session?.key }
+        return lock.read { session?.key }
     }
 
     public fun getActiveGameKey(): GameKey<*> {
@@ -234,11 +236,23 @@ public object GameService {
      * changes if current state matters.
      */
     public fun snapshot(): GameContext? {
-        return lock.withLock { session?.toContext() }
+        return lock.read { session?.toContext() }
     }
 
+    /**
+     * Ensures that the current game session matches the expected game and returns its context snapshot.
+     *
+     * The method validates the active game session against the specified expected game key. If the
+     * active session is missing or does not match the expected game key, an error is thrown. Otherwise,
+     * a snapshot of the game context is returned.
+     *
+     * @param expectedGame The expected game key to verify against the current active session.
+     * @return The context snapshot of the current active game session.
+     * @throws IllegalStateException If no active game session is found.
+     * @throws IllegalStateException If the active game session does not match the expected game key.
+     */
     public fun requiredSnapshot(expectedGame: GameKey<*>): GameContext {
-        return lock.withLock {
+        return lock.read {
             val current = session ?: error("No active game found")
             if (current.key != expectedGame) {
                 error("Expected game ${expectedGame.displayName} but found ${current.key.displayName}")
@@ -247,6 +261,16 @@ public object GameService {
         }
     }
 
+    /**
+     * Executes a block of code within the context of a specific game snapshot. The context ensures that the
+     * block is executed with the expected game state, which is identified by the given `GameKey`.
+     *
+     * @param R The return type of the block being executed.
+     * @param expectedGame The key identifying the expected game for the current context.
+     * @param block The block of code to execute within the provided game context. This block has access to
+     *              the game context to perform operations scoped to the expected game.
+     * @return The result of the block execution.
+     */
     @OptIn(ExperimentalContracts::class)
     public inline fun <R> withGameContext(expectedGame: GameKey<*>, block: (context(GameContext) () -> R)): R {
         contract {
@@ -256,11 +280,11 @@ public object GameService {
     }
 
     public fun getStartCandidateIds(): List<UUID> {
-        return lock.withLock { collectStartCandidateIds() }
+        return lock.write { collectStartCandidateIds() }
     }
 
     internal fun onPlayerJoin(player: Player) {
-        val context = lock.withLock {
+        val context = lock.write {
             serverJoinOrder.add(player.uniqueId)
             session?.toContext()
         }
@@ -299,7 +323,7 @@ public object GameService {
     }
 
     internal fun onPlayerQuit(player: Player) {
-        lock.withLock {
+        lock.write {
             serverJoinOrder.remove(player.uniqueId)
         }
         remove(player.uniqueId, includeSpectators = true, reason = PlayerRemoveReason.DISCONNECT)
@@ -313,8 +337,8 @@ public object GameService {
      */
     public suspend fun joinRunningEvent(player: Player): JoinEventResult {
         val uuid = player.uniqueId
-        val request = lock.withLock {
-            val current = session ?: return@withLock RunningJoinRequest(
+        val request = lock.read {
+            val current = session ?: return@read RunningJoinRequest(
                 result = JoinEventResult(JoinEventType.NO_ACTIVE_GAME)
             )
 
@@ -356,9 +380,9 @@ public object GameService {
             RunningJoinResult.DENIED
         }
 
-        val update = lock.withLock {
+        val update = lock.write {
             if (session !== current || current.status != GameStatus.RUNNING) {
-                return@withLock JoinUpdate(JoinEventResult(JoinEventType.EVENT_BUSY))
+                return@write JoinUpdate(JoinEventResult(JoinEventType.EVENT_BUSY))
             }
 
             when {
@@ -426,8 +450,8 @@ public object GameService {
         includeSpectators: Boolean = true,
         reason: PlayerRemoveReason = PlayerRemoveReason.LEAVE
     ): RemoveResult {
-        val update = lock.withLock {
-            val current = session ?: return@withLock RemoveUpdate(RemoveResult.NO_ACTIVE_GAME)
+        val update = lock.write {
+            val current = session ?: return@write RemoveUpdate(RemoveResult.NO_ACTIVE_GAME)
             val player = Bukkit.getPlayer(uuid)
 
             when {
@@ -486,16 +510,16 @@ public object GameService {
      * scoreboard/progress state.
      */
     public fun setParticipantRole(uuid: UUID, role: ParticipantRole): MoveParticipantResult {
-        val update = lock.withLock {
-            val current = session ?: return@withLock RoleChangeUpdate(MoveParticipantResult.NO_ACTIVE_GAME)
-            if (current.status != GameStatus.RUNNING) return@withLock RoleChangeUpdate(MoveParticipantResult.EVENT_BUSY)
+        val update = lock.write {
+            val current = session ?: return@write RoleChangeUpdate(MoveParticipantResult.NO_ACTIVE_GAME)
+            if (current.status != GameStatus.RUNNING) return@write RoleChangeUpdate(MoveParticipantResult.EVENT_BUSY)
             if (role == ParticipantRole.SPECTATOR && !current.options.spectatorsEnabled) {
-                return@withLock RoleChangeUpdate(MoveParticipantResult.SPECTATORS_DISABLED)
+                return@write RoleChangeUpdate(MoveParticipantResult.SPECTATORS_DISABLED)
             }
 
             val currentRole = current.roleOf(uuid)
-                ?: return@withLock RoleChangeUpdate(MoveParticipantResult.NOT_PARTICIPATING)
-            if (currentRole == role) return@withLock RoleChangeUpdate(MoveParticipantResult.ALREADY_IN_ROLE)
+                ?: return@write RoleChangeUpdate(MoveParticipantResult.NOT_PARTICIPATING)
+            if (currentRole == role) return@write RoleChangeUpdate(MoveParticipantResult.ALREADY_IN_ROLE)
 
             current.removeFromAll(uuid)
             current.addToRole(uuid, role)
@@ -518,24 +542,24 @@ public object GameService {
     }
 
     public fun isParticipant(uuid: UUID): Boolean {
-        return lock.withLock { session?.isParticipant(uuid) ?: false }
+        return lock.read { session?.isParticipant(uuid) ?: false }
     }
 
     public fun isPlayer(uuid: UUID): Boolean {
-        return lock.withLock { uuid in (session?.gamePlayers ?: return@withLock false) }
+        return lock.read { uuid in (session?.gamePlayers ?: return false) }
     }
 
     public fun isReserve(uuid: UUID): Boolean {
-        return lock.withLock { uuid in (session?.reservePlayers ?: return@withLock false) }
+        return lock.read { uuid in (session?.reservePlayers ?: return false) }
     }
 
     public fun isSpectator(uuid: UUID): Boolean {
-        return lock.withLock { uuid in (session?.spectators ?: return@withLock false) }
+        return lock.read { uuid in (session?.spectators ?: return false) }
     }
 
     public fun participantPosition(uuid: UUID): ParticipantPosition? {
-        return lock.withLock {
-            val current = session ?: return@withLock null
+        return lock.read {
+            val current = session ?: return null
 
             when (uuid) {
                 in current.gamePlayers -> ParticipantPosition(
@@ -562,7 +586,7 @@ public object GameService {
     }
 
     private fun collectStartCandidateIds(): List<UUID> {
-        require(lock.isHeldByCurrentThread) { "Must be called from the game thread" }
+        require(lock.isWriteLockedByCurrentThread) { "Must be called from the write game thread" }
 
         val onlinePlayers = Bukkit.getOnlinePlayers().toList()
         val onlineById = onlinePlayers.associateBy { it.uniqueId }
@@ -617,8 +641,8 @@ public object GameService {
     private fun addSpectator(player: Player): JoinUpdate {
         val uuid = player.uniqueId
 
-        return lock.withLock {
-            val current = session ?: return@withLock JoinUpdate(JoinEventResult(JoinEventType.NO_ACTIVE_GAME))
+        return lock.write {
+            val current = session ?: return@write JoinUpdate(JoinEventResult(JoinEventType.NO_ACTIVE_GAME))
 
             when {
                 current.status == GameStatus.STARTING || current.status == GameStatus.STOPPING -> {
@@ -684,8 +708,8 @@ public object GameService {
     }
 
     private fun detachSession(reason: GameStopReason): StoppedGame? {
-        return lock.withLock {
-            val current = session ?: return@withLock null
+        return lock.write {
+            val current = session ?: return@write null
             current.status = GameStatus.STOPPING
 
             val stopped = StoppedGame(
@@ -699,8 +723,8 @@ public object GameService {
     }
 
     private fun detachSpecificSession(current: GameSession, reason: GameStopReason): StoppedGame? {
-        return lock.withLock {
-            if (session !== current) return@withLock null
+        return lock.write {
+            if (session !== current) return@write null
             current.status = GameStatus.STOPPING
 
             val stopped = StoppedGame(

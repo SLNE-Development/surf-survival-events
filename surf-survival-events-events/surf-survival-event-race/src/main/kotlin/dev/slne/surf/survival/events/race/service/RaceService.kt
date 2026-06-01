@@ -25,12 +25,13 @@ import org.bukkit.inventory.ItemStack
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.locks.ReentrantLock
-import kotlin.concurrent.withLock
+import java.util.concurrent.locks.ReentrantReadWriteLock
+import kotlin.concurrent.read
+import kotlin.concurrent.write
 import kotlin.time.Duration.Companion.seconds
 
 object RaceService {
-    private val lock = ReentrantLock()
+    private val lock = ReentrantReadWriteLock()
 
     /** Players currently racing in the active heat/final. */
     private val racePlayers = ObjectLinkedOpenHashSet<UUID>()
@@ -79,7 +80,7 @@ object RaceService {
 
         playerNautilus.clear()
 
-        lock.withLock {
+        lock.write {
             racePlayers.clear()
             waitingPlayers.clear()
             qualifiedPlayers.clear()
@@ -109,7 +110,7 @@ object RaceService {
 
     context(context: GameContext)
     fun addPlayer(uuid: UUID) {
-        lock.withLock {
+        lock.write {
             removeFromCollections(uuid)
             racePlayers.add(uuid)
             if (raceStage == RaceStage.NONE) {
@@ -132,7 +133,7 @@ object RaceService {
 
     context(context: GameContext)
     fun addReserve(uuid: UUID) {
-        lock.withLock {
+        lock.write {
             removeFromCollections(uuid)
             waitingPlayers.add(uuid)
             if (raceStage == RaceStage.NONE || raceStage == RaceStage.FINAL) {
@@ -148,7 +149,7 @@ object RaceService {
 
     context(context: GameContext)
     fun addSpectator(uuid: UUID) {
-        lock.withLock {
+        lock.write {
             removeFromCollections(uuid)
             spectators.add(uuid)
         }
@@ -165,7 +166,7 @@ object RaceService {
     }
 
     fun removeParticipant(uuid: UUID, teleportToServerLobby: Boolean = false) {
-        lock.withLock {
+        lock.write {
             removeFromCollections(uuid)
         }
 
@@ -184,7 +185,7 @@ object RaceService {
 
     context(context: GameContext)
     fun eliminatePlayer(uuid: UUID) {
-        lock.withLock {
+        lock.write {
             removeFromCollections(uuid)
             eliminatedPlayers.add(uuid)
         }
@@ -195,27 +196,27 @@ object RaceService {
         teleportToSpectatorLocation(uuid)
     }
 
-    fun isInRace(player: Player): Boolean = lock.withLock {
+    fun isInRace(player: Player): Boolean = lock.read {
         player.uniqueId in racePlayers
     }
 
-    fun getRacePlayers(): Set<UUID> = lock.withLock {
+    fun getRacePlayers(): Set<UUID> = lock.read {
         racePlayers.toSet()
     }
 
-    fun getWaitingPlayers(): List<UUID> = lock.withLock {
+    fun getWaitingPlayers(): List<UUID> = lock.read {
         waitingPlayers.toList()
     }
 
-    fun getQualifiedPlayers(): List<UUID> = lock.withLock {
+    fun getQualifiedPlayers(): List<UUID> = lock.read {
         qualifiedPlayers.toList()
     }
 
-    fun getFinalWinners(): List<UUID> = lock.withLock {
+    fun getFinalWinners(): List<UUID> = lock.read {
         finalWinners.toList()
     }
 
-    fun getSpectatorPlayers(): Set<UUID> = lock.withLock {
+    fun getSpectatorPlayers(): Set<UUID> = lock.read {
         buildSet {
             addAll(spectators)
             addAll(waitingPlayers)
@@ -226,7 +227,7 @@ object RaceService {
     }
 
     fun removeSpectator(uuid: UUID, teleportToServerLobby: Boolean = true) {
-        lock.withLock {
+        lock.write {
             spectators.remove(uuid)
             eliminatedPlayers.remove(uuid)
             waitingPlayers.remove(uuid)
@@ -384,7 +385,7 @@ object RaceService {
         countdownJob?.cancel("Race has been stopped.")
         countdownJob = null
 
-        val playersToClean = lock.withLock {
+        val playersToClean = lock.write {
             buildSet {
                 addAll(racePlayers)
                 addAll(waitingPlayers)
@@ -430,7 +431,7 @@ object RaceService {
         advanced: List<UUID>,
         eliminated: List<UUID>
     ): RaceRoundAdvanceResult {
-        val preparation = lock.withLock {
+        val preparation = lock.write {
             racePlayers.clear()
 
             advanced.forEach { uuid ->
@@ -501,7 +502,7 @@ object RaceService {
         winners: List<UUID>,
         eliminated: List<UUID>
     ): RaceRoundAdvanceResult {
-        lock.withLock {
+        lock.write {
             racePlayers.clear()
             finalWinners.clear()
             finalWinners.addAll(winners)
@@ -562,6 +563,8 @@ object RaceService {
     }
 
     private fun removeFromCollections(uuid: UUID) {
+        require(lock.isWriteLockedByCurrentThread) { "Must be called from write lock context." }
+
         racePlayers.remove(uuid)
         waitingPlayers.remove(uuid)
         qualifiedPlayers.remove(uuid)
