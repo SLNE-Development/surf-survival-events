@@ -9,6 +9,8 @@ import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.api.core.messages.adventure.showTitle
 import dev.slne.surf.api.core.messages.builder.SurfComponentBuilder
 import dev.slne.surf.api.paper.glow.SurfGlowingApi
+import dev.slne.surf.survival.events.base.game.GameStopReason
+import dev.slne.surf.survival.events.base.service.GameService
 import dev.slne.surf.survival.events.werewolf.dialog.WerewolfRoleViewDialoge
 import dev.slne.surf.survival.events.werewolf.domain.WerewolfGameEngine
 import dev.slne.surf.survival.events.werewolf.messaging.WerewolfMessenger
@@ -105,13 +107,15 @@ class WerewolfService(val gameId: String) {
     private val hiddenPlayerPairs = mutableSetOf<HiddenPlayerPair>()
     private val pendingNightExecutions = mutableListOf<UUID>()
     private val phaseTransitionDelay = 3.seconds
+    private var stopRequested = false
 
-    fun openLobby(leaderUuid: UUID) {
+    fun openLobby(leaderUuid: UUID?) {
         if (phase != GamePhase.IDLE) return
 
         players.clear()
         _phase = GamePhase.LOBBY
         _leader = leaderUuid
+        stopRequested = false
     }
 
     fun join(uuid: UUID): WerewolfJoinResult {
@@ -146,6 +150,7 @@ class WerewolfService(val gameId: String) {
         }
 
         try {
+            stopRequested = false
             phaseSessionId += 1
             _phase = GamePhase.RUNNING
             _state = GameState.DAY
@@ -352,15 +357,18 @@ class WerewolfService(val gameId: String) {
     }
 
     fun finishGame(winner: GameOutcome) {
-        val participants = allParticipants
+        if (stopRequested || phase == GamePhase.IDLE) return
+        stopRequested = true
         messenger.announceWinner(winner)
-        stop()
-        WerewolfGameManager.removeGame(gameId, participants)
+        plugin.launch {
+            GameService.endGame(GameStopReason.HANDLER)
+        }
     }
 
     fun stop() {
         werewolfTask?.cancel(CancellationException("Werewolf game '$gameId' stopped"))
         werewolfTask = null
+        stopRequested = false
         phaseSessionId += 1
         _phase = GamePhase.IDLE
         clearWerewolfGlowing()

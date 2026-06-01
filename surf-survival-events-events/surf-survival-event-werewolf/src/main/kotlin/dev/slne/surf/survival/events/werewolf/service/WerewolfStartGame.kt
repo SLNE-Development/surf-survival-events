@@ -6,7 +6,7 @@ object WerewolfStartGame {
 
     fun startWerewolfGame(
         playerList: Collection<UUID>,
-        leaderUuid: UUID,
+        leaderUuid: UUID? = null,
     ): WerewolfService {
         val gameId = "base-werewolf-${UUID.randomUUID().toString().take(8)}"
         val game = WerewolfGameManager.createGame(gameId, leaderUuid)
@@ -14,7 +14,7 @@ object WerewolfStartGame {
 
         try {
             playerList
-                .filter { it != leaderUuid }
+                .distinct()
                 .forEach { playerId ->
                     when (val joinResult = game.join(playerId)) {
                         WerewolfJoinResult.Success -> WerewolfGameManager.joinGame(gameId, playerId)

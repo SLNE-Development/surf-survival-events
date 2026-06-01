@@ -10,13 +10,15 @@ object WerewolfGameManager {
     private val games = mutableMapOf<String, WerewolfService>()
     private val playerToGame = mutableMapOf<UUID, String>()
 
-    fun createGame(gameId: String, leaderUuid: UUID): WerewolfService? {
+    fun createGame(gameId: String, leaderUuid: UUID? = null): WerewolfService? {
         if (games.containsKey(gameId)) return null
         val game = WerewolfService(gameId)
         game.openLobby(leaderUuid)
         games[gameId] = game
-        playerToGame[leaderUuid] = gameId
-        WerewolfCommandRequirements.update(leaderUuid.toBukkitPlayer())
+        leaderUuid?.let {
+            playerToGame[it] = gameId
+            WerewolfCommandRequirements.update(it.toBukkitPlayer())
+        }
         return game
     }
 

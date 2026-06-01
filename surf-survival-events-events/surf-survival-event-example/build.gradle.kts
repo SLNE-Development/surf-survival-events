@@ -1,9 +1,1 @@
-plugins {
-    id("dev.slne.surf.api.gradle.paper-plugin")
-}
-
-surfPaperPluginApi {
-    mainClass("dev.slne.surf.survival.events.example.PaperMain")
-    generateLibraryLoader(false)
-    foliaSupported(true)
-}
+// Even if there is nothing in here, it is required for the build to work
