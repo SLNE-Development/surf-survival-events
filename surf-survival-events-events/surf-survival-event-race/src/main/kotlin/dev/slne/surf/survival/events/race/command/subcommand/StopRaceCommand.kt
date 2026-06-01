@@ -28,7 +28,7 @@ fun CommandAPICommand.raceStopCommand() = subcommand("stop") {
             val stopped = if (GameService.isActiveGame(RaceGame.KEY)) {
                 GameService.stopGameAndWait(GameStopReason.COMMAND)
             } else {
-                RaceService.stopRace()
+                RaceService.stopRace(context = null)
                 RaceGame.KEY
             }
 

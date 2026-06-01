@@ -1,6 +1,7 @@
 package dev.slne.surf.survival.events.race.service
 
 import com.github.shynixn.mccoroutine.folia.regionDispatcher
+import dev.slne.surf.survival.events.base.game.GameContext
 import dev.slne.surf.survival.events.base.service.GameService
 import dev.slne.surf.survival.events.race.config.RaceConfig
 import dev.slne.surf.survival.events.race.game.RaceGame
@@ -13,9 +14,9 @@ import org.bukkit.Material
 import org.bukkit.util.BoundingBox
 
 object RegionService {
-    suspend fun fillBlocks(material: Material) = coroutineScope {
-        val context = GameService.snapshot() ?: error("Could not get current game context")
 
+    context(context: GameContext)
+    suspend fun fillBlocks(material: Material) = coroutineScope {
         RaceConfig.getConfig().barriers.forEach { box ->
             val world = context.eventWorld
 

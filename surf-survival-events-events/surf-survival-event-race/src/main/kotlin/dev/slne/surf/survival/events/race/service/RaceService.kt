@@ -5,12 +5,14 @@ import com.github.shynixn.mccoroutine.folia.launch
 import com.github.shynixn.mccoroutine.folia.scope
 import dev.slne.surf.api.core.messages.Colors
 import dev.slne.surf.api.core.messages.adventure.sendText
+import dev.slne.surf.api.core.messages.adventure.showTitle
 import dev.slne.surf.api.core.messages.adventure.title
 import dev.slne.surf.api.core.util.runAtFixedRate
 import dev.slne.surf.survival.events.base.game.GameContext
 import dev.slne.surf.survival.events.base.game.ParticipantRole
 import dev.slne.surf.survival.events.base.service.GameService
 import dev.slne.surf.survival.events.race.config.RaceConfig
+import dev.slne.surf.survival.events.race.game.RaceGame
 import dev.slne.surf.survival.events.race.plugin
 import it.unimi.dsi.fastutil.objects.ObjectArrayList
 import it.unimi.dsi.fastutil.objects.ObjectLinkedOpenHashSet
@@ -275,7 +277,9 @@ object RaceService {
             if (currentCountdown <= 0) {
                 setRaceState(RaceState.RUNNING)
                 plugin.launch {
-                    RegionService.fillBlocks(Material.AIR)
+                    GameService.withGameContext(RaceGame.KEY) {
+                        RegionService.fillBlocks(Material.AIR)
+                    }
                 }
                 getRacePlayers().forEach { ProgressService.addPlayer(it) }
 
@@ -381,7 +385,7 @@ object RaceService {
             }
     }
 
-    suspend fun stopRace(notifyPlayers: Boolean = true) {
+    suspend fun stopRace(context: GameContext?, notifyPlayers: Boolean = true) {
         countdownJob?.cancel("Race has been stopped.")
         countdownJob = null
 
@@ -407,7 +411,7 @@ object RaceService {
         }
 
         ProgressService.clear()
-        RegionService.fillBlocks(Material.AIR)
+        context?.let { context(it) { RegionService.fillBlocks(Material.AIR) } }
 
         playersToClean.forEach { uuid ->
             removeNautilus(uuid)
@@ -594,9 +598,13 @@ object RaceService {
         }
     }
 
-    private fun removeNautilus(uuid: UUID) {
-        playerNautilus.remove(uuid)?.let { nautilusId ->
-            Bukkit.getEntity(nautilusId)?.remove()
+    private fun removeNautilus(playerUuid: UUID) {
+        val entity = playerNautilus.remove(playerUuid)
+            ?.let(Bukkit::getEntity)
+            ?: return
+
+        plugin.launch(plugin.entityDispatcher(entity)) {
+            entity.remove()
         }
     }
 
@@ -610,24 +618,18 @@ object RaceService {
     }
 
     private fun showTitle(player: Player) {
-        plugin.launch {
-            withContext(plugin.entityDispatcher(player)) {
-                player.showTitle(
-                    title {
-                        title {
-                            val countdown = countdown.get()
-                            text(
-                                if (countdown <= 0) "LOS!" else countdown.toString(),
-                                Colors.VARIABLE_VALUE
-                            )
-                        }
-                        times {
-                            fadeIn(0)
-                            stay(20)
-                            fadeOut(0)
-                        }
-                    }
+        player.showTitle {
+            title {
+                val countdown = countdown.get()
+                text(
+                    if (countdown <= 0) "LOS!" else countdown.toString(),
+                    Colors.VARIABLE_VALUE
                 )
+            }
+            times {
+                fadeIn(0)
+                stay(20)
+                fadeOut(0)
             }
         }
     }

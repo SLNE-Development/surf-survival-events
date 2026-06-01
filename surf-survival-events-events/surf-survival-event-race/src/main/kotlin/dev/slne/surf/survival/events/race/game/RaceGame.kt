@@ -88,6 +88,6 @@ class RaceGame : GameHandler {
     context(context: GameContext)
     override suspend fun onStop(reason: GameStopReason) {
         RaceListener.unregister()
-        RaceService.stopRace(notifyPlayers = reason != GameStopReason.PLUGIN_DISABLE)
+        RaceService.stopRace(context, notifyPlayers = reason != GameStopReason.PLUGIN_DISABLE)
     }
 }

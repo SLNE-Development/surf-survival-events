@@ -1,15 +1,13 @@
 package dev.slne.surf.survival.events.race.command.subcommand
 
-import com.github.shynixn.mccoroutine.folia.launch
 import dev.jorel.commandapi.CommandAPICommand
 import dev.jorel.commandapi.kotlindsl.integerArgument
-import dev.jorel.commandapi.kotlindsl.playerExecutor
 import dev.jorel.commandapi.kotlindsl.subcommand
 import dev.slne.surf.api.core.messages.adventure.sendText
+import dev.slne.surf.api.paper.command.executors.playerExecutorSuspend
 import dev.slne.surf.survival.events.base.service.GameService
 import dev.slne.surf.survival.events.race.config.RaceConfig
 import dev.slne.surf.survival.events.race.game.RaceGame
-import dev.slne.surf.survival.events.race.plugin
 import dev.slne.surf.survival.events.race.service.RaceRoundAdvanceType
 import dev.slne.surf.survival.events.race.service.RaceService
 import dev.slne.surf.survival.events.race.service.RaceStage
@@ -21,18 +19,15 @@ fun CommandAPICommand.nextRoundCommand() = subcommand("next-round") {
     withPermission(PermissionList.COMMAND_COMMUNITY_MANAGER)
     integerArgument("advance-count", 1, optional = true)
 
-    playerExecutor { player, args ->
+    playerExecutorSuspend { player, args ->
         val configuredDefault = when (RaceService.getRaceStage()) {
             RaceStage.FINAL -> RaceConfig.getConfig().gameplay.finalWinnerCount
             else -> RaceConfig.getConfig().gameplay.qualifiersPerRound
         }
         val advanceCount = args.get("advance-count") as? Int ?: configuredDefault
 
-        plugin.launch {
-            RegionService.fillBlocks(Material.BARRIER)
-        }
-
         val result = GameService.withGameContext(RaceGame.KEY) {
+            RegionService.fillBlocks(Material.BARRIER)
             RaceService.nextRound(advanceCount)
         }
 

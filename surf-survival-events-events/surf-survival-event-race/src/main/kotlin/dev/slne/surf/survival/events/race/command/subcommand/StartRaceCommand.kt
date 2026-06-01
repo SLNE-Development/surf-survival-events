@@ -1,13 +1,11 @@
 package dev.slne.surf.survival.events.race.command.subcommand
 
-import com.github.shynixn.mccoroutine.folia.launch
 import dev.jorel.commandapi.CommandAPICommand
 import dev.jorel.commandapi.kotlindsl.subcommand
 import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.api.paper.command.executors.playerExecutorSuspend
 import dev.slne.surf.survival.events.base.service.GameService
 import dev.slne.surf.survival.events.race.game.RaceGame
-import dev.slne.surf.survival.events.race.plugin
 import dev.slne.surf.survival.events.race.service.RaceService
 import dev.slne.surf.survival.events.race.service.RaceState
 import dev.slne.surf.survival.events.race.service.RegionService
@@ -40,10 +38,10 @@ fun CommandAPICommand.startRaceCommand() = subcommand("start") {
                 success("Racer werden an den Start gesetzt...")
             }
 
-            plugin.launch {
+            GameService.withGameContext(RaceGame.KEY) {
                 RegionService.fillBlocks(Material.BARRIER)
-                RaceService.playerToStartMid()
             }
+            RaceService.playerToStartMid()
 
             return@playerExecutorSuspend
         }
