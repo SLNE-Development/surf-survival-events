@@ -6,7 +6,9 @@ import dev.jorel.commandapi.kotlindsl.integerArgument
 import dev.jorel.commandapi.kotlindsl.playerExecutor
 import dev.jorel.commandapi.kotlindsl.subcommand
 import dev.slne.surf.api.core.messages.adventure.sendText
+import dev.slne.surf.survival.events.base.service.GameService
 import dev.slne.surf.survival.events.race.config.RaceConfig
+import dev.slne.surf.survival.events.race.game.RaceGame
 import dev.slne.surf.survival.events.race.plugin
 import dev.slne.surf.survival.events.race.service.RaceRoundAdvanceType
 import dev.slne.surf.survival.events.race.service.RaceService
@@ -30,7 +32,9 @@ fun CommandAPICommand.nextRoundCommand() = subcommand("next-round") {
             RegionService.fillBlocks(Material.BARRIER)
         }
 
-        val result = RaceService.nextRound(advanceCount)
+        val result = GameService.withGameContext(RaceGame.KEY) {
+            RaceService.nextRound(advanceCount)
+        }
 
         player.sendText {
             when (result.type) {

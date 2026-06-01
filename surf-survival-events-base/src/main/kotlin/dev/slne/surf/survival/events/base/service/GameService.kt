@@ -18,6 +18,9 @@ import java.util.*
 import java.util.concurrent.locks.ReentrantLock
 import java.util.logging.Level
 import kotlin.concurrent.withLock
+import kotlin.contracts.ExperimentalContracts
+import kotlin.contracts.InvocationKind
+import kotlin.contracts.contract
 
 /**
  * Runtime owner of the currently active event session on the dedicated event server.
@@ -132,7 +135,9 @@ public object GameService {
         val startingContext = start.startingContext ?: error("Missing starting context")
 
         return try {
-            handler.onStarting(startingContext)
+            context(startingContext) {
+                handler.onStarting()
+            }
 
             val runningContext = lock.withLock {
                 if (session !== current) {
@@ -143,7 +148,9 @@ public object GameService {
                 current.toContext()
             }
 
-            handler.onStarted(runningContext)
+            context(runningContext) {
+                handler.onStarted()
+            }
 
             val result = StartGameResult(
                 type = StartGameType.STARTED,
@@ -175,7 +182,11 @@ public object GameService {
      */
     public fun stopGame(reason: GameStopReason = GameStopReason.COMMAND): GameKey<*>? {
         val stopped = detachSession(reason) ?: return null
-        launchHook { stopped.handler.onStop(stopped.context, reason) }
+        launchHook {
+            context(stopped.context) {
+                stopped.handler.onStop(reason)
+            }
+        }
         return stopped.context.key
     }
 
@@ -224,6 +235,24 @@ public object GameService {
      */
     public fun snapshot(): GameContext? {
         return lock.withLock { session?.toContext() }
+    }
+
+    public fun requiredSnapshot(expectedGame: GameKey<*>): GameContext {
+        return lock.withLock {
+            val current = session ?: error("No active game found")
+            if (current.key != expectedGame) {
+                error("Expected game ${expectedGame.displayName} but found ${current.key.displayName}")
+            }
+            current.toContext()
+        }
+    }
+
+    @OptIn(ExperimentalContracts::class)
+    public inline fun <R> withGameContext(expectedGame: GameKey<*>, block: (context(GameContext) () -> R)): R {
+        contract {
+            callsInPlace(block, InvocationKind.EXACTLY_ONCE)
+        }
+        return context(requiredSnapshot(expectedGame), block)
     }
 
     public fun getStartCandidateIds(): List<UUID> {
@@ -319,7 +348,9 @@ public object GameService {
         val current = request.session ?: error("Missing running session")
         val handler = request.handler ?: error("Missing running handler")
         val decision = try {
-            handler.onRunningJoin(request.context ?: current.toContext(), player)
+            context(request.context ?: current.toContext()) {
+                handler.onRunningJoin(player)
+            }
         } catch (throwable: Throwable) {
             plugin.componentLogger.error("Failed to decide running join for ${player.name}", throwable)
             RunningJoinResult.DENIED
@@ -615,10 +646,12 @@ public object GameService {
         val handler = update.handler ?: return
         val context = update.context ?: return
         val player = update.player ?: return
-        when (update.role ?: return) {
-            ParticipantRole.PLAYER -> handler.onRunningPlayerJoin(context, player)
-            ParticipantRole.RESERVE -> handler.onRunningReserveJoin(context, player)
-            ParticipantRole.SPECTATOR -> handler.onRunningSpectatorJoin(context, player)
+        context(context) {
+            when (update.role ?: return) {
+                ParticipantRole.PLAYER -> handler.onRunningPlayerJoin(player)
+                ParticipantRole.RESERVE -> handler.onRunningReserveJoin(player)
+                ParticipantRole.SPECTATOR -> handler.onRunningSpectatorJoin(player)
+            }
         }
     }
 
@@ -630,7 +663,9 @@ public object GameService {
         val newRole = update.newRole ?: return
 
         launchHook {
-            handler.onParticipantRoleChange(context, uuid, previousRole, newRole)
+            context(context) {
+                handler.onParticipantRoleChange(uuid, previousRole, newRole)
+            }
         }
     }
 
@@ -642,7 +677,9 @@ public object GameService {
         val reason = update.reason ?: return
 
         launchHook {
-            handler.onParticipantRemove(context, uuid, update.player, role, reason)
+            context(context) {
+                handler.onParticipantRemove(uuid, update.player, role, reason)
+            }
         }
     }
 
@@ -678,7 +715,9 @@ public object GameService {
 
     private suspend fun safeRunStopHook(stopped: StoppedGame, reason: GameStopReason) {
         try {
-            stopped.handler.onStop(stopped.context, reason)
+            context(stopped.context) {
+                stopped.handler.onStop(reason)
+            }
         } catch (throwable: Throwable) {
             plugin.componentLogger.error("Survival event stop hook failed", throwable)
         }
@@ -686,7 +725,9 @@ public object GameService {
 
     private fun safeLaunchStopHook(stopped: StoppedGame, reason: GameStopReason) {
         launchHook {
-            stopped.handler.onStop(stopped.context, reason)
+            context(stopped.context) {
+                stopped.handler.onStop(reason)
+            }
         }
     }
 

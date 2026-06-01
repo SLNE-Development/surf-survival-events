@@ -2,23 +2,12 @@ package dev.slne.surf.survival.events.race.game
 
 import dev.slne.surf.api.paper.event.register
 import dev.slne.surf.api.paper.event.unregister
-import dev.slne.surf.survival.events.base.game.GameContext
-import dev.slne.surf.survival.events.base.game.GameHandler
-import dev.slne.surf.survival.events.base.game.GameKey
-import dev.slne.surf.survival.events.base.game.GameMode
-import dev.slne.surf.survival.events.base.game.GameOptions
-import dev.slne.surf.survival.events.base.game.GameStartOptions
-import dev.slne.surf.survival.events.base.game.GameStopReason
-import dev.slne.surf.survival.events.base.game.ParticipantRole
-import dev.slne.surf.survival.events.base.game.PlayerRemoveReason
-import dev.slne.surf.survival.events.base.game.RunningJoinPolicy
-import dev.slne.surf.survival.events.base.game.RunningJoinResult
-import dev.slne.surf.survival.events.base.game.StartOverflowPolicy
+import dev.slne.surf.survival.events.base.game.*
 import dev.slne.surf.survival.events.race.config.RaceConfig
 import dev.slne.surf.survival.events.race.listener.RaceListener
 import dev.slne.surf.survival.events.race.service.RaceService
 import org.bukkit.entity.Player
-import java.util.UUID
+import java.util.*
 
 class RaceGame : GameHandler {
     companion object {
@@ -50,15 +39,18 @@ class RaceGame : GameHandler {
             )
         }
 
-    override suspend fun onStarting(context: GameContext) {
+    context(context: GameContext)
+    override suspend fun onStarting() {
         RaceListener.register()
     }
 
-    override suspend fun onStarted(context: GameContext) {
-        RaceService.startSession(context)
+    context(context: GameContext)
+    override suspend fun onStarted() {
+        RaceService.startSession()
     }
 
-    override suspend fun onRunningJoin(context: GameContext, player: Player): RunningJoinResult {
+    context(context: GameContext)
+    override suspend fun onRunningJoin(player: Player): RunningJoinResult {
         return if (RaceConfig.getConfig().gameplay.lateJoinAsSpectator) {
             RunningJoinResult.JOINED_AS_SPECTATOR
         } else {
@@ -66,16 +58,18 @@ class RaceGame : GameHandler {
         }
     }
 
-    override suspend fun onRunningReserveJoin(context: GameContext, player: Player) {
+    context(context: GameContext)
+    override suspend fun onRunningReserveJoin(player: Player) {
         RaceService.addReserve(player.uniqueId)
     }
 
-    override suspend fun onRunningSpectatorJoin(context: GameContext, player: Player) {
+    context(context: GameContext)
+    override suspend fun onRunningSpectatorJoin(player: Player) {
         RaceService.addSpectator(player.uniqueId)
     }
 
+    context(context: GameContext)
     override suspend fun onParticipantRemove(
-        context: GameContext,
         uuid: UUID,
         player: Player?,
         role: ParticipantRole,
@@ -91,7 +85,8 @@ class RaceGame : GameHandler {
         }
     }
 
-    override suspend fun onStop(context: GameContext, reason: GameStopReason) {
+    context(context: GameContext)
+    override suspend fun onStop(reason: GameStopReason) {
         RaceListener.unregister()
         RaceService.stopRace(notifyPlayers = reason != GameStopReason.PLUGIN_DISABLE)
     }

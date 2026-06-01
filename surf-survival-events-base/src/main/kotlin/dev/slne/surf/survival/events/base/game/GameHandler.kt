@@ -4,7 +4,7 @@ import org.bukkit.World
 import org.bukkit.WorldCreator
 import org.bukkit.entity.Player
 import org.jetbrains.annotations.ApiStatus
-import java.util.UUID
+import java.util.*
 
 /**
  * Contract implemented by event modules and registered in [GameRegistry].
@@ -27,10 +27,12 @@ public interface GameHandler {
     public val options: GameOptions
 
     @ApiStatus.OverrideOnly
-    public fun customizeWorldCreator(creator: WorldCreator) {}
+    public fun customizeWorldCreator(creator: WorldCreator) {
+    }
 
     @ApiStatus.OverrideOnly
-    public fun customizeEventWorld(world: World) {}
+    public fun customizeEventWorld(world: World) {
+    }
 
     /**
      * Called after the session and [GameContext.eventWorld] were created, before the status becomes
@@ -40,7 +42,9 @@ public interface GameHandler {
      * service cancels the startup and calls [onStop] with [GameStopReason.ERROR].
      */
     @ApiStatus.OverrideOnly
-    public suspend fun onStarting(context: GameContext) {}
+    context(context: GameContext)
+    public suspend fun onStarting() {
+    }
 
     /**
      * Called after the base service switched the session to [GameStatus.RUNNING].
@@ -51,7 +55,9 @@ public interface GameHandler {
      * activate later.
      */
     @ApiStatus.OverrideOnly
-    public suspend fun onStarted(context: GameContext) {}
+    context(context: GameContext)
+    public suspend fun onStarted() {
+    }
 
     /**
      * Decides what should happen when [player] joins the event server after the session started.
@@ -65,7 +71,8 @@ public interface GameHandler {
      * open.
      */
     @ApiStatus.OverrideOnly
-    public suspend fun onRunningJoin(context: GameContext, player: Player): RunningJoinResult {
+    context(context: GameContext)
+    public suspend fun onRunningJoin(player: Player): RunningJoinResult {
         return when (options.runningJoinPolicy) {
             RunningJoinPolicy.DENY -> RunningJoinResult.DENIED
             RunningJoinPolicy.SPECTATOR -> if (options.spectatorsEnabled) {
@@ -82,15 +89,21 @@ public interface GameHandler {
 
     /** Called after the base service registered a late join as active player. */
     @ApiStatus.OverrideOnly
-    public suspend fun onRunningPlayerJoin(context: GameContext, player: Player) {}
+    context(context: GameContext)
+    public suspend fun onRunningPlayerJoin(player: Player) {
+    }
 
     /** Called after the base service registered a late join as reserve player. */
     @ApiStatus.OverrideOnly
-    public suspend fun onRunningReserveJoin(context: GameContext, player: Player) {}
+    context(context: GameContext)
+    public suspend fun onRunningReserveJoin(player: Player) {
+    }
 
     /** Called after the base service registered a late join as spectator. */
     @ApiStatus.OverrideOnly
-    public suspend fun onRunningSpectatorJoin(context: GameContext, player: Player) {}
+    context(context: GameContext)
+    public suspend fun onRunningSpectatorJoin(player: Player) {
+    }
 
     /**
      * Called when [GameService][dev.slne.surf.survival.events.base.service.GameService] changes a
@@ -101,8 +114,8 @@ public interface GameHandler {
      * base service already changed its snapshot before this hook runs.
      */
     @ApiStatus.OverrideOnly
+    context(context: GameContext)
     public suspend fun onParticipantRoleChange(
-        context: GameContext,
         uuid: UUID,
         previousRole: ParticipantRole,
         newRole: ParticipantRole
@@ -116,8 +129,8 @@ public interface GameHandler {
      * disconnected player or to show different messages for kicks and voluntary leaves.
      */
     @ApiStatus.OverrideOnly
+    context(context: GameContext)
     public suspend fun onParticipantRemove(
-        context: GameContext,
         uuid: UUID,
         player: Player?,
         role: ParticipantRole,
@@ -133,5 +146,7 @@ public interface GameHandler {
      * [GameService.teleportToServerLobby][dev.slne.surf.survival.events.base.service.GameService.teleportToServerLobby].
      */
     @ApiStatus.OverrideOnly
-    public suspend fun onStop(context: GameContext, reason: GameStopReason) {}
+    context(context: GameContext)
+    public suspend fun onStop(reason: GameStopReason) {
+    }
 }

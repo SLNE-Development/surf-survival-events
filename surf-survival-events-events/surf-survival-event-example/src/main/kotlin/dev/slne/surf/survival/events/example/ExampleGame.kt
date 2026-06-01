@@ -52,14 +52,16 @@ class ExampleGame : GameHandler {
             )
         }
 
-    override suspend fun onStarting(context: GameContext) {
+    context(context: GameContext)
+    override suspend fun onStarting() {
         plugin.logger.info(
             "Starting ${context.key.displayName} in ${context.eventWorldName}: " +
                     "players=${context.activePlayerCount}, reserve=${context.reservePlayerCount}, spectators=${context.spectatorCount}"
         )
     }
 
-    override suspend fun onStarted(context: GameContext) {
+    context(context: GameContext)
+    override suspend fun onStarted() {
         context.gamePlayers.forEach { uuid ->
             Bukkit.getPlayer(uuid)?.let { setupPlayer(it) }
         }
@@ -73,7 +75,8 @@ class ExampleGame : GameHandler {
         }
     }
 
-    override suspend fun onRunningJoin(context: GameContext, player: Player): RunningJoinResult {
+    context(context: GameContext)
+    override suspend fun onRunningJoin(player: Player): RunningJoinResult {
         return when (options.runningJoinPolicy) {
             RunningJoinPolicy.DENY -> RunningJoinResult.DENIED
             RunningJoinPolicy.SPECTATOR -> RunningJoinResult.JOINED_AS_SPECTATOR
@@ -90,20 +93,23 @@ class ExampleGame : GameHandler {
         }
     }
 
-    override suspend fun onRunningPlayerJoin(context: GameContext, player: Player) {
+    context(context: GameContext)
+    override suspend fun onRunningPlayerJoin(player: Player) {
         setupPlayer(player)
     }
 
-    override suspend fun onRunningReserveJoin(context: GameContext, player: Player) {
+    context(context: GameContext)
+    override suspend fun onRunningReserveJoin(player: Player) {
         setupReserve(player)
     }
 
-    override suspend fun onRunningSpectatorJoin(context: GameContext, player: Player) {
+    context(context: GameContext)
+    override suspend fun onRunningSpectatorJoin(player: Player) {
         setupSpectator(player)
     }
 
+    context(context: GameContext)
     override suspend fun onParticipantRemove(
-        context: GameContext,
         uuid: UUID,
         player: Player?,
         role: ParticipantRole,
@@ -122,7 +128,8 @@ class ExampleGame : GameHandler {
         plugin.logger.info("${player?.name ?: uuid} left example event as $role because of $reason")
     }
 
-    override suspend fun onStop(context: GameContext, reason: GameStopReason) {
+    context(context: GameContext)
+    override suspend fun onStop(reason: GameStopReason) {
         context.onlineEventPlayers.forEach { player ->
             player.inventory.clear()
             GameService.teleportToServerLobby(player)
@@ -134,29 +141,32 @@ class ExampleGame : GameHandler {
         plugin.logger.info("Example event stopped because of $reason")
     }
 
+    context(context: GameContext)
     private suspend fun setupPlayer(player: Player) {
         activePlayers.add(player.uniqueId)
         reservePlayers.remove(player.uniqueId)
         activeSpectators.remove(player.uniqueId)
 
         player.gameMode = ADVENTURE
-        player.teleportAsync(ExampleConfig.getConfig().playerSpawn).await()
+        player.teleportAsync(ExampleConfig.getConfig().playerSpawn.toLocation()).await()
     }
 
+    context(context: GameContext)
     private suspend fun setupReserve(player: Player) {
         reservePlayers.add(player.uniqueId)
         activePlayers.remove(player.uniqueId)
         activeSpectators.remove(player.uniqueId)
 
         player.gameMode = ADVENTURE
-        player.teleportAsync(ExampleConfig.getConfig().reserveSpawn).await()
+        player.teleportAsync(ExampleConfig.getConfig().reserveSpawn.toLocation()).await()
     }
 
+    context(context: GameContext)
     private suspend fun setupSpectator(player: Player) {
         activeSpectators.add(player.uniqueId)
         activePlayers.remove(player.uniqueId)
         reservePlayers.remove(player.uniqueId)
 
-        player.teleportAsync(ExampleConfig.getConfig().spectatorSpawn).await()
+        player.teleportAsync(ExampleConfig.getConfig().spectatorSpawn.toLocation()).await()
     }
 }

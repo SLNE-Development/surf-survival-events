@@ -62,7 +62,8 @@ object RaceService {
     @Volatile
     private var countdownJob: Job? = null
 
-    suspend fun startSession(context: GameContext) {
+    context(context: GameContext)
+    suspend fun startSession() {
         countdownJob?.cancel("A new race session has been started.")
         ProgressService.clear()
 
@@ -95,16 +96,17 @@ object RaceService {
         }
 
         context.onlineGamePlayers.forEach { player ->
-            teleportToRoundLobby(context, player.uniqueId)
+            teleportToRoundLobby(player.uniqueId)
         }
         context.reservePlayers.forEach { uuid ->
-            teleportToSpectatorLocation(context, uuid)
+            teleportToSpectatorLocation(uuid)
         }
         context.spectators.forEach { uuid ->
-            teleportToSpectatorLocation(context, uuid)
+            teleportToSpectatorLocation(uuid)
         }
     }
 
+    context(context: GameContext)
     fun addPlayer(uuid: UUID) {
         lock.withLock {
             removeFromCollections(uuid)
@@ -124,11 +126,10 @@ object RaceService {
             }
         }
         GameService.setParticipantRole(uuid, ParticipantRole.PLAYER)
-
-        val context = GameService.snapshot() ?: error("Could not get current game context")
-        teleportToRoundLobby(context, uuid)
+        teleportToRoundLobby(uuid)
     }
 
+    context(context: GameContext)
     fun addReserve(uuid: UUID) {
         lock.withLock {
             removeFromCollections(uuid)
@@ -141,19 +142,17 @@ object RaceService {
             }
         }
         GameService.setParticipantRole(uuid, ParticipantRole.RESERVE)
-
-        val context = GameService.snapshot() ?: error("Could not get current game context")
-        teleportToSpectatorLocation(context, uuid)
+        teleportToSpectatorLocation(uuid)
     }
 
+    context(context: GameContext)
     fun addSpectator(uuid: UUID) {
         lock.withLock {
             removeFromCollections(uuid)
             spectators.add(uuid)
         }
 
-        val context = GameService.snapshot() ?: error("Could not get current game context")
-        teleportToSpectatorLocation(context, uuid)
+        teleportToSpectatorLocation(uuid)
     }
 
     fun removePlayer(uuid: UUID) {
@@ -177,10 +176,12 @@ object RaceService {
         }
     }
 
+    context(context: GameContext)
     fun eliminatePlayer(player: Player) {
         eliminatePlayer(player.uniqueId)
     }
 
+    context(context: GameContext)
     fun eliminatePlayer(uuid: UUID) {
         lock.withLock {
             removeFromCollections(uuid)
@@ -190,9 +191,7 @@ object RaceService {
         removeNautilus(uuid)
         ProgressService.removePlayer(uuid)
         GameService.setParticipantRole(uuid, ParticipantRole.SPECTATOR)
-
-        val context = GameService.snapshot() ?: error("Could not get current game context")
-        teleportToSpectatorLocation(context, uuid)
+        teleportToSpectatorLocation(uuid)
     }
 
     fun isInRace(player: Player): Boolean = lock.withLock {
@@ -290,6 +289,7 @@ object RaceService {
         }
     }
 
+    context(context: GameContext)
     fun nextRound(advanceCount: Int): RaceRoundAdvanceResult {
         val currentState = raceState
         if (currentState == RaceState.DEACTIVATED) {
@@ -423,6 +423,7 @@ object RaceService {
         playerNautilus.clear()
     }
 
+    context(context: GameContext)
     private fun finishQualificationHeat(
         advanced: List<UUID>,
         eliminated: List<UUID>
@@ -467,13 +468,12 @@ object RaceService {
         }
 
         val nextRacerSet = preparation.nextRacers.toSet()
-        val context = GameService.snapshot() ?: error("Could not get current game context")
 
         advanced
             .filter { it !in nextRacerSet }
             .forEach { uuid ->
                 GameService.setParticipantRole(uuid, ParticipantRole.RESERVE)
-                teleportToSpectatorLocation(context, uuid)
+                teleportToSpectatorLocation(uuid)
             }
 
         preparation.nextRacers.forEach { uuid ->
@@ -494,6 +494,7 @@ object RaceService {
         )
     }
 
+    context(context: GameContext)
     private fun finishFinal(
         winners: List<UUID>,
         eliminated: List<UUID>
@@ -509,13 +510,11 @@ object RaceService {
             raceState = RaceState.FINISHED
         }
 
-        val context = GameService.snapshot() ?: error("Could not get current game context")
-
         winners.forEachIndexed { index, uuid ->
             removeNautilus(uuid)
             ProgressService.resetProgress(uuid)
             GameService.setParticipantRole(uuid, ParticipantRole.SPECTATOR)
-            teleportToSpectatorLocation(context, uuid)
+            teleportToSpectatorLocation(uuid)
             Bukkit.getPlayer(uuid)?.sendText {
                 appendSuccessPrefix()
                 success("Du hast Platz")
@@ -569,15 +568,17 @@ object RaceService {
         finalWinners.remove(uuid)
     }
 
-    private fun teleportToRoundLobby(context: GameContext, uuid: UUID) {
+    context(context: GameContext)
+    private fun teleportToRoundLobby(uuid: UUID) {
         val player = Bukkit.getPlayer(uuid) ?: return
-        player.teleportAsync(RaceConfig.getConfig().roundLobbyLocation.toLocation(context))
+        player.teleportAsync(RaceConfig.getConfig().roundLobbyLocation.toLocation())
     }
 
-    private fun teleportToSpectatorLocation(context: GameContext, uuid: UUID) {
+    context(context: GameContext)
+    private fun teleportToSpectatorLocation(uuid: UUID) {
         val player = Bukkit.getPlayer(uuid) ?: return
         plugin.launch {
-            player.teleportAsync(RaceConfig.getConfig().spectatorLocation.toLocation(context))
+            player.teleportAsync(RaceConfig.getConfig().spectatorLocation.toLocation())
         }
     }
 

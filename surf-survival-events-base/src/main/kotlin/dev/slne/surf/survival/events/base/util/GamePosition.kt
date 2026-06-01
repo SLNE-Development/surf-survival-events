@@ -6,12 +6,13 @@ import org.spongepowered.configurate.objectmapping.ConfigSerializable
 
 @ConfigSerializable
 public data class GamePosition(
-    val x: Double,
-    val y: Double,
-    val z: Double,
+    val x: Double = 0.0,
+    val y: Double = 0.0,
+    val z: Double = 0.0,
     val yaw: Float = 0f,
     val pitch: Float = 0f
 ) {
+    @JvmName("toLocation_context")
     public fun toLocation(context: GameContext): Location {
         return Location(
             context.eventWorld,
@@ -21,6 +22,11 @@ public data class GamePosition(
             yaw,
             pitch
         )
+    }
+
+    context(context: GameContext)
+    public fun toLocation(): Location {
+        return toLocation(context)
     }
 }
 

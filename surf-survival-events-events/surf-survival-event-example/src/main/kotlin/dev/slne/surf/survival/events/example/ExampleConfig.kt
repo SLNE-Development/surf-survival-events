@@ -1,18 +1,17 @@
 package dev.slne.surf.survival.events.example
 
 import dev.slne.surf.api.core.config.SpongeYmlConfigClass
-import dev.slne.surf.api.paper.extensions.server
 import dev.slne.surf.survival.events.base.game.RunningJoinPolicy
 import dev.slne.surf.survival.events.base.game.StartOverflowPolicy
-import org.bukkit.Location
+import dev.slne.surf.survival.events.base.util.GamePosition
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 
 @ConfigSerializable
 data class ExampleConfig(
     var gameplay: GameplayConfig = GameplayConfig(),
-    var playerSpawn: Location = Location(server.getWorld("event_example"), 0.0, 0.0, 0.0),
-    var spectatorSpawn: Location = Location(server.getWorld("event_example"), 0.0, 0.0, 0.0),
-    var reserveSpawn: Location = Location(server.getWorld("event_example"), 0.0, 0.0, 0.0)
+    var playerSpawn: GamePosition = GamePosition(),
+    var spectatorSpawn: GamePosition = GamePosition(),
+    var reserveSpawn: GamePosition = GamePosition()
 ) {
     companion object : SpongeYmlConfigClass<ExampleConfig>(
         ExampleConfig::class.java,

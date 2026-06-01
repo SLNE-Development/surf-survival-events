@@ -54,6 +54,7 @@ data class RaceConfig(
         val x2: Double, val y2: Double, val z2: Double
     ) : BoundingBox(x1, y1, z1, x2, y2, z2)
 
+    @ConfigSerializable
     data class StartConfig(
         val x1: Double, val y1: Double, val z1: Double,
         val x2: Double, val y2: Double, val z2: Double,
