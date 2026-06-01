@@ -65,6 +65,7 @@ object RaceService {
     context(context: GameContext)
     suspend fun startSession() {
         countdownJob?.cancel("A new race session has been started.")
+        countdownJob = null
         ProgressService.clear()
 
         supervisorScope {
