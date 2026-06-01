@@ -13,22 +13,24 @@ import org.bukkit.Location
 internal fun CommandTree.setServerLobbyCommand() = literalArgument("set-server-lobby") {
     withPermission(PermissionRegistry.COMMAND_COMMUNITY_MANAGER)
 
-    locationArgument("location", LocationType.BLOCK_POSITION)
-    rotationArgument("rotation")
-    playerExecutor { player, args ->
-        val location: Location by args
-        val rotation: Rotation by args
-        val lobbyLocation = location.setRotation(rotation.yaw, rotation.pitch)
+    locationArgument("location", LocationType.BLOCK_POSITION) {
+        rotationArgument("rotation") {
+            playerExecutor { player, args ->
+                val location: Location by args
+                val rotation: Rotation by args
+                val lobbyLocation = location.setRotation(rotation.yaw, rotation.pitch)
 
-        SurvivalEventsConfig.edit {
-            serverLobby = lobbyLocation
-        }
+                SurvivalEventsConfig.edit {
+                    serverLobby = lobbyLocation
+                }
 
-        player.sendText {
-            appendSuccessPrefix()
-            success("Die Server-Lobby wurde erfolgreich gesetzt!")
-            appendSpace()
-            variableValue(lobbyLocation.readableString(showRotation = true))
+                player.sendText {
+                    appendSuccessPrefix()
+                    success("Die Server-Lobby wurde erfolgreich gesetzt!")
+                    appendSpace()
+                    variableValue(lobbyLocation.readableString(showRotation = true))
+                }
+            }
         }
     }
 }
