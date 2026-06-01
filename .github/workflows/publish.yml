@@ -9,5 +9,5 @@ jobs:
   build:
     uses: SLNE-Development/surf-workflows/.github/workflows/build-publish-release-gradle.yml@master
     with:
-      modules: "surf-survival-events-base-*-all.jar;surf-survival-events-example-*-all.jar;surf-survival-events-freebuild-*-all.jar"
+      modules: "surf-survival-events-base-*-all.jar;surf-survival-events-example-*-all.jar;surf-survival-events-freebuild-*-all.jar;surf-survival-events-race-*-all.jar"
     secrets: inherit
