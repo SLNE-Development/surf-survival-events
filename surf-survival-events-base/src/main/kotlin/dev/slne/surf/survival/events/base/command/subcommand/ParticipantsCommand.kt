@@ -8,6 +8,7 @@ import dev.slne.surf.api.core.messages.adventure.buildText
 import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.api.core.messages.pagination.Pagination
 import dev.slne.surf.survival.events.base.game.ParticipantRole
+import dev.slne.surf.survival.events.base.game.PlayerRemoveReason
 import dev.slne.surf.survival.events.base.service.GameService
 import dev.slne.surf.survival.events.base.util.PermissionRegistry
 import net.kyori.adventure.text.event.ClickEvent
@@ -15,7 +16,7 @@ import net.kyori.adventure.text.event.HoverEvent
 import org.bukkit.Bukkit
 import org.bukkit.OfflinePlayer
 import org.bukkit.entity.Player
-import java.util.UUID
+import java.util.*
 
 internal fun CommandTree.participantsCommand() = literalArgument("participants") {
     withPermission(PermissionRegistry.COMMAND_GAME_SPECTATOR)
@@ -47,7 +48,15 @@ private fun Player.showParticipants(page: Int) {
 
     val rows = buildList {
         snapshot.gamePlayers.forEach { add(ParticipantRow(it, ParticipantRole.PLAYER, Bukkit.getOfflinePlayer(it))) }
-        snapshot.reservePlayers.forEach { add(ParticipantRow(it, ParticipantRole.RESERVE, Bukkit.getOfflinePlayer(it))) }
+        snapshot.reservePlayers.forEach {
+            add(
+                ParticipantRow(
+                    it,
+                    ParticipantRole.RESERVE,
+                    Bukkit.getOfflinePlayer(it)
+                )
+            )
+        }
         snapshot.spectators.forEach { add(ParticipantRow(it, ParticipantRole.SPECTATOR, Bukkit.getOfflinePlayer(it))) }
     }
 
@@ -78,7 +87,11 @@ private fun Player.showParticipants(page: Int) {
                             variableValue(row.role.name)
                             info("]")
                         }.clickEvent(ClickEvent.callback { audience ->
-                            val result = GameService.remove(row.uuid, includeSpectators = true)
+                            val result = GameService.remove(
+                                uuid = row.uuid,
+                                includeSpectators = true,
+                                reason = PlayerRemoveReason.KICK
+                            )
 
                             if (result.removed) {
                                 audience.sendText {
