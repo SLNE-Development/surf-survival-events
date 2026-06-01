@@ -1,7 +1,6 @@
 package dev.slne.surf.survival.events.race.service
 
 import com.github.shynixn.mccoroutine.folia.regionDispatcher
-import dev.slne.surf.survival.events.base.game.GameKey
 import dev.slne.surf.survival.events.base.service.GameService
 import dev.slne.surf.survival.events.race.config.RaceConfig
 import dev.slne.surf.survival.events.race.game.RaceGame
@@ -76,7 +75,12 @@ object RegionService {
             .checkpoints
             .maxOfOrNull { it.id }
 
-    fun getStart(playerLocation: Location): BoundingBox? = RaceConfig.getConfig()
-        .starts
-        .find { it.containsComplete(playerLocation) }
+    fun getStart(playerLocation: Location): BoundingBox? {
+        val context = GameService.requiredSnapshot(RaceGame.KEY)
+        if (context.eventWorld != playerLocation.world) return null
+
+        return RaceConfig.getConfig()
+            .starts
+            .find { it.containsComplete(playerLocation) }
+    }
 }
