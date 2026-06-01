@@ -30,11 +30,7 @@ class RaceGame : GameHandler {
                     overflow = StartOverflowPolicy.RESERVE
                 ),
                 spectatorsEnabled = true,
-                runningJoinPolicy = if (gameplay.lateJoinAsSpectator) {
-                    RunningJoinPolicy.SPECTATOR
-                } else {
-                    RunningJoinPolicy.DENY
-                },
+                runningJoinPolicy = RunningJoinPolicy.CUSTOM,
                 autoJoinRunningPlayers = true
             )
         }
@@ -51,21 +47,46 @@ class RaceGame : GameHandler {
 
     context(context: GameContext)
     override suspend fun onRunningJoin(player: Player): RunningJoinResult {
-        return if (RaceConfig.getConfig().gameplay.lateJoinAsSpectator) {
-            RunningJoinResult.JOINED_AS_SPECTATOR
+        val uuid = player.uniqueId
+
+        // Reconnecting player — restore their previous bracket position
+        RaceService.getReconnectJoinResult(uuid)?.let { return it }
+
+        // New late joiner — only allow participation before the first qualifying round completes
+        return if (RaceService.canLateJoin()) {
+            RunningJoinResult.JOINED_AS_RESERVE
         } else {
-            RunningJoinResult.DENIED
+            RunningJoinResult.JOINED_AS_SPECTATOR
         }
     }
 
     context(context: GameContext)
+    override suspend fun onRunningPlayerJoin(player: Player) {
+        // Only reconnecting players reach here (getReconnectJoinResult returned JOINED_AS_PLAYER)
+        RaceService.onPlayerReconnect(player.uniqueId)
+    }
+
+    context(context: GameContext)
     override suspend fun onRunningReserveJoin(player: Player) {
-        RaceService.addReserve(player.uniqueId)
+        val uuid = player.uniqueId
+        if (RaceService.isDisconnected(uuid)) {
+            // Reconnecting qualified/waiting player
+            RaceService.onPlayerReconnect(uuid)
+        } else {
+            // New late joiner admitted during first qualifying round
+            RaceService.addReserve(uuid)
+        }
     }
 
     context(context: GameContext)
     override suspend fun onRunningSpectatorJoin(player: Player) {
-        RaceService.addSpectator(player.uniqueId)
+        val uuid = player.uniqueId
+        if (RaceService.isDisconnected(uuid)) {
+            // Reconnecting eliminated/spectator player
+            RaceService.onPlayerReconnect(uuid)
+        } else {
+            RaceService.addSpectator(uuid)
+        }
     }
 
     context(context: GameContext)
@@ -75,13 +96,17 @@ class RaceGame : GameHandler {
         role: ParticipantRole,
         reason: PlayerRemoveReason
     ) {
-        val teleportBack = reason != PlayerRemoveReason.DISCONNECT
+        if (reason == PlayerRemoveReason.DISCONNECT) {
+            // Preserve race state — only clean up the entity, keep bracket position
+            RaceService.onPlayerDisconnect(uuid)
+            return
+        }
 
         when (role) {
             ParticipantRole.PLAYER,
-            ParticipantRole.RESERVE -> RaceService.removeParticipant(uuid, teleportBack)
+            ParticipantRole.RESERVE -> RaceService.removeParticipant(uuid, teleportToServerLobby = true)
 
-            ParticipantRole.SPECTATOR -> RaceService.removeSpectator(uuid, teleportBack)
+            ParticipantRole.SPECTATOR -> RaceService.removeSpectator(uuid, teleportToServerLobby = true)
         }
     }
 

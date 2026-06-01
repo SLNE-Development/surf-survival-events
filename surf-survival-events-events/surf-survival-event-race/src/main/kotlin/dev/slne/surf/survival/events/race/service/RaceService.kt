@@ -10,6 +10,7 @@ import dev.slne.surf.api.core.messages.adventure.title
 import dev.slne.surf.api.core.util.runAtFixedRate
 import dev.slne.surf.survival.events.base.game.GameContext
 import dev.slne.surf.survival.events.base.game.ParticipantRole
+import dev.slne.surf.survival.events.base.game.RunningJoinResult
 import dev.slne.surf.survival.events.base.service.GameService
 import dev.slne.surf.survival.events.race.config.RaceConfig
 import dev.slne.surf.survival.events.race.game.RaceGame
@@ -50,6 +51,13 @@ object RaceService {
     /** Players that are pure spectators from the base service or late joins. */
     private val spectators = ObjectLinkedOpenHashSet<UUID>()
 
+    /**
+     * Players that disconnected mid-event. They are kept in their respective race collection so
+     * their bracket position is preserved. They are removed from here once they reconnect or are
+     * eliminated by [eliminateOfflineDisconnected] when a new round starts.
+     */
+    private val disconnectedPlayers = ObjectLinkedOpenHashSet<UUID>()
+
     private val finalWinners = ObjectArrayList<UUID>()
     private val playerNautilus = ConcurrentHashMap<UUID, UUID>()
 
@@ -89,6 +97,7 @@ object RaceService {
             eliminatedPlayers.clear()
             spectators.clear()
             finalWinners.clear()
+            disconnectedPlayers.clear()
 
             racePlayers.addAll(context.gamePlayers)
             waitingPlayers.addAll(context.reservePlayers)
@@ -242,6 +251,68 @@ object RaceService {
         }
     }
 
+    /**
+     * Called when a participant disconnects. Preserves their race-state so they can resume
+     * after reconnect. The player is NOT removed from any race collection here — only the
+     * nautilus entity is cleaned up since it will despawn anyway.
+     */
+    fun onPlayerDisconnect(uuid: UUID) {
+        lock.write {
+            disconnectedPlayers.add(uuid)
+        }
+        removeNautilus(uuid)
+    }
+
+    fun isDisconnected(uuid: UUID): Boolean = lock.read { uuid in disconnectedPlayers }
+
+    /**
+     * Returns the [RunningJoinResult] a reconnecting player should receive based on their
+     * current position in the bracket. Returns `null` if [uuid] is not a known disconnected
+     * player.
+     */
+    fun getReconnectJoinResult(uuid: UUID): RunningJoinResult? {
+        if (!isDisconnected(uuid)) return null
+
+        return lock.read {
+            when (uuid) {
+                in racePlayers -> RunningJoinResult.JOINED_AS_PLAYER
+                in qualifiedPlayers, in waitingPlayers -> RunningJoinResult.JOINED_AS_RESERVE
+                else -> RunningJoinResult.JOINED_AS_SPECTATOR
+            }
+        }
+    }
+
+    /**
+     * Completes a reconnect: removes [uuid] from the disconnected set and teleports them to the
+     * appropriate location based on their current race state.
+     */
+    context(context: GameContext)
+    fun onPlayerReconnect(uuid: UUID) {
+        lock.write {
+            disconnectedPlayers.remove(uuid)
+        }
+
+        val isActiveRacer = lock.read { uuid in racePlayers }
+
+        if (isActiveRacer && raceState != RaceState.RUNNING) {
+            teleportToRoundLobby(uuid)
+        } else {
+            teleportToSpectatorLocation(uuid)
+        }
+    }
+
+    /**
+     * Returns `true` while players may still join as active participants (reserves):
+     * the qualifying stage must be ongoing and the first round must not yet have completed.
+     * After the first heat finishes [roundNumber] is incremented to 2, closing the door.
+     */
+    fun canLateJoin(): Boolean = lock.read {
+        raceStage == RaceStage.QUALIFYING &&
+                roundNumber.get() <= 1 &&
+                raceState != RaceState.DEACTIVATED &&
+                raceState != RaceState.FINISHED
+    }
+
     fun getRaceState(): RaceState = raceState
 
     fun setRaceState(state: RaceState) {
@@ -357,6 +428,7 @@ object RaceService {
     }
 
     fun playerToStartMid() {
+        eliminateOfflineDisconnected()
         setRaceState(RaceState.WAITING)
 
         val starts = RaceConfig.getConfig().starts
@@ -404,6 +476,7 @@ object RaceService {
                 eliminatedPlayers.clear()
                 spectators.clear()
                 finalWinners.clear()
+                disconnectedPlayers.clear()
                 raceStage = RaceStage.NONE
                 raceState = RaceState.DEACTIVATED
                 roundNumber.set(0)
@@ -566,6 +639,30 @@ object RaceService {
         return RaceConfig.getConfig().gameplay.playersPerRound.coerceAtLeast(1)
     }
 
+    /**
+     * Eliminates any disconnected player that is currently assigned to [racePlayers].
+     * Called at the start of [playerToStartMid] so offline players cannot silently occupy a
+     * race slot when a new round begins.
+     */
+    private fun eliminateOfflineDisconnected() {
+        val toEliminate = lock.write {
+            val offline = racePlayers.filter { uuid ->
+                uuid in disconnectedPlayers && Bukkit.getPlayer(uuid) == null
+            }
+            offline.forEach { uuid ->
+                racePlayers.remove(uuid)
+                eliminatedPlayers.add(uuid)
+                disconnectedPlayers.remove(uuid)
+            }
+            offline
+        }
+
+        toEliminate.forEach { uuid ->
+            removeNautilus(uuid)
+            ProgressService.removePlayer(uuid)
+        }
+    }
+
     private fun removeFromCollections(uuid: UUID) {
         require(lock.isWriteLockedByCurrentThread) { "Must be called from write lock context." }
 
@@ -575,6 +672,7 @@ object RaceService {
         eliminatedPlayers.remove(uuid)
         spectators.remove(uuid)
         finalWinners.remove(uuid)
+        disconnectedPlayers.remove(uuid)
     }
 
     context(context: GameContext)
