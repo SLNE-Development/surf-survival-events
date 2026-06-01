@@ -10,12 +10,10 @@ object AmorActions {
         action: NightAction.AmorLink,
         players: Map<UUID, WerewolfPlayer>,
         dayNumber: Int,
-    ): Boolean {
-        return dayNumber == 1 &&
-                action.first != action.second &&
-                players[action.first]?.isAlive == true &&
-                players[action.second]?.isAlive == true
-    }
+    ): Boolean = dayNumber == 1 &&
+            action.first != action.second &&
+            players[action.first]?.isAlive == true &&
+            players[action.second]?.isAlive == true
 
     fun resolve(actions: List<NightAction>): Pair<UUID, UUID>? {
         val amorLink = actions

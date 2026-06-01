@@ -9,15 +9,11 @@ object SeerActions {
     fun isValid(
         action: NightAction.SeerInspect,
         players: Map<UUID, WerewolfPlayer>,
-    ): Boolean {
-        return players[action.target]?.isAlive == true &&
-                action.actor != action.target
-    }
+    ): Boolean = players[action.target]?.isAlive == true &&
+            action.actor != action.target
 
     fun inspectTarget(
         action: NightAction.SeerInspect,
         players: Map<UUID, WerewolfPlayer>,
-    ): WerwolfRoles? {
-        return players[action.target]?.role
-    }
+    ): WerwolfRoles? = players[action.target]?.role
 }

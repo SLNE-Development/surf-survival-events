@@ -1,5 +1,6 @@
 package dev.slne.surf.survival.events.werewolf.commands.subcommands
 
+import dev.jorel.commandapi.kotlindsl.getValue
 import dev.jorel.commandapi.kotlindsl.playerExecutor
 import dev.jorel.commandapi.kotlindsl.stringArgument
 import dev.jorel.commandapi.kotlindsl.subcommand
@@ -24,7 +25,7 @@ fun openGameWerewolfCommand() = subcommand("openGame") {
     withRequirement { sender -> sender is Player && sender.hasPermission(PermissionRegistry.COMMAND_WEREWOLF_ADMIN) }
     stringArgument("gameId")
     playerExecutor { player, arguments ->
-        val gameId = arguments.get("gameId") as String
+        val gameId: String by arguments
 
         val game = WerewolfGameManager.createGame(gameId, player.uniqueId)
         if (game == null) {

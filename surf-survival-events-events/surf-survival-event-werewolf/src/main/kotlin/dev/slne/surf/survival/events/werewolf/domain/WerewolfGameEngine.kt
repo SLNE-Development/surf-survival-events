@@ -17,7 +17,12 @@ class WerewolfGameEngine(
     private var roundState = GameRoundState.initial()
 
     private val messenger = WerewolfMessenger(service)
-    private fun nightResolver() = NightResolver(service.players, roundState.dayNumber, roundState.werewolfTarget)
+    private fun nightResolver() = NightResolver(
+        service.players,
+        roundState.dayNumber,
+        roundState.werewolfTarget,
+        currentSerialKillerTarget
+    )
     private fun nightStepCoordinator() = NightStepCoordinator(service.players, roundState.dayNumber)
 
     val currentPhase: GameState
@@ -31,6 +36,14 @@ class WerewolfGameEngine(
 
     val currentWerewolfTarget: UUID?
         get() = roundState.werewolfTarget
+
+    val currentSerialKillerTarget: UUID?
+        get() = SerialKillerActions.resolveTarget(roundState.nightActions)
+
+    val currentWitchHealTargets: Set<UUID>
+        get() = setOfNotNull(roundState.werewolfTarget, currentSerialKillerTarget)
+            .filter { targetId -> service.players[targetId]?.isAlive == true }
+            .toSet()
 
     fun startGameEngine(): PhaseAdvanceResult {
         roundState = GameRoundState(
@@ -97,14 +110,12 @@ class WerewolfGameEngine(
         }
     }
 
-    fun advancePhase(): PhaseAdvanceResult {
-        return when (roundState.phase) {
+    fun advancePhase(): PhaseAdvanceResult = when (roundState.phase) {
             GameState.MAYOR_VOTE -> advanceMayorVotePhase()
             GameState.DAY -> advanceDayPhase()
             GameState.VOTE -> advanceVotePhase()
             GameState.NIGHT -> advanceNightPhase()
         }
-    }
 
     private fun advanceMayorVotePhase(): PhaseAdvanceResult {
         val standings = calculateMayorVoteStandings()
@@ -178,9 +189,7 @@ class WerewolfGameEngine(
         )
     }
 
-    private fun isFirstDayWithoutMayor(): Boolean {
-        return roundState.dayNumber == 1 && roundState.mayorPlayer == null
-    }
+    private fun isFirstDayWithoutMayor(): Boolean = roundState.dayNumber == 1 && roundState.mayorPlayer == null
 
     fun beginMayorVoting() {
         roundState = roundState.copy(
@@ -236,28 +245,24 @@ class WerewolfGameEngine(
         service.setGameState(GameState.DAY)
     }
 
-    fun submitMayorVote(voter: UUID, target: UUID): Boolean {
-        return submitVote(
-            expectedPhase = GameState.MAYOR_VOTE,
-            votes = roundState.mayorVotes,
-            voter = voter,
-            target = target
-        )
-    }
+    fun submitMayorVote(voter: UUID, target: UUID): Boolean = submitVote(
+        expectedPhase = GameState.MAYOR_VOTE,
+        votes = roundState.mayorVotes,
+        voter = voter,
+        target = target
+    )
 
     fun resolveMayorVote(): UUID? {
         if (roundState.phase != GameState.MAYOR_VOTE) return null
         return calculateMayorVoteStandings().firstOrNull()?.target
     }
 
-    fun submitVote(voter: UUID, target: UUID): Boolean {
-        return submitVote(
-            expectedPhase = GameState.VOTE,
-            votes = roundState.votes,
-            voter = voter,
-            target = target
-        )
-    }
+    fun submitVote(voter: UUID, target: UUID): Boolean = submitVote(
+        expectedPhase = GameState.VOTE,
+        votes = roundState.votes,
+        voter = voter,
+        target = target
+    )
 
     fun resolveVote(): UUID? {
         if (roundState.phase != GameState.VOTE) return null
@@ -438,16 +443,13 @@ class WerewolfGameEngine(
         return targetId
     }
 
-    fun getWitchHealTarget(player: Player): UUID? {
-        if (roundState.phase != GameState.NIGHT) return null
-        if (roundState.nightStep != NightStep.WITCH) return null
-        if (service.getPlayerRole(player.uniqueId) != WerwolfRoles.WITCH) return null
-        if (service.players[player.uniqueId]?.isAlive != true) return null
+    fun getWitchHealTargets(player: Player): Set<UUID> {
+        if (roundState.phase != GameState.NIGHT) return emptySet()
+        if (roundState.nightStep != NightStep.WITCH) return emptySet()
+        if (service.getPlayerRole(player.uniqueId) != WerwolfRoles.WITCH) return emptySet()
+        if (service.players[player.uniqueId]?.isAlive != true) return emptySet()
 
-        val targetId = roundState.werewolfTarget ?: return null
-        if (service.players[targetId]?.isAlive != true) return null
-
-        return targetId
+        return currentWitchHealTargets
     }
 
     fun getDoctorHealTarget(player: Player): UUID? {
@@ -546,10 +548,9 @@ class WerewolfGameEngine(
         }
     }
 
-    private fun isSameNightActionSlot(existingAction: NightAction, newAction: NightAction): Boolean {
-        return existingAction.actor == newAction.actor &&
+    private fun isSameNightActionSlot(existingAction: NightAction, newAction: NightAction): Boolean =
+        existingAction.actor == newAction.actor &&
                 existingAction::class == newAction::class
-    }
 
     fun skipCurrentNightStep(): Boolean {
         if (roundState.phase != GameState.NIGHT) return false

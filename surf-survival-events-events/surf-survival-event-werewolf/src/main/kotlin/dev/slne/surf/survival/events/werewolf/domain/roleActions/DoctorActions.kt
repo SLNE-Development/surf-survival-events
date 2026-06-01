@@ -16,10 +16,8 @@ object DoctorActions {
         return action.target == action.actor || action.target == werewolfTarget
     }
 
-    fun resolveTarget(actions: List<NightAction>): UUID? {
-        return actions
-            .filterIsInstance<NightAction.DoctorProtect>()
-            .lastOrNull()
-            ?.target
-    }
+    fun resolveTarget(actions: List<NightAction>): UUID? = actions
+        .filterIsInstance<NightAction.DoctorProtect>()
+        .lastOrNull()
+        ?.target
 }

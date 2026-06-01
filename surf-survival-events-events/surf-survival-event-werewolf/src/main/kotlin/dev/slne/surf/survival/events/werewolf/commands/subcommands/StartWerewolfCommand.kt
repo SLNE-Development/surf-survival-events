@@ -1,5 +1,6 @@
 package dev.slne.surf.survival.events.werewolf.commands.subcommands
 
+import dev.jorel.commandapi.kotlindsl.getValue
 import dev.jorel.commandapi.kotlindsl.playerExecutor
 import dev.jorel.commandapi.kotlindsl.subcommand
 import dev.slne.surf.api.core.messages.adventure.sendText
@@ -10,9 +11,9 @@ import dev.slne.surf.survival.events.werewolf.util.WerewolfCommandRequirements
 
 fun startWerewolfCommand() = subcommand("start") {
     withRequirement { sender -> WerewolfCommandRequirements.canStartGame(sender) }
-    werewolfGameArgument("gameId")
+    werewolfGameArgument("game")
     playerExecutor { player, arguments ->
-        val game = arguments.get("gameId") as WerewolfService
+        val game: WerewolfService by arguments
 
         when (val result = game.start()) {
             is WerewolfStartResult.Success -> {

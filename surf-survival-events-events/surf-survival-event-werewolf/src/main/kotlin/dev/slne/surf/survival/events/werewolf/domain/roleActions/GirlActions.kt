@@ -39,10 +39,8 @@ object GirlActions {
         }
     }
 
-    fun resolveCaughtGirls(actions: List<NightAction>): List<UUID> {
-        return actions
-            .filterIsInstance<NightAction.GirlPeek>()
-            .filter { it.outcome == GirlPeekOutcome.CaughtByWerewolves }
-            .map { it.actor }
-    }
+    fun resolveCaughtGirls(actions: List<NightAction>): List<UUID> = actions
+        .filterIsInstance<NightAction.GirlPeek>()
+        .filter { it.outcome == GirlPeekOutcome.CaughtByWerewolves }
+        .map { it.actor }
 }

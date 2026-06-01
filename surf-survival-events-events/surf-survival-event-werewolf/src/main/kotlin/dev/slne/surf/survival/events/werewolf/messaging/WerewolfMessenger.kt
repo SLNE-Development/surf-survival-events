@@ -564,9 +564,15 @@ class WerewolfMessenger(private val service: WerewolfService) {
                 info("Du bist jetzt am Zug. Nutze /werewolf witch <heal|kill> <spieler>.")
                 appendNewInfoPrefixedLine()
 
-                if (service.engine.currentWerewolfTarget != null) {
+                if (service.engine.currentWitchHealTargets.isNotEmpty()) {
                     appendNewInfoPrefixedLine()
-                    info("Das Opfer der Werwölfe leuchtet für dich.")
+                    info(
+                        if (service.engine.currentWitchHealTargets.size == 1) {
+                            "Ein Nachtopfer leuchtet für dich."
+                        } else {
+                            "Die Nachtopfer leuchten für dich."
+                        }
+                    )
                 }
 
             }
@@ -730,17 +736,14 @@ class WerewolfMessenger(private val service: WerewolfService) {
         spacer(")")
     }
 
-    private fun votePhaseName(state: GameState): String {
-        return when (state) {
+    private fun votePhaseName(state: GameState): String = when (state) {
             GameState.MAYOR_VOTE -> "Bürgermeisterwahl"
             GameState.VOTE -> "Dorfabstimmung"
             GameState.DAY -> "Tag"
             GameState.NIGHT -> "Nacht"
         }
-    }
 
-    private fun nightStepName(step: NightStep): String {
-        return when (step) {
+    private fun nightStepName(step: NightStep): String = when (step) {
             NightStep.AMOR -> "Amor"
             NightStep.WEREWOLVES -> "Werwölfe"
             NightStep.GIRL -> "Mädchen"
@@ -750,10 +753,8 @@ class WerewolfMessenger(private val service: WerewolfService) {
             NightStep.SERIAL_KILLER -> "Serienmörder"
             NightStep.RESOLVE -> "Auflösung"
         }
-    }
 
-    private fun roleName(role: WerwolfRoles): String {
-        return when (role) {
+    private fun roleName(role: WerwolfRoles): String = when (role) {
             WerwolfRoles.WERWOLF -> "Werwolf"
             WerwolfRoles.VILLAGER -> "Dorfbewohner"
             WerwolfRoles.SEER -> "Seherin"
@@ -765,7 +766,6 @@ class WerewolfMessenger(private val service: WerewolfService) {
             WerwolfRoles.PRIEST -> "Priester"
             WerwolfRoles.SERIAL_KILLER -> "Serienmörder"
         }
-    }
 
     private fun playerName(uuid: UUID): String =
         service.players[uuid]?.name ?: uuid.toBukkitPlayer()?.name ?: "Unbekannt"

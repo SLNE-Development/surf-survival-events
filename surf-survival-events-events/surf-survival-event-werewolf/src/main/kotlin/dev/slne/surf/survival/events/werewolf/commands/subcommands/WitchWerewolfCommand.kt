@@ -1,6 +1,7 @@
 package dev.slne.surf.survival.events.werewolf.commands.subcommands
 
 import dev.jorel.commandapi.arguments.EntitySelectorArgument
+import dev.jorel.commandapi.kotlindsl.getValue
 import dev.jorel.commandapi.kotlindsl.multiLiteralArgument
 import dev.jorel.commandapi.kotlindsl.playerExecutor
 import dev.jorel.commandapi.kotlindsl.subcommand
@@ -18,11 +19,11 @@ import org.bukkit.entity.Player
 fun witchWerewolfCommand() = subcommand("witch") {
     withRequirement { sender -> WerewolfCommandRequirements.canActAsWitch(sender) }
     multiLiteralArgument("action", "heal", "kill")
-    withArguments(EntitySelectorArgument.OnePlayer("player"))
+    withArguments(EntitySelectorArgument.OnePlayer("targetPlayer"))
 
     playerExecutor { commandSender, arguments ->
-        val action = (arguments.get("action") as String).lowercase()
-        val targetPlayer = arguments.get("player") as Player
+        val action: String by arguments
+        val targetPlayer: Player by arguments
         val service = WerewolfGameManager.getGameForPlayer(commandSender.uuid())
 
         if (service == null) {
@@ -65,7 +66,7 @@ fun witchWerewolfCommand() = subcommand("witch") {
             return@playerExecutor
         }
 
-        val nightAction = when (action) {
+        val nightAction = when (action.lowercase()) {
             "heal" -> NightAction.WitchHeal(
                 actor = commandSender.uuid(),
                 target = targetPlayer.uuid()

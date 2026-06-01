@@ -14,10 +14,8 @@ object SerialKillerActions {
                 action.actor != action.target
     }
 
-    fun resolveTarget(actions: List<NightAction>): UUID? {
-        return actions
-            .filterIsInstance<NightAction.SerialKillerKill>()
-            .lastOrNull()
-            ?.target
-    }
+    fun resolveTarget(actions: List<NightAction>): UUID? = actions
+        .filterIsInstance<NightAction.SerialKillerKill>()
+        .lastOrNull()
+        ?.target
 }

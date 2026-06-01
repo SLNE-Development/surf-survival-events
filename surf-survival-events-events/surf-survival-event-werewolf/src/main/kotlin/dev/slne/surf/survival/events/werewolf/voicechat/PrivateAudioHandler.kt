@@ -40,9 +40,7 @@ class PrivateAudioHandler {
         silencedPlayers.remove(uuid)
     }
 
-    fun handlesPlayer(uuid: UUID): Boolean {
-        return secretPlayers.contains(uuid) || silencedPlayers.contains(uuid)
-    }
+    fun handlesPlayer(uuid: UUID): Boolean = secretPlayers.contains(uuid) || silencedPlayers.contains(uuid)
 
     fun onMicrophone(event: MicrophonePacketEvent) {
         val senderConnection = event.senderConnection ?: return

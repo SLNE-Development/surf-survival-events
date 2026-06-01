@@ -1,6 +1,7 @@
 package dev.slne.surf.survival.events.werewolf.commands.subcommands
 
 import dev.jorel.commandapi.arguments.EntitySelectorArgument
+import dev.jorel.commandapi.kotlindsl.getValue
 import dev.jorel.commandapi.kotlindsl.playerExecutor
 import dev.jorel.commandapi.kotlindsl.subcommand
 import dev.slne.surf.api.core.messages.adventure.sendText
@@ -20,8 +21,8 @@ fun amorWerewolfCommand() = subcommand("amor") {
     withArguments(EntitySelectorArgument.OnePlayer("secondPlayer"))
 
     playerExecutor { commandSender, arguments ->
-        val firstPlayer = arguments.get("firstPlayer") as Player
-        val secondPlayer = arguments.get("secondPlayer") as Player
+        val firstPlayer: Player by arguments
+        val secondPlayer: Player by arguments
         val service = WerewolfGameManager.getGameForPlayer(commandSender.uuid())
 
         if (service == null) {

@@ -22,9 +22,7 @@ object WerewolfGameManager {
         return game
     }
 
-    fun getGame(gameId: String): WerewolfService? {
-        return games[gameId]
-    }
+    fun getGame(gameId: String): WerewolfService? = games[gameId]
 
     fun getGameForPlayer(uuid: UUID): WerewolfService? {
         val gameId = playerToGame[uuid] ?: return null
@@ -38,9 +36,7 @@ object WerewolfGameManager {
         WerewolfCommandRequirements.update(playersToUpdate)
     }
 
-    fun getAllGames(): Map<String, WerewolfService> {
-        return games.toMap()
-    }
+    fun getAllGames(): Map<String, WerewolfService> = games.toMap()
 
     fun joinGame(gameId: String, uuid: UUID) {
         playerToGame[uuid] = gameId

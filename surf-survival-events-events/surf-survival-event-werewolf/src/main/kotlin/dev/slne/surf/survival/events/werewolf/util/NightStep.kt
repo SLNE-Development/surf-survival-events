@@ -12,7 +12,7 @@ enum class NightStep(
     GIRL(WerwolfRoles.GIRL, 60.seconds),
     SEER(WerwolfRoles.SEER, 60.seconds),
     DOCTOR(WerwolfRoles.DOCTOR, 60.seconds),
-    WITCH(WerwolfRoles.WITCH, 60.seconds),
     SERIAL_KILLER(WerwolfRoles.SERIAL_KILLER, 60.seconds),
+    WITCH(WerwolfRoles.WITCH, 60.seconds),
     RESOLVE(null, 1.seconds),
 }

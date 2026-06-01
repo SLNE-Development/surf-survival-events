@@ -12,10 +12,10 @@ internal class NightResolver(
     private val players: Map<UUID, WerewolfPlayer>,
     private val dayNumber: Int,
     private val werewolfTarget: UUID?,
+    private val serialKillerTarget: UUID?,
 ) {
 
-    fun isValid(action: NightAction, actorRole: WerwolfRoles): Boolean {
-        return when (action) {
+    fun isValid(action: NightAction, actorRole: WerwolfRoles): Boolean = when (action) {
             is NightAction.WerewolfKill -> actorRole == WerwolfRoles.WERWOLF &&
                     isValidLivingTarget(action.target) &&
                     action.actor != action.target
@@ -31,7 +31,7 @@ internal class NightResolver(
 
             is NightAction.WitchHeal,
             is NightAction.WitchPoison -> actorRole == WerwolfRoles.WITCH &&
-                    WitchActions.isValid(action, players, werewolfTarget, dayNumber)
+                    WitchActions.isValid(action, players, werewolfTarget, serialKillerTarget, dayNumber)
 
             is NightAction.AmorLink -> actorRole == WerwolfRoles.AMOR &&
                     AmorActions.isValid(action, players, dayNumber)
@@ -39,7 +39,6 @@ internal class NightResolver(
             is NightAction.SerialKillerKill -> actorRole == WerwolfRoles.SERIAL_KILLER &&
                     SerialKillerActions.isValid(action, players)
         }
-    }
 
     fun resolve(actions: List<NightAction>): NightResolutionResult {
         val lovers = AmorActions.resolve(actions)
@@ -79,9 +78,7 @@ internal class NightResolver(
         )
     }
 
-    private fun isValidLivingTarget(target: UUID): Boolean {
-        return players[target]?.isAlive == true
-    }
+    private fun isValidLivingTarget(target: UUID): Boolean = players[target]?.isAlive == true
 
     fun resolveWerewolfTarget(actions: List<NightAction>): UUID? {
         val werewolfActions = actions.filterIsInstance<NightAction.WerewolfKill>()

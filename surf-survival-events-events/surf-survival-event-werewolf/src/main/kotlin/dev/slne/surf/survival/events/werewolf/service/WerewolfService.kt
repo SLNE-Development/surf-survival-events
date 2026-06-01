@@ -103,7 +103,7 @@ class WerewolfService(val gameId: String) {
     private var _engine = WerewolfGameEngine(this)
     private val glowingTargetsByWerewolf = mutableMapOf<UUID, UUID>()
     private val glowingTargetsByDoctor = mutableMapOf<UUID, UUID>()
-    private val glowingTargetsByWitch = mutableMapOf<UUID, UUID>()
+    private val glowingTargetsByWitch = mutableMapOf<UUID, Set<UUID>>()
     private val hiddenPlayerPairs = mutableSetOf<HiddenPlayerPair>()
     private val pendingNightExecutions = mutableListOf<UUID>()
     private val phaseTransitionDelay = 3.seconds
@@ -459,28 +459,35 @@ class WerewolfService(val gameId: String) {
     }
 
     private fun makeWitchGlowing(witch: Player) {
-        val currentTargetId = engine.getWitchHealTarget(witch)
-        val previousTargetId = glowingTargetsByWitch[witch.uniqueId]
+        val currentTargetIds = engine.getWitchHealTargets(witch)
+        val previousTargetIds = glowingTargetsByWitch[witch.uniqueId] ?: emptySet()
 
-        if (currentTargetId == previousTargetId) return
+        if (currentTargetIds == previousTargetIds) return
 
-        previousTargetId?.toBukkitPlayer()?.let { previousTarget ->
-            SurfGlowingApi.removeGlowing(previousTarget, witch)
+        (previousTargetIds - currentTargetIds).forEach { previousTargetId ->
+            previousTargetId.toBukkitPlayer()?.let { previousTarget ->
+                SurfGlowingApi.removeGlowing(previousTarget, witch)
+            }
         }
 
-        if (currentTargetId == null) {
+        if (currentTargetIds.isEmpty()) {
             glowingTargetsByWitch.remove(witch.uniqueId)
             return
         }
 
-        val currentTarget = currentTargetId.toBukkitPlayer()
-        if (currentTarget == null) {
+        val validTargetIds = mutableSetOf<UUID>()
+        currentTargetIds.forEach { currentTargetId ->
+            val currentTarget = currentTargetId.toBukkitPlayer() ?: return@forEach
+            SurfGlowingApi.makeGlowing(currentTarget, witch, NamedTextColor.DARK_PURPLE)
+            validTargetIds += currentTargetId
+        }
+
+        if (validTargetIds.isEmpty()) {
             glowingTargetsByWitch.remove(witch.uniqueId)
             return
         }
 
-        SurfGlowingApi.makeGlowing(currentTarget, witch, NamedTextColor.DARK_PURPLE)
-        glowingTargetsByWitch[witch.uniqueId] = currentTargetId
+        glowingTargetsByWitch[witch.uniqueId] = validTargetIds
     }
 
     private fun makeDoctorGlowing(doctor: Player) {
@@ -606,13 +613,15 @@ class WerewolfService(val gameId: String) {
         }
     }
 
-    private suspend fun removeWitchGlowing(glowingTargets: Map<UUID, UUID>) {
-        glowingTargets.forEach { (witchId, targetId) ->
+    private suspend fun removeWitchGlowing(glowingTargets: Map<UUID, Set<UUID>>) {
+        glowingTargets.forEach { (witchId, targetIds) ->
             val witch = witchId.toBukkitPlayer() ?: return@forEach
-            val target = targetId.toBukkitPlayer() ?: return@forEach
 
             withContext(plugin.entityDispatcher(witch)) {
-                SurfGlowingApi.removeGlowing(target, witch)
+                targetIds.forEach { targetId ->
+                    val target = targetId.toBukkitPlayer() ?: return@forEach
+                    SurfGlowingApi.removeGlowing(target, witch)
+                }
             }
         }
     }
@@ -765,9 +774,7 @@ class WerewolfService(val gameId: String) {
 
     fun refreshCommandRequirements() = WerewolfCommandRequirements.update(allParticipants)
 
-    fun getPlayerRole(uuid: UUID): WerwolfRoles? {
-        return players[uuid]?.role
-    }
+    fun getPlayerRole(uuid: UUID): WerwolfRoles? = players[uuid]?.role
 
     fun setGameState(gameState: GameState) {
         _state = gameState

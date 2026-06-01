@@ -17,10 +17,8 @@ class WerewolfVoicechatPlugin : VoicechatPlugin {
         private val audioHandlers = mutableMapOf<String, PrivateAudioHandler>()
         private var voicechatApi: VoicechatServerApi? = null
 
-        fun getAudioHandler(gameId: String): PrivateAudioHandler {
-            return audioHandlers.getOrPut(gameId) {
-                PrivateAudioHandler()
-            }
+        fun getAudioHandler(gameId: String): PrivateAudioHandler = audioHandlers.getOrPut(gameId) {
+            PrivateAudioHandler()
         }
 
         fun removeAudioHandler(gameId: String) {
@@ -36,9 +34,7 @@ class WerewolfVoicechatPlugin : VoicechatPlugin {
         }
     }
 
-    override fun getPluginId(): String {
-        return PLUGIN_ID
-    }
+    override fun getPluginId(): String = PLUGIN_ID
 
     override fun initialize(api: VoicechatApi) {
         setVoicechatApi(api as? VoicechatServerApi)

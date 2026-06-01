@@ -11,9 +11,7 @@ internal class NightStepCoordinator(
     private val dayNumber: Int,
 ) {
 
-    fun firstStep(): NightStep {
-        return nextAvailableStep()
-    }
+    fun firstStep(): NightStep = nextAvailableStep()
 
     fun nextStep(
         currentStep: NightStep?,
@@ -28,9 +26,7 @@ internal class NightStepCoordinator(
     fun isActionAllowed(
         currentStep: NightStep?,
         action: NightAction,
-    ): Boolean {
-        return currentStep != null && stepForAction(action) == currentStep
-    }
+    ): Boolean = currentStep != null && stepForAction(action) == currentStep
 
     private fun isStepComplete(
         step: NightStep,
@@ -66,8 +62,7 @@ internal class NightStepCoordinator(
             ?: NightStep.RESOLVE
     }
 
-    private fun isStepAvailable(step: NightStep): Boolean {
-        return when (step) {
+    private fun isStepAvailable(step: NightStep): Boolean = when (step) {
             NightStep.AMOR -> dayNumber == 1 && hasAliveRole(WerwolfRoles.AMOR)
             NightStep.WEREWOLVES -> hasAliveRole(WerwolfRoles.WERWOLF)
             NightStep.GIRL -> hasAliveRole(WerwolfRoles.GIRL)
@@ -77,14 +72,10 @@ internal class NightStepCoordinator(
             NightStep.SERIAL_KILLER -> hasAliveRole(WerwolfRoles.SERIAL_KILLER)
             NightStep.RESOLVE -> true
         }
-    }
 
-    private fun hasAliveRole(role: WerwolfRoles): Boolean {
-        return players.values.any { it.isAlive && it.role == role }
-    }
+    private fun hasAliveRole(role: WerwolfRoles): Boolean = players.values.any { it.isAlive && it.role == role }
 
-    private fun stepForAction(action: NightAction): NightStep {
-        return when (action) {
+    private fun stepForAction(action: NightAction): NightStep = when (action) {
             is NightAction.AmorLink -> NightStep.AMOR
             is NightAction.WerewolfKill -> NightStep.WEREWOLVES
             is NightAction.GirlPeek -> NightStep.GIRL
@@ -95,7 +86,6 @@ internal class NightStepCoordinator(
 
             is NightAction.SerialKillerKill -> NightStep.SERIAL_KILLER
         }
-    }
 
     fun nextStepAfterTimeout(currentStep: NightStep?): NightStep? {
         val step = currentStep ?: return null

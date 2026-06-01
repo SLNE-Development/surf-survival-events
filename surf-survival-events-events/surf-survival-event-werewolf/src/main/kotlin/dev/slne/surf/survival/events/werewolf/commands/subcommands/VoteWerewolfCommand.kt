@@ -1,6 +1,7 @@
 package dev.slne.surf.survival.events.werewolf.commands.subcommands
 
 import dev.jorel.commandapi.arguments.EntitySelectorArgument
+import dev.jorel.commandapi.kotlindsl.getValue
 import dev.jorel.commandapi.kotlindsl.playerExecutor
 import dev.jorel.commandapi.kotlindsl.subcommand
 import dev.slne.surf.api.core.messages.adventure.sendText
@@ -13,9 +14,9 @@ import org.bukkit.entity.Player
 
 fun voteWerewolfCommand() = subcommand("vote") {
     withRequirement { sender -> WerewolfCommandRequirements.canVote(sender) }
-    withArguments(EntitySelectorArgument.OnePlayer("player"))
+    withArguments(EntitySelectorArgument.OnePlayer("targetPlayer"))
     playerExecutor { commandSender, arguments ->
-        val targetPlayer = arguments.get("player") as Player
+        val targetPlayer: Player by arguments
         val service = WerewolfGameManager.getGameForPlayer(commandSender.uuid())
 
         if (service == null) {
