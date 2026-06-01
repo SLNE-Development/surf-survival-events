@@ -17,5 +17,9 @@ fun raceCommand() = commandAPICommand("race") {
     setStartCommand()
     setBarrierCommand()
     setLapsCommand()
+    setPlayersPerRoundCommand()
+    setQualifiersPerRoundCommand()
+    setFinalWinnerCountCommand()
     setLobbyCommand()
+    setSpectatorCommand()
 }

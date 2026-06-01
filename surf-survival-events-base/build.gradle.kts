@@ -18,3 +18,7 @@ surfPaperPluginApi {
         registerRequired("surf-npc-paper")
     }
 }
+
+kotlin {
+    explicitApi()
+}

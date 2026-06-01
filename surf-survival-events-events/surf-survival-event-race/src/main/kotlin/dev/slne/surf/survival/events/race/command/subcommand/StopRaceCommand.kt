@@ -5,54 +5,44 @@ import dev.jorel.commandapi.CommandAPICommand
 import dev.jorel.commandapi.kotlindsl.anyExecutor
 import dev.jorel.commandapi.kotlindsl.subcommand
 import dev.slne.surf.api.core.messages.adventure.sendText
+import dev.slne.surf.survival.events.base.game.GameStopReason
+import dev.slne.surf.survival.events.base.service.GameService
+import dev.slne.surf.survival.events.race.game.RaceGame
 import dev.slne.surf.survival.events.race.plugin
-import dev.slne.surf.survival.events.race.service.ProgressService
 import dev.slne.surf.survival.events.race.service.RaceService
 import dev.slne.surf.survival.events.race.service.RaceState
-import dev.slne.surf.survival.events.race.service.RegionService
 import dev.slne.surf.survival.events.race.utils.PermissionList
-import org.bukkit.Bukkit
-import org.bukkit.Material
 
 fun CommandAPICommand.raceStopCommand() = subcommand("stop") {
     withPermission(PermissionList.COMMAND_COMMUNITY_MANAGER)
     anyExecutor { sender, _ ->
-
-        if (RaceService.getRaceState() == RaceState.DEACTIVATED) {
-            sender.sendText {
-                appendErrorPrefix()
-                error("Es ist kein Event Aktiv.")
-            }
-            return@anyExecutor
-        }
-
-        sender.sendText {
-            appendSuccessPrefix()
-            success("Das Rennen wurde gestoppt.")
-        }
-
-        RaceService.setRaceState(RaceState.DEACTIVATED)
-        ProgressService.clear()
-
         plugin.launch {
-            RegionService.fillBlocks(Material.AIR)
-        }
-
-        RaceService.getRacePlayers().toList().forEach { uuid ->
-            val player = Bukkit.getPlayer(uuid) ?: return@forEach
-            RaceService.removePlayer(player)
-            player.sendText {
-                appendInfoPrefix()
-                info("Das Rennen wurde gestoppt.")
+            if (!GameService.isActiveGame(RaceGame.KEY) && RaceService.getRaceState() == RaceState.DEACTIVATED) {
+                sender.sendText {
+                    appendErrorPrefix()
+                    error("Es ist kein Race Event aktiv.")
+                }
+                return@launch
             }
-        }
 
-        RaceService.getSpectatorPlayers().toList().forEach { uuid ->
-            val player = Bukkit.getPlayer(uuid) ?: return@forEach
-            RaceService.removeSpectator(uuid)
-            player.sendText {
-                appendInfoPrefix()
-                info("Das Rennen wurde gestoppt.")
+            val stopped = if (GameService.isActiveGame(RaceGame.KEY)) {
+                GameService.stopGameAndWait(GameStopReason.COMMAND)
+            } else {
+                RaceService.stopRace(context = null)
+                RaceGame.KEY
+            }
+
+            if (stopped == null) {
+                sender.sendText {
+                    appendErrorPrefix()
+                    error("Es ist kein Race Event aktiv.")
+                }
+                return@launch
+            }
+
+            sender.sendText {
+                appendSuccessPrefix()
+                success("Das Rennen wurde gestoppt.")
             }
         }
     }

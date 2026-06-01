@@ -1,25 +1,19 @@
 package dev.slne.surf.survival.events.base.listeners
 
-import dev.slne.surf.survival.events.base.service.AnnouncementService
 import dev.slne.surf.survival.events.base.service.GameService
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.player.PlayerJoinEvent
 import org.bukkit.event.player.PlayerQuitEvent
 
-object JoinQuitListener : Listener {
+internal object JoinQuitListener : Listener {
     @EventHandler
     fun onPlayerQuit(event: PlayerQuitEvent) {
-        if (!GameService.isGameActive()) return
-
-        GameService.leaveGameQueue(event.player)
-        GameService.leaveWaitingQueue(event.player)
+        GameService.onPlayerQuit(event.player)
     }
 
     @EventHandler
     fun onPlayerJoin(event: PlayerJoinEvent) {
-        if (!GameService.isGameActive()) return
-
-        AnnouncementService.sendOpenEvent(event.player)
+        GameService.onPlayerJoin(event.player)
     }
 }

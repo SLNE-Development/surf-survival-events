@@ -1,21 +1,24 @@
 package dev.slne.surf.survival.events.race.service
 
 import com.github.shynixn.mccoroutine.folia.regionDispatcher
-import dev.slne.surf.survival.events.race.config.SurfRaceConfig
+import dev.slne.surf.survival.events.base.game.GameContext
+import dev.slne.surf.survival.events.base.service.GameService
+import dev.slne.surf.survival.events.race.config.RaceConfig
+import dev.slne.surf.survival.events.race.game.RaceGame
 import dev.slne.surf.survival.events.race.plugin
-import dev.slne.surf.survival.events.race.region.boundingBox
-import dev.slne.surf.survival.events.race.region.contains
+import dev.slne.surf.survival.events.race.utils.containsComplete
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
-import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.Material
+import org.bukkit.util.BoundingBox
 
 object RegionService {
+
+    context(context: GameContext)
     suspend fun fillBlocks(material: Material) = coroutineScope {
-        SurfRaceConfig.getConfig().barrier.forEach { barrier ->
-            val world = Bukkit.getWorld(barrier.world) ?: return@forEach
-            val box = barrier.boundingBox
+        RaceConfig.getConfig().barriers.forEach { box ->
+            val world = context.eventWorld
 
             val minX = box.minX.toInt()
             val minY = box.minY.toInt()
@@ -46,14 +49,18 @@ object RegionService {
         }
     }
 
-    fun getCheckpoint(playerLocation: Location): SurfRaceConfig.CheckPointConfig? =
-        SurfRaceConfig.getConfig()
-            .checkPoints
-            .find { it.contains(playerLocation) }
+    fun getCheckpoint(playerLocation: Location): RaceConfig.CheckPointConfig? {
+        val context = GameService.requiredSnapshot(RaceGame.KEY)
+        if (context.eventWorld != playerLocation.world) return null
 
-    fun getSortedCheckpoints(): List<SurfRaceConfig.CheckPointConfig> =
-        SurfRaceConfig.getConfig()
-            .checkPoints
+        return RaceConfig.getConfig()
+            .checkpoints
+            .find { it.containsComplete(playerLocation) }
+    }
+
+    fun getSortedCheckpoints(): List<RaceConfig.CheckPointConfig> =
+        RaceConfig.getConfig()
+            .checkpoints
             .sortedBy { it.id }
 
     fun getNextExpectedCheckpointId(currentCheckpointId: Int): Int? {
@@ -65,11 +72,16 @@ object RegionService {
     }
 
     fun getHighestCheckpointId(): Int? =
-        SurfRaceConfig.getConfig()
-            .checkPoints
+        RaceConfig.getConfig()
+            .checkpoints
             .maxOfOrNull { it.id }
 
-    fun getStart(playerLocation: Location): SurfRaceConfig.StartConfig? = SurfRaceConfig.getConfig()
-        .start
-        .find { it.contains(playerLocation) }
+    fun getStart(playerLocation: Location): BoundingBox? {
+        val context = GameService.requiredSnapshot(RaceGame.KEY)
+        if (context.eventWorld != playerLocation.world) return null
+
+        return RaceConfig.getConfig()
+            .starts
+            .find { it.containsComplete(playerLocation) }
+    }
 }
