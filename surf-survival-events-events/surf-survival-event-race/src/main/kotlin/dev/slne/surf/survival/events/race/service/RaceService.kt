@@ -294,10 +294,27 @@ object RaceService {
 
         val isActiveRacer = lock.read { uuid in racePlayers }
 
-        if (isActiveRacer && raceState != RaceState.RUNNING) {
-            teleportToRoundLobby(uuid)
-        } else {
-            teleportToSpectatorLocation(uuid)
+        when {
+            isActiveRacer && raceState == RaceState.RUNNING -> {
+                // Race is live — restore player to their start position and put them on a nautilus
+                val starts = RaceConfig.getConfig().starts
+                val player = Bukkit.getPlayer(uuid) ?: return
+                if (starts.isEmpty()) {
+                    teleportToRoundLobby(uuid)
+                    return
+                }
+                val index = lock.read { racePlayers.indexOf(uuid) }.coerceAtLeast(0)
+                val start = starts.getOrNull(index) ?: starts.first()
+                val location = midStartLocation(context, start)
+                plugin.launch {
+                    player.teleportAsync(location).await()
+                    withContext(plugin.entityDispatcher(player)) {
+                        setPlayerOnNautilus(player)
+                    }
+                }
+            }
+            isActiveRacer -> teleportToRoundLobby(uuid)
+            else -> teleportToSpectatorLocation(uuid)
         }
     }
 
@@ -345,6 +362,12 @@ object RaceService {
 
         countdownJob = plugin.scope.runAtFixedRate(1.seconds) {
             val currentCountdown = countdown.getAndDecrement()
+
+            val titleTargets = getRacePlayers() + getSpectatorPlayers()
+            titleTargets.forEach { uuid ->
+                Bukkit.getPlayer(uuid)?.let { showTitle(it, currentCountdown) }
+            }
+
             if (currentCountdown <= 0) {
                 setRaceState(RaceState.RUNNING)
                 plugin.launch {
@@ -357,11 +380,6 @@ object RaceService {
                 countdownJob = null
                 cancel("Countdown has finished.")
                 return@runAtFixedRate
-            }
-
-            val titleTargets = getRacePlayers() + getSpectatorPlayers()
-            titleTargets.forEach { uuid ->
-                Bukkit.getPlayer(uuid)?.let { showTitle(it) }
             }
         }
     }
@@ -715,12 +733,11 @@ object RaceService {
         return start.center.toLocation(context.eventWorld).setRotation(start.yaw, start.pitch)
     }
 
-    private fun showTitle(player: Player) {
+    private fun showTitle(player: Player, currentCountdown: Int) {
         player.showTitle {
             title {
-                val countdown = countdown.get()
                 text(
-                    if (countdown <= 0) "LOS!" else countdown.toString(),
+                    if (currentCountdown <= 0) "LOS!" else currentCountdown.toString(),
                     Colors.VARIABLE_VALUE
                 )
             }

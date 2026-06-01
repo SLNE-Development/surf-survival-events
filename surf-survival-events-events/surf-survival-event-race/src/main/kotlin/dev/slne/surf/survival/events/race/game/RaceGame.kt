@@ -55,8 +55,10 @@ class RaceGame : GameHandler {
         // New late joiner — only allow participation before the first qualifying round completes
         return if (RaceService.canLateJoin()) {
             RunningJoinResult.JOINED_AS_RESERVE
-        } else {
+        } else if (RaceConfig.getConfig().gameplay.lateJoinAsSpectator) {
             RunningJoinResult.JOINED_AS_SPECTATOR
+        } else {
+            RunningJoinResult.DENIED
         }
     }
 
