@@ -382,6 +382,7 @@ object RaceService {
 
     suspend fun stopRace(notifyPlayers: Boolean = true) {
         countdownJob?.cancel("Race has been stopped.")
+        countdownJob = null
 
         val playersToClean = lock.withLock {
             buildSet {
