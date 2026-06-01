@@ -1,8 +1,10 @@
 package dev.slne.surf.survival.events.race.service
 
 import com.github.shynixn.mccoroutine.folia.regionDispatcher
+import dev.slne.surf.survival.events.base.game.GameKey
 import dev.slne.surf.survival.events.base.service.GameService
 import dev.slne.surf.survival.events.race.config.RaceConfig
+import dev.slne.surf.survival.events.race.game.RaceGame
 import dev.slne.surf.survival.events.race.plugin
 import dev.slne.surf.survival.events.race.utils.containsComplete
 import kotlinx.coroutines.coroutineScope
@@ -47,10 +49,14 @@ object RegionService {
         }
     }
 
-    fun getCheckpoint(playerLocation: Location): RaceConfig.CheckPointConfig? =
-        RaceConfig.getConfig()
+    fun getCheckpoint(playerLocation: Location): RaceConfig.CheckPointConfig? {
+        val context = GameService.requiredSnapshot(RaceGame.KEY)
+        if (context.eventWorld != playerLocation.world) return null
+
+        return RaceConfig.getConfig()
             .checkpoints
             .find { it.containsComplete(playerLocation) }
+    }
 
     fun getSortedCheckpoints(): List<RaceConfig.CheckPointConfig> =
         RaceConfig.getConfig()
