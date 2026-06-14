@@ -73,7 +73,7 @@ fun doctorWerewolfCommand() = subcommand("doctor") {
         if (!submitted) {
             commandSender.sendText {
                 appendErrorPrefix()
-                error("Du kannst nur dich selbst oder das aktuelle Werwolf-Opfer heilen.")
+                error("Du kannst nur lebende Spieler heilen.")
             }
             return@playerExecutor
         }

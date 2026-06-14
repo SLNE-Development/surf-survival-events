@@ -30,6 +30,13 @@ fun startWerewolfCommand() = subcommand("start") {
                 }
             }
 
+            is WerewolfStartResult.MissingRespawnPoint -> {
+                player.sendText {
+                    appendErrorPrefix()
+                    error("Start fehlgeschlagen! Setze zuerst den Respawnpoint fuer ausgeschiedene Spieler mit /werewolf setRespawnPoint ${game.gameId}.")
+                }
+            }
+
             is WerewolfStartResult.NotEnoughPlayers -> {
                 player.sendText {
                     appendErrorPrefix()

@@ -9,11 +9,8 @@ object DoctorActions {
     fun isValid(
         action: NightAction.DoctorProtect,
         players: Map<UUID, WerewolfPlayer>,
-        werewolfTarget: UUID?,
     ): Boolean {
-        if (players[action.target]?.isAlive != true) return false
-
-        return action.target == action.actor || action.target == werewolfTarget
+        return players[action.target]?.isAlive == true
     }
 
     fun resolveTarget(actions: List<NightAction>): UUID? = actions

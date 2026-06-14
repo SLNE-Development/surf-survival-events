@@ -23,10 +23,12 @@ import dev.slne.surf.survival.events.werewolf.util.*
 import dev.slne.surf.survival.events.werewolf.voicechat.WerewolfVoicechatPlugin
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.future.await
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextDecoration
+import org.bukkit.Location
 import org.bukkit.Sound
 import org.bukkit.entity.Player
 import org.bukkit.potion.PotionEffect
@@ -48,6 +50,7 @@ sealed class WerewolfJoinResult {
 sealed class WerewolfStartResult {
     data object Success : WerewolfStartResult()
     data object NotInLobbyPhase : WerewolfStartResult()
+    data object MissingRespawnPoint : WerewolfStartResult()
     data class NotEnoughPlayers(val current: Int, val required: Int) : WerewolfStartResult()
     data class Error(val message: String) : WerewolfStartResult()
 }
@@ -70,6 +73,11 @@ class WerewolfService(val gameId: String) {
         get() = _state
 
     private var _state = GameState.DAY
+
+    val eliminationRespawnPoint: Location?
+        get() = _eliminationRespawnPoint?.clone()
+
+    private var _eliminationRespawnPoint: Location? = null
 
     val isPhaseTransitioning: Boolean
         get() = _isPhaseTransitioning
@@ -102,7 +110,6 @@ class WerewolfService(val gameId: String) {
 
     private var _engine = WerewolfGameEngine(this)
     private val glowingTargetsByWerewolf = mutableMapOf<UUID, UUID>()
-    private val glowingTargetsByDoctor = mutableMapOf<UUID, UUID>()
     private val glowingTargetsByWitch = mutableMapOf<UUID, Set<UUID>>()
     private val hiddenPlayerPairs = mutableSetOf<HiddenPlayerPair>()
     private val pendingNightExecutions = mutableListOf<UUID>()
@@ -115,6 +122,7 @@ class WerewolfService(val gameId: String) {
         players.clear()
         _phase = GamePhase.LOBBY
         _leader = leaderUuid
+        _eliminationRespawnPoint = null
         stopRequested = false
     }
 
@@ -140,6 +148,10 @@ class WerewolfService(val gameId: String) {
 
         if (phase != GamePhase.LOBBY) {
             return WerewolfStartResult.NotInLobbyPhase
+        }
+
+        if (_eliminationRespawnPoint == null) {
+            return WerewolfStartResult.MissingRespawnPoint
         }
 
         // Testing
@@ -259,12 +271,6 @@ class WerewolfService(val gameId: String) {
                                     makeGlowing(player)
                                 }
 
-                                if (engine.currentNightStep == NightStep.DOCTOR &&
-                                    werewolfPlayer.role == WerwolfRoles.DOCTOR
-                                ) {
-                                    makeDoctorGlowing(player)
-                                }
-
                                 if (engine.currentNightStep == NightStep.WITCH &&
                                     werewolfPlayer.role == WerwolfRoles.WITCH
                                 ) {
@@ -277,17 +283,12 @@ class WerewolfService(val gameId: String) {
                             clearWerewolfGlowingNow()
                         }
 
-                        if (engine.currentNightStep != NightStep.DOCTOR) {
-                            clearDoctorGlowingNow()
-                        }
-
                         if (engine.currentNightStep != NightStep.WITCH) {
                             clearWitchGlowingNow()
                         }
                     } else {
                         clearBlindnessNow()
                         clearWerewolfGlowingNow()
-                        clearDoctorGlowingNow()
                         clearWitchGlowingNow()
                     }
 
@@ -356,6 +357,10 @@ class WerewolfService(val gameId: String) {
         }
     }
 
+    fun setEliminationRespawnPoint(location: Location) {
+        _eliminationRespawnPoint = location.clone()
+    }
+
     fun finishGame(winner: GameOutcome) {
         if (stopRequested || phase == GamePhase.IDLE) return
         stopRequested = true
@@ -372,7 +377,6 @@ class WerewolfService(val gameId: String) {
         phaseSessionId += 1
         _phase = GamePhase.IDLE
         clearWerewolfGlowing()
-        clearDoctorGlowing()
         clearWitchGlowing()
         clearBlindness()
         restoreHiddenPlayerVisibility()
@@ -384,6 +388,7 @@ class WerewolfService(val gameId: String) {
         messenger.announceGameStopped()
 
         pendingNightExecutions.clear()
+        _eliminationRespawnPoint = null
         players.clear()
         _leader = null
 
@@ -411,7 +416,6 @@ class WerewolfService(val gameId: String) {
         player.removeFromWerewolfScoreboard()
 
         clearWerewolfGlowing()
-        clearDoctorGlowing()
         clearWitchGlowing()
         restoreVisibilityForPlayer(playerId)
 
@@ -490,45 +494,12 @@ class WerewolfService(val gameId: String) {
         glowingTargetsByWitch[witch.uniqueId] = validTargetIds
     }
 
-    private fun makeDoctorGlowing(doctor: Player) {
-        val currentTargetId = engine.getDoctorHealTarget(doctor)
-        val previousTargetId = glowingTargetsByDoctor[doctor.uniqueId]
-
-        if (currentTargetId == previousTargetId) return
-
-        previousTargetId?.toBukkitPlayer()?.let { previousTarget ->
-            SurfGlowingApi.removeGlowing(previousTarget, doctor)
-        }
-
-        if (currentTargetId == null) {
-            glowingTargetsByDoctor.remove(doctor.uniqueId)
-            return
-        }
-
-        val currentTarget = currentTargetId.toBukkitPlayer()
-        if (currentTarget == null) {
-            glowingTargetsByDoctor.remove(doctor.uniqueId)
-            return
-        }
-
-        SurfGlowingApi.makeGlowing(currentTarget, doctor, NamedTextColor.AQUA)
-        glowingTargetsByDoctor[doctor.uniqueId] = currentTargetId
-    }
-
     private suspend fun clearWerewolfGlowingNow() {
         if (glowingTargetsByWerewolf.isEmpty()) return
 
         val glowingTargets = glowingTargetsByWerewolf.toMap()
         glowingTargetsByWerewolf.clear()
         removeWerewolfGlowing(glowingTargets)
-    }
-
-    private suspend fun clearDoctorGlowingNow() {
-        if (glowingTargetsByDoctor.isEmpty()) return
-
-        val glowingTargets = glowingTargetsByDoctor.toMap()
-        glowingTargetsByDoctor.clear()
-        removeDoctorGlowing(glowingTargets)
     }
 
     private suspend fun clearWitchGlowingNow() {
@@ -569,17 +540,6 @@ class WerewolfService(val gameId: String) {
         }
     }
 
-    private fun clearDoctorGlowing() {
-        if (glowingTargetsByDoctor.isEmpty()) return
-
-        val glowingTargets = glowingTargetsByDoctor.toMap()
-        glowingTargetsByDoctor.clear()
-
-        plugin.launch {
-            removeDoctorGlowing(glowingTargets)
-        }
-    }
-
     private fun clearWitchGlowing() {
         if (glowingTargetsByWitch.isEmpty()) return
 
@@ -598,17 +558,6 @@ class WerewolfService(val gameId: String) {
 
             withContext(plugin.entityDispatcher(werewolf)) {
                 SurfGlowingApi.removeGlowing(target, werewolf)
-            }
-        }
-    }
-
-    private suspend fun removeDoctorGlowing(glowingTargets: Map<UUID, UUID>) {
-        glowingTargets.forEach { (doctorId, targetId) ->
-            val doctor = doctorId.toBukkitPlayer() ?: return@forEach
-            val target = targetId.toBukkitPlayer() ?: return@forEach
-
-            withContext(plugin.entityDispatcher(doctor)) {
-                SurfGlowingApi.removeGlowing(target, doctor)
             }
         }
     }
@@ -674,30 +623,28 @@ class WerewolfService(val gameId: String) {
         if (executedPlayers.isEmpty()) return
 
         val currentPhaseSessionId = phaseSessionId
-        val viewerIds = allParticipants
-            .map { it.uniqueId }
-            .distinct()
+        val respawnPoint = eliminationRespawnPoint
+        if (respawnPoint == null) {
+            plugin.logger.warning("Could not apply eliminations in werewolf game '$gameId': missing elimination respawn point")
+            refreshCommandRequirements()
+            return
+        }
 
         plugin.launch {
             executedPlayers.forEach { deadPlayerId ->
                 if (phase != GamePhase.RUNNING || phaseSessionId != currentPhaseSessionId) return@launch
 
-                viewerIds.forEach { viewerId ->
-                    if (phase != GamePhase.RUNNING || phaseSessionId != currentPhaseSessionId) return@launch
-                    if (viewerId == deadPlayerId) return@forEach
+                val deadPlayer = deadPlayerId.toBukkitPlayer() ?: return@forEach
 
-                    val viewer = viewerId.toBukkitPlayer() ?: return@forEach
-
-                    withContext(plugin.entityDispatcher(viewer)) {
-                        if (phase != GamePhase.RUNNING || phaseSessionId != currentPhaseSessionId) return@withContext
-                        val deadPlayer = deadPlayerId.toBukkitPlayer() ?: return@withContext
-                        hiddenPlayerPairs += HiddenPlayerPair(viewerId, deadPlayerId)
-                        viewer.hidePlayer(plugin, deadPlayer)
-                    }
+                withContext(plugin.entityDispatcher(deadPlayer)) {
+                    if (phase != GamePhase.RUNNING || phaseSessionId != currentPhaseSessionId) return@withContext
+                    deadPlayer.removePotionEffect(PotionEffectType.BLINDNESS)
                 }
 
-                if (deadPlayerId.toBukkitPlayer()?.isVisibleByDefault == false) {
-                    plugin.logger.fine("Player not visible! \n PlayerID: $deadPlayerId \n PlayerName: ${deadPlayerId.toBukkitPlayer()?.name}")
+                try {
+                    deadPlayer.teleportAsync(respawnPoint).await()
+                } catch (throwable: Throwable) {
+                    plugin.logger.warning("Failed to teleport eliminated player '${deadPlayer.name}' to werewolf respawn point: ${throwable.message}")
                 }
             }
         }

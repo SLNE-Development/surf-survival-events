@@ -27,7 +27,7 @@ internal class NightResolver(
                     SeerActions.isValid(action, players)
 
             is NightAction.DoctorProtect -> actorRole == WerwolfRoles.DOCTOR &&
-                    DoctorActions.isValid(action, players, werewolfTarget)
+                    DoctorActions.isValid(action, players)
 
             is NightAction.WitchHeal,
             is NightAction.WitchPoison -> actorRole == WerwolfRoles.WITCH &&

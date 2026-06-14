@@ -12,6 +12,7 @@ import dev.slne.surf.survival.events.werewolf.commands.subcommands.killWerewolfC
 import dev.slne.surf.survival.events.werewolf.commands.subcommands.openGameWerewolfCommand
 import dev.slne.surf.survival.events.werewolf.commands.subcommands.priestWerewolfCommand
 import dev.slne.surf.survival.events.werewolf.commands.subcommands.serialKillerWerewolfCommand
+import dev.slne.surf.survival.events.werewolf.commands.subcommands.setRespawnPointWerewolfCommand
 import dev.slne.surf.survival.events.werewolf.commands.subcommands.startWerewolfCommand
 import dev.slne.surf.survival.events.werewolf.commands.subcommands.stopWerewolfCommand
 import dev.slne.surf.survival.events.werewolf.commands.subcommands.voteWerewolfCommand
@@ -29,6 +30,7 @@ fun werewolfCommand() = commandAPICommand("werewolf"){
     subcommand(witchWerewolfCommand())
     subcommand(debugWerewolfCommand())
 
+    subcommand(setRespawnPointWerewolfCommand())
     subcommand(startWerewolfCommand())
     subcommand(stopWerewolfCommand())
     subcommand(openGameWerewolfCommand())

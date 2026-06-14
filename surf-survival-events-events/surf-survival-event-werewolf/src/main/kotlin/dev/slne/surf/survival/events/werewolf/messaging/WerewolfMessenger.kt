@@ -84,22 +84,9 @@ class WerewolfMessenger(private val service: WerewolfService) {
     ) {
         announceToLeader {
             appendInfoPrefix()
-            info(votePhaseName(state))
-            appendSpace()
-            variableValue(playerName(voterId))
-            appendSpace()
-            info("stimmt für")
-            appendSpace()
-            variableValue(playerName(targetId))
-
-            if (previousTargetId != null) {
-                appendSpace()
-                spacer("(")
-                info("zuvor")
-                appendSpace()
-                variableValue(playerName(previousTargetId))
-                spacer(")")
-            }
+            appendLeaderActionHeader(votePhaseName(state))
+            appendActorTarget(voterId, targetId)
+            appendPreviousTarget(previousTargetId)
         }
     }
 
@@ -112,17 +99,12 @@ class WerewolfMessenger(private val service: WerewolfService) {
 
             when (action) {
                 is NightAction.AmorLink -> {
-                    info("Amor")
-                    appendSpace()
+                    appendLeaderActionHeader("Amor")
                     variableValue(playerName(action.actor))
                     appendSpace()
-                    info("verbindet")
+                    spacer("->")
                     appendSpace()
-                    variableValue(playerName(action.first))
-                    appendSpace()
-                    info("und")
-                    appendSpace()
-                    variableValue(playerName(action.second))
+                    variableValue("${playerName(action.first)} + ${playerName(action.second)}")
 
                     val previousLink = previousAction as? NightAction.AmorLink
                     if (previousLink != null) {
@@ -140,14 +122,8 @@ class WerewolfMessenger(private val service: WerewolfService) {
                 }
 
                 is NightAction.DoctorProtect -> {
-                    info("Doktor")
-                    appendSpace()
-                    variableValue(playerName(action.actor))
-                    appendSpace()
-                    info("schützt")
-                    appendSpace()
-                    variableValue(playerName(action.target))
-
+                    appendLeaderActionHeader("Doktor")
+                    appendActorTarget(action.actor, action.target)
                     val previousTarget = (previousAction as? NightAction.DoctorProtect)?.target
                     appendPreviousTarget(previousTarget)
                 }
@@ -156,55 +132,29 @@ class WerewolfMessenger(private val service: WerewolfService) {
                 is NightAction.SeerInspect -> Unit
 
                 is NightAction.SerialKillerKill -> {
-                    info("Serienmörder")
-                    appendSpace()
-                    variableValue(playerName(action.actor))
-                    appendSpace()
-                    info("wählt")
-                    appendSpace()
-                    variableValue(playerName(action.target))
-                    appendSpace()
-                    info("als Opfer")
-
+                    appendLeaderActionHeader("Serienmoerder")
+                    appendActorTarget(action.actor, action.target)
                     val previousTarget = (previousAction as? NightAction.SerialKillerKill)?.target
                     appendPreviousTarget(previousTarget)
                 }
 
                 is NightAction.WerewolfKill -> {
-                    info("Werwolf")
-                    appendSpace()
-                    variableValue(playerName(action.actor))
-                    appendSpace()
-                    info("stimmt für")
-                    appendSpace()
-                    variableValue(playerName(action.target))
-
+                    appendLeaderActionHeader("Werwolf")
+                    appendActorTarget(action.actor, action.target)
                     val previousTarget = (previousAction as? NightAction.WerewolfKill)?.target
                     appendPreviousTarget(previousTarget)
                 }
 
                 is NightAction.WitchHeal -> {
-                    info("Hexe")
-                    appendSpace()
-                    variableValue(playerName(action.actor))
-                    appendSpace()
-                    info("setzt Heiltrank auf")
-                    appendSpace()
-                    variableValue(playerName(action.target))
-
+                    appendLeaderActionHeader("Hexe Heiltrank")
+                    appendActorTarget(action.actor, action.target)
                     val previousTarget = (previousAction as? NightAction.WitchHeal)?.target
                     appendPreviousTarget(previousTarget)
                 }
 
                 is NightAction.WitchPoison -> {
-                    info("Hexe")
-                    appendSpace()
-                    variableValue(playerName(action.actor))
-                    appendSpace()
-                    info("setzt Gifttrank auf")
-                    appendSpace()
-                    variableValue(playerName(action.target))
-
+                    appendLeaderActionHeader("Hexe Gifttrank")
+                    appendActorTarget(action.actor, action.target)
                     val previousTarget = (previousAction as? NightAction.WitchPoison)?.target
                     appendPreviousTarget(previousTarget)
                 }
@@ -215,20 +165,19 @@ class WerewolfMessenger(private val service: WerewolfService) {
     fun announceLeaderGirlPeek(actorId: UUID, outcome: GirlPeekOutcome) {
         announceToLeader {
             appendInfoPrefix()
-            info("Mädchen")
-            appendSpace()
+            appendLeaderActionHeader("Maedchen")
             variableValue(playerName(actorId))
+            appendSpace()
+            spacer("->")
             appendSpace()
 
             when (outcome) {
-                GirlPeekOutcome.CaughtByWerewolves -> info("wurde von den Werwölfen erwischt.")
+                GirlPeekOutcome.CaughtByWerewolves -> error("erwischt")
                 is GirlPeekOutcome.FoundWerewolf -> {
-                    info("hat einen Werwolf gesehen:")
-                    appendSpace()
                     variableValue(playerName(outcome.target))
                 }
 
-                GirlPeekOutcome.TooDark -> info("hat nichts erkannt.")
+                GirlPeekOutcome.TooDark -> info("nichts erkannt")
             }
         }
     }
@@ -240,19 +189,12 @@ class WerewolfMessenger(private val service: WerewolfService) {
     ) {
         announceToLeader {
             appendInfoPrefix()
-            info("Seherin")
+            appendLeaderActionHeader("Seherin")
+            appendActorTarget(actorId, targetId)
             appendSpace()
-            variableValue(playerName(actorId))
-            appendSpace()
-            info("deckt")
-            appendSpace()
-            variableValue(playerName(targetId))
-            appendSpace()
-            info("als")
+            spacer("=")
             appendSpace()
             variableValue(roleName(inspectedRole))
-            appendSpace()
-            info("auf.")
         }
     }
 
@@ -260,21 +202,43 @@ class WerewolfMessenger(private val service: WerewolfService) {
         targetId: UUID?,
         votes: List<NightAction.WerewolfKill>,
     ) {
+        val voteCounts = votes.groupingBy { it.target }.eachCount()
+        val maxVotes = voteCounts.values.maxOrNull() ?: 0
+        val hasMajority = maxVotes > votes.size / 2
+
         announceToLeader {
             appendInfoPrefix()
 
             if (votes.isEmpty()) {
-                info("Werwölfe haben in diesem Step kein Ziel abgegeben.")
+                appendLeaderActionHeader("Werwolf-Ziel")
+                info("keine Stimmen")
                 return@announceToLeader
             }
 
-            info("Werwolf-Ziel wurde aufgelöst:")
-            appendSpace()
+            appendLeaderActionHeader("Werwolf-Ziel")
 
             if (targetId == null) {
                 info("kein Ziel")
             } else {
                 variableValue(playerName(targetId))
+            }
+
+            appendSpace()
+            spacer("|")
+            appendSpace()
+            info("Stimmen:")
+            appendSpace()
+            variableValue(
+                voteCounts.entries
+                    .sortedByDescending { it.value }
+                    .joinToString(", ") { (target, count) -> "${playerName(target)}=$count" }
+            )
+
+            if (!hasMajority) {
+                appendSpace()
+                spacer("|")
+                appendSpace()
+                info("kein Mehrheitsziel, Zufall aus Stimmen")
             }
         }
     }
@@ -551,12 +515,7 @@ class WerewolfMessenger(private val service: WerewolfService) {
                 appendInfoPrefix()
                 info("Du bist jetzt am Zug. Nutze /werewolf doctor <spieler>.")
                 appendNewInfoPrefixedLine()
-                info("Du kannst dich selbst oder das aktuelle Werwolf-Opfer heilen.")
-
-                if (service.engine.currentWerewolfTarget != null) {
-                    appendNewInfoPrefixedLine()
-                    info("Das Werwolf-Opfer leuchtet für dich.")
-                }
+                info("Du kannst einen beliebigen lebenden Spieler heilen.")
             }
 
             NightStep.WITCH -> announceToRole(WerwolfRoles.WITCH) {
@@ -723,6 +682,25 @@ class WerewolfMessenger(private val service: WerewolfService) {
         }
 
         variableValue(playerName(playerId))
+    }
+
+    private fun SurfComponentBuilder.appendLeaderActionHeader(actionName: String) {
+        info("Aktion")
+        appendSpace()
+        spacer("|")
+        appendSpace()
+        variableValue(actionName)
+        appendSpace()
+        spacer("|")
+        appendSpace()
+    }
+
+    private fun SurfComponentBuilder.appendActorTarget(actorId: UUID, targetId: UUID) {
+        variableValue(playerName(actorId))
+        appendSpace()
+        spacer("->")
+        appendSpace()
+        variableValue(playerName(targetId))
     }
 
     private fun SurfComponentBuilder.appendPreviousTarget(previousTargetId: UUID?) {

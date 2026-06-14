@@ -452,18 +452,6 @@ class WerewolfGameEngine(
         return currentWitchHealTargets
     }
 
-    fun getDoctorHealTarget(player: Player): UUID? {
-        if (roundState.phase != GameState.NIGHT) return null
-        if (roundState.nightStep != NightStep.DOCTOR) return null
-        if (service.getPlayerRole(player.uniqueId) != WerwolfRoles.DOCTOR) return null
-        if (service.players[player.uniqueId]?.isAlive != true) return null
-
-        val targetId = roundState.werewolfTarget ?: return null
-        if (service.players[targetId]?.isAlive != true) return null
-
-        return targetId
-    }
-
     fun checkWinCondition(): GameOutcome? {
         val alivePlayers = service.players.values.filter { it.isAlive }
         if (hasAliveLoverPair(alivePlayers)) return GameOutcome.LoversWin

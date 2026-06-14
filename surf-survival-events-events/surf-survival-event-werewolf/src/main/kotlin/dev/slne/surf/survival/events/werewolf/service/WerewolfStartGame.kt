@@ -1,5 +1,6 @@
 package dev.slne.surf.survival.events.werewolf.service
 
+import org.bukkit.Location
 import java.util.UUID
 
 object WerewolfStartGame {
@@ -7,6 +8,7 @@ object WerewolfStartGame {
     fun startWerewolfGame(
         playerList: Collection<UUID>,
         leaderUuid: UUID? = null,
+        eliminationRespawnPoint: Location,
     ): WerewolfService {
         val gameId = "base-werewolf-${UUID.randomUUID().toString().take(8)}"
         val game = WerewolfGameManager.createGame(gameId, leaderUuid)
@@ -24,9 +26,12 @@ object WerewolfStartGame {
                     }
                 }
 
+            game.setEliminationRespawnPoint(eliminationRespawnPoint)
+
             when (val startResult = game.start()) {
                 WerewolfStartResult.Success -> return game
                 WerewolfStartResult.NotInLobbyPhase -> error("Werewolf game '$gameId' is not in lobby phase")
+                WerewolfStartResult.MissingRespawnPoint -> error("Werewolf game '$gameId' has no elimination respawn point")
                 is WerewolfStartResult.NotEnoughPlayers -> error("Not enough players for werewolf game '$gameId': ${startResult.current}/${startResult.required}")
                 is WerewolfStartResult.Error -> error("Could not start werewolf game '$gameId': ${startResult.message}")
             }
