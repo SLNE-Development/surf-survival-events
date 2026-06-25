@@ -13,6 +13,7 @@ data class GameRoundState(
     val protectedPlayer: UUID? = null,
     val werewolfTarget: UUID? = null,
     val mayorPlayer: UUID? = null,
+    val mayorVoteRequired: Boolean = true,
     val mayorVotes: MutableMap<UUID, UUID> = mutableMapOf(),
 ) {
     companion object {

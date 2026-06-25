@@ -52,8 +52,7 @@ internal class NightResolver(
         val eliminatedPlayers = linkedSetOf<UUID>()
 
         if (resolvedWerewolfTarget != null &&
-            resolvedWerewolfTarget !in protectedPlayers &&
-            players[resolvedWerewolfTarget]?.role != WerwolfRoles.SERIAL_KILLER
+            resolvedWerewolfTarget !in protectedPlayers
         ) {
             eliminatedPlayers.add(resolvedWerewolfTarget)
         }

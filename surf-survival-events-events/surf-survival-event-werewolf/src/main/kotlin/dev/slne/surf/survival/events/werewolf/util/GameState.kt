@@ -13,27 +13,27 @@ enum class GameState(
         buildText {
             darkBlue("Nacht")
         },
-        time = 10.seconds
+        time = 30.seconds
     ),
 
     DAY(
         buildText {
             gold("Tag")
         },
-        time = 15.seconds
+        time = 120.seconds
     ),
 
     VOTE(
         buildText {
             yellow("Abstimmung")
         },
-        time = 20.seconds
+        time = 45.seconds
     ),
 
     MAYOR_VOTE(
         buildText {
             yellow("Bürgermeisterwahl")
         },
-        time = 20.seconds
+        time = 45.seconds
     );
 }

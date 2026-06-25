@@ -31,8 +31,8 @@ object WerewolfRoleSelection {
         WerwolfRoles.WERWOLF,
         WerwolfRoles.SEER,
         WerwolfRoles.WITCH,
-        WerwolfRoles.AMOR,
-        WerwolfRoles.DOCTOR,
+        WerwolfRoles.VILLAGER,
+        WerwolfRoles.VILLAGER,
         WerwolfRoles.VILLAGER,
         WerwolfRoles.VILLAGER
     )
@@ -40,12 +40,12 @@ object WerewolfRoleSelection {
     private fun getRolesFor10() = listOf(
         WerwolfRoles.WERWOLF,
         WerwolfRoles.WERWOLF,
-        WerwolfRoles.WERWOLF,
         WerwolfRoles.SEER,
         WerwolfRoles.WITCH,
         WerwolfRoles.DOCTOR,
         WerwolfRoles.AMOR,
-        WerwolfRoles.GIRL,
+        WerwolfRoles.VILLAGER,
+        WerwolfRoles.VILLAGER,
         WerwolfRoles.VILLAGER,
         WerwolfRoles.VILLAGER
     )

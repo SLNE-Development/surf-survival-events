@@ -25,7 +25,7 @@ object WitchActions {
             is NightAction.WitchPoison -> {
                 val witch = players[action.actor] ?: return false
                 witch.hasWitchPoisonPotion &&
-                        dayNumber >= 1 &&
+                        dayNumber > 1 &&
                         players[action.target]?.isAlive == true &&
                         action.actor != action.target
             }
