@@ -253,56 +253,26 @@ class WerewolfMessenger(private val service: WerewolfService) {
     ) {
         announceToLeader {
             appendInfoPrefix()
-            info("Nachtauflösung:")
-
-            appendNewInfoPrefixedLine()
-            info("Werwolf-Ziel:")
+            variableValue("Nachtauflösung")
             appendSpace()
-            appendPlayerOrNone(resolution.werewolfTarget)
+            info("Leader-Übersicht")
 
-            appendNewInfoPrefixedLine()
-            info("Doktor schützt:")
-            appendSpace()
-            appendPlayerOrNone(doctorProtectedPlayer)
+            appendLeaderResolutionSection("Angriffe")
+            appendLeaderResolutionPlayerLine("Werwölfe", resolution.werewolfTarget)
+            appendLeaderResolutionPlayerLine("Serienmörder", serialKillerTarget)
+            appendLeaderResolutionPlayerLine("Hexe Gifttrank", witchPoisonTarget)
 
-            appendNewInfoPrefixedLine()
-            info("Hexe heilt:")
-            appendSpace()
-            appendPlayerOrNone(witchHealTarget)
+            appendLeaderResolutionSection("Schutz")
+            appendLeaderResolutionPlayerLine("Doktor", doctorProtectedPlayer)
+            appendLeaderResolutionPlayerLine("Hexe Heiltrank", witchHealTarget)
+            appendLeaderResolutionPlayerLine("Effektiv geschützt", resolution.protectedPlayer)
 
-            appendNewInfoPrefixedLine()
-            info("Hexe vergiftet:")
-            appendSpace()
-            appendPlayerOrNone(witchPoisonTarget)
+            appendLeaderResolutionSection("Sonderrollen")
+            appendLeaderResolutionLoversLine(resolution.lovers)
+            appendLeaderResolutionPlayerListLine("Mädchen erwischt", caughtGirls)
 
-            appendNewInfoPrefixedLine()
-            info("Serienmörder-Ziel:")
-            appendSpace()
-            appendPlayerOrNone(serialKillerTarget)
-
-            appendNewInfoPrefixedLine()
-            info("Mädchen erwischt:")
-            appendSpace()
-            appendPlayerListOrNone(caughtGirls)
-
-            appendNewInfoPrefixedLine()
-            info("Liebespaar:")
-            appendSpace()
-            if (resolution.lovers == null) {
-                info("keins")
-            } else {
-                val (firstId, secondId) = resolution.lovers
-                variableValue(playerName(firstId))
-                appendSpace()
-                info("und")
-                appendSpace()
-                variableValue(playerName(secondId))
-            }
-
-            appendNewInfoPrefixedLine()
-            info("Tote der Nacht:")
-            appendSpace()
-            appendPlayerListOrNone(resolution.eliminatedPlayers)
+            appendLeaderResolutionSection("Ergebnis")
+            appendLeaderResolutionPlayerListLine("Tote der Nacht", resolution.eliminatedPlayers, emptyMessage = "keine")
         }
     }
 
@@ -321,7 +291,7 @@ class WerewolfMessenger(private val service: WerewolfService) {
         }
     }
 
-    fun announceLeaderNightStepSkipped(currentStep: NightStep, nextStep: NightStep) {
+    fun announceLeaderNightStepSkipped(currentStep: NightStep, nextStep: NightStep, skippedBy: UUID? = null) {
         announceToLeader {
             appendInfoPrefix()
             info("Nightstep")
@@ -329,6 +299,12 @@ class WerewolfMessenger(private val service: WerewolfService) {
             variableValue(nightStepName(currentStep))
             appendSpace()
             info("wurde übersprungen.")
+            if (skippedBy != null) {
+                appendSpace()
+                info("Von:")
+                appendSpace()
+                variableValue(playerName(skippedBy))
+            }
             appendSpace()
             info("Nächster Step:")
             appendSpace()
@@ -520,7 +496,7 @@ class WerewolfMessenger(private val service: WerewolfService) {
 
             NightStep.WITCH -> announceToRole(WerwolfRoles.WITCH) {
                 appendInfoPrefix()
-                info("Du bist jetzt am Zug. Nutze /werewolf witch <heal|kill> <spieler>.")
+                info("Du bist jetzt am Zug. Nutze /werewolf witch heal <spieler>, /werewolf witch kill <spieler> oder /werewolf witch skip.")
                 appendNewInfoPrefixedLine()
 
                 if (service.engine.currentWitchHealTargets.isNotEmpty()) {
@@ -682,6 +658,58 @@ class WerewolfMessenger(private val service: WerewolfService) {
         }
 
         variableValue(playerName(playerId))
+    }
+
+    private fun SurfComponentBuilder.appendLeaderResolutionSection(title: String) {
+        appendNewInfoPrefixedLine()
+        spacer("-----")
+        appendSpace()
+        variableValue(title)
+        appendSpace()
+        spacer("-----")
+    }
+
+    private fun SurfComponentBuilder.appendLeaderResolutionPlayerLine(label: String, playerId: UUID?) {
+        appendNewInfoPrefixedLine()
+        info(label)
+        spacer(":")
+        appendSpace()
+        appendPlayerOrNone(playerId)
+    }
+
+    private fun SurfComponentBuilder.appendLeaderResolutionPlayerListLine(
+        label: String,
+        playerIds: List<UUID>,
+        emptyMessage: String = "niemand",
+    ) {
+        appendNewInfoPrefixedLine()
+        info(label)
+        spacer(":")
+        appendSpace()
+
+        if (playerIds.isEmpty()) {
+            info(emptyMessage)
+        } else {
+            variableValue(playerIds.joinToString(", ", transform = ::playerName))
+        }
+    }
+
+    private fun SurfComponentBuilder.appendLeaderResolutionLoversLine(lovers: Pair<UUID, UUID>?) {
+        appendNewInfoPrefixedLine()
+        info("Liebespaar:")
+        appendSpace()
+
+        if (lovers == null) {
+            info("keins")
+            return
+        }
+
+        val (firstId, secondId) = lovers
+        variableValue(playerName(firstId))
+        appendSpace()
+        info("und")
+        appendSpace()
+        variableValue(playerName(secondId))
     }
 
     private fun SurfComponentBuilder.appendLeaderActionHeader(actionName: String) {

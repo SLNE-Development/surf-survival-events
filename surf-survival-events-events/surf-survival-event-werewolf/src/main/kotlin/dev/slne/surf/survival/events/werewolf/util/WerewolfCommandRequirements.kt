@@ -69,8 +69,7 @@ object WerewolfCommandRequirements {
         withAliveParticipant(sender) { _, service, participant ->
             service.engine.currentPhase == GameState.NIGHT &&
                 service.engine.currentNightStep == NightStep.WITCH &&
-                participant.role == WerwolfRoles.WITCH &&
-                (participant.hasWitchHealPotion || participant.hasWitchPoisonPotion)
+                participant.role == WerwolfRoles.WITCH
         }
 
     fun canActAsPriest(sender: CommandSender): Boolean =
@@ -79,6 +78,11 @@ object WerewolfCommandRequirements {
                 participant.role == WerwolfRoles.PRIEST &&
                 participant.hasPriestHolyWater
         }
+
+    fun canUseLeaderDebug(sender: CommandSender): Boolean = withGame(sender) { player, service ->
+        service.leader == player.uniqueId &&
+            service.phase != GamePhase.IDLE
+    }
 
     fun canDebugSkipNightStep(sender: CommandSender): Boolean = withGame(sender) { player, service ->
         service.leader == player.uniqueId &&

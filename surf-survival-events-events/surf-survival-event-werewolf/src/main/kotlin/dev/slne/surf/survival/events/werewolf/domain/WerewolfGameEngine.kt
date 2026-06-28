@@ -538,7 +538,10 @@ class WerewolfGameEngine(
         setNightStep(nextStep)
     }
 
-    private fun advanceNightStepOnTimeout(cause: NightStepAdvanceCause = NightStepAdvanceCause.TIMEOUT) {
+    private fun advanceNightStepOnTimeout(
+        cause: NightStepAdvanceCause = NightStepAdvanceCause.TIMEOUT,
+        skippedBy: UUID? = null,
+    ) {
         val currentStep = roundState.nightStep ?: return
         if (currentStep == NightStep.WEREWOLVES) {
             resolveWerewolfTargetForCurrentStep()
@@ -548,7 +551,7 @@ class WerewolfGameEngine(
             ?: NightStep.RESOLVE
 
         when (cause) {
-            NightStepAdvanceCause.SKIPPED -> messenger.announceLeaderNightStepSkipped(currentStep, nextStep)
+            NightStepAdvanceCause.SKIPPED -> messenger.announceLeaderNightStepSkipped(currentStep, nextStep, skippedBy)
             NightStepAdvanceCause.TIMEOUT -> messenger.announceLeaderNightStepTimeout(currentStep, nextStep)
         }
 
@@ -572,12 +575,12 @@ class WerewolfGameEngine(
         existingAction.actor == newAction.actor &&
                 existingAction::class == newAction::class
 
-    fun skipCurrentNightStep(): Boolean {
+    fun skipCurrentNightStep(skippedBy: UUID? = null): Boolean {
         if (roundState.phase != GameState.NIGHT) return false
         val currentStep = roundState.nightStep ?: return false
         if (currentStep == NightStep.RESOLVE) return false
 
-        advanceNightStepOnTimeout(NightStepAdvanceCause.SKIPPED)
+        advanceNightStepOnTimeout(NightStepAdvanceCause.SKIPPED, skippedBy)
         service.refreshCommandRequirements()
         return true
     }

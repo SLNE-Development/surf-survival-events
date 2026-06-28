@@ -619,6 +619,35 @@ class WerewolfService(val gameId: String) {
         applyEliminations(executedPlayers)
     }
 
+    fun debugAdvancePhase(): PhaseAdvanceResult? {
+        if (phase != GamePhase.RUNNING || isPhaseTransitioning) return null
+
+        val advanceResult = engine.advancePhase()
+        if (advanceResult.winner != null) {
+            finishGame(advanceResult.winner)
+            return advanceResult
+        }
+
+        messenger.announcePhaseStarted(advanceResult.nextPhase)
+
+        when (advanceResult.nextPhase) {
+            GameState.NIGHT -> {
+                engine.announceCurrentNightStep()
+            }
+
+            GameState.DAY -> {
+                messenger.announceNightExecutionResults(pendingNightExecutions.toList())
+                executePendingNightExecutions()
+            }
+
+            GameState.VOTE -> Unit
+            GameState.MAYOR_VOTE -> Unit
+        }
+
+        refreshCommandRequirements()
+        return advanceResult
+    }
+
     private fun applyEliminations(executedPlayers: List<UUID>) {
         if (executedPlayers.isEmpty()) return
 
