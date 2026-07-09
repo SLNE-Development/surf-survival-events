@@ -8,6 +8,7 @@ import dev.slne.surf.survival.events.hideandseek.game.SeekerRole
 import dev.slne.surf.survival.events.hideandseek.plugin
 import dev.slne.surf.survival.events.hideandseek.service.HideAndSeekRoleManager
 import dev.slne.surf.survival.events.hideandseek.service.HideAndSeekService
+import dev.slne.surf.survival.events.hideandseek.service.currentContext
 import org.bukkit.Material
 import org.bukkit.block.data.type.DecoratedPot
 import org.bukkit.block.data.type.Door
@@ -34,6 +35,8 @@ object HideAndSeekRestrictionListener : Listener {
     @EventHandler
     fun onFoodLevelChange(event: FoodLevelChangeEvent) {
         val player = event.entity as? Player ?: return
+        val context = currentContext() ?: return
+        if (player.uniqueId !in context.allEventPlayers) return
         if (event.foodLevel < 20) {
             event.cancel()
             player.foodLevel = 20
@@ -52,6 +55,8 @@ object HideAndSeekRestrictionListener : Listener {
     @EventHandler
     fun onPlayerInteract(event: PlayerInteractEvent) {
         val player = event.player
+        val context = currentContext() ?: return
+        if (player.uniqueId !in context.allEventPlayers) return
 
         val item = event.item
         val specialItemId = HideAndSeekItems.specialItemId(item)
