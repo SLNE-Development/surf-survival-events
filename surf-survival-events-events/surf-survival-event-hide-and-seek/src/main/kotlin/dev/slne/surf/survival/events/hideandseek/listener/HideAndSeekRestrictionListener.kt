@@ -47,7 +47,9 @@ object HideAndSeekRestrictionListener : Listener {
 
     @EventHandler
     fun onEntityRegainHealth(event: EntityRegainHealthEvent) {
-        event.entity as? Player ?: return
+        val player = event.entity as? Player ?: return
+        val context = currentContext() ?: return
+        if (player.uniqueId !in context.allEventPlayers) return
         when (event.regainReason) {
             RegainReason.MAGIC, RegainReason.MAGIC_REGEN -> {}
             else -> event.cancel()
@@ -89,7 +91,9 @@ object HideAndSeekRestrictionListener : Listener {
 
     @EventHandler
     fun onHangingBreakByEntity(event: HangingBreakByEntityEvent) {
+        val context = currentContext() ?: return
         val remover = event.remover as? Player ?: return event.cancel()
+        if (remover.uniqueId !in context.allEventPlayers) return
         if (!isBypassing(remover)) {
             event.cancel()
         }
@@ -97,6 +101,8 @@ object HideAndSeekRestrictionListener : Listener {
 
     @EventHandler
     fun onPlayerDropItem(event: PlayerDropItemEvent) {
+        val context = currentContext() ?: return
+        if (event.player.uniqueId !in context.allEventPlayers) return
         if (!isBypassing(event.player)) {
             event.cancel()
         }
@@ -114,7 +120,10 @@ object HideAndSeekRestrictionListener : Listener {
 
     @EventHandler
     fun onInventoryDrag(event: InventoryDragEvent) {
-        if (!isBypassing(event.whoClicked as? Player ?: return)) {
+        val player = event.whoClicked as? Player ?: return
+        val context = currentContext() ?: return
+        if (player.uniqueId !in context.allEventPlayers) return
+        if (!isBypassing(player)) {
             event.cancel()
         }
     }
@@ -122,6 +131,8 @@ object HideAndSeekRestrictionListener : Listener {
     @EventHandler
     fun onPlayerSwapHandItems(event: PlayerSwapHandItemsEvent) {
         val player = event.player
+        val context = currentContext() ?: return
+        if (player.uniqueId !in context.allEventPlayers) return
 
         val item = event.offHandItem
         val specialItemId = HideAndSeekItems.specialItemId(item)
@@ -154,6 +165,8 @@ object HideAndSeekRestrictionListener : Listener {
     @EventHandler
     fun onEntityPickupItem(event: EntityPickupItemEvent) {
         val player = event.entity as? Player ?: return
+        val context = currentContext() ?: return
+        if (player.uniqueId !in context.allEventPlayers) return
         if (!isBypassing(player)) {
             event.cancel()
         }

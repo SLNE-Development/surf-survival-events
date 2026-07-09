@@ -43,6 +43,9 @@ object HideAndSeekCombatListener : Listener {
 
     @EventHandler
     fun onPrePlayerAttackEntity(event: PrePlayerAttackEntityEvent) {
+        val context = currentContext() ?: return
+        if (event.player.uniqueId !in context.allEventPlayers) return
+
         if (!HideAndSeekService.isRolePhase) return event.cancel()
 
         val role = HideAndSeekRoleManager.roleOf(event.player)
@@ -93,12 +96,16 @@ object HideAndSeekCombatListener : Listener {
 
     @EventHandler
     fun onProjectileHit(event: ProjectileHitEvent) {
+        val shooter = event.entity.shooter as? Player ?: return
+        val context = currentContext() ?: return
+        if (shooter.uniqueId !in context.allEventPlayers) return
+
         if (event.hitBlock?.blockData is DecoratedPot) {
             return event.cancel()
         }
 
-        val shooter = event.entity.shooter as? Player ?: return
         val target = event.hitEntity as? Player ?: return
+        if (target.uniqueId !in context.allEventPlayers) return
 
         if (!HideAndSeekService.isSeekingPhase) return event.cancel()
 
