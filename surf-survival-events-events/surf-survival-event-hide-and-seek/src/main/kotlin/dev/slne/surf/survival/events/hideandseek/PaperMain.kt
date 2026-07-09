@@ -16,20 +16,16 @@ import org.bukkit.plugin.java.JavaPlugin
 val plugin get() = JavaPlugin.getPlugin(PaperMain::class.java)
 
 class PaperMain : SuspendingJavaPlugin() {
-    override suspend fun onLoadAsync() {
-        HideAndSeekConfig.init()
-    }
-
     override suspend fun onEnableAsync() {
         hideAndSeekCommand()
 
         val game = HideAndSeekGame()
         GameRegistry.register(HideAndSeekGame.KEY, game)
 
-        preloadEventWorld(game)
+        preloadEventWorldAndConfig(game)
     }
 
-    private fun preloadEventWorld(game: HideAndSeekGame) {
+    private fun preloadEventWorldAndConfig(game: HideAndSeekGame) {
         launch(globalRegionDispatcher, CoroutineStart.DEFAULT) {
             try {
                 GameWorldService.loadOrCreateEventWorld(
@@ -40,6 +36,8 @@ class PaperMain : SuspendingJavaPlugin() {
             } catch (throwable: Throwable) {
                 componentLogger.error("Failed to preload the hide and seek event world", throwable)
             }
+
+            HideAndSeekConfig.init()
         }
     }
 
