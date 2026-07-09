@@ -10,8 +10,10 @@ import dev.slne.surf.survival.events.hideandseek.service.HideAndSeekRoleManager
 import dev.slne.surf.survival.events.hideandseek.service.HideAndSeekService
 import dev.slne.surf.survival.events.hideandseek.service.currentContext
 import org.bukkit.Material
+import org.bukkit.Tag
 import org.bukkit.block.data.type.DecoratedPot
 import org.bukkit.block.data.type.Door
+import org.bukkit.block.data.type.TrapDoor
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
@@ -71,7 +73,8 @@ object HideAndSeekRestrictionListener : Listener {
         }
 
         val block = event.clickedBlock ?: return
-        if (block.blockData is Door) return
+        if (block.blockData is Door || block.blockData is TrapDoor) return
+        if (Tag.BUTTONS.isTagged(block.type)) return
         if (isBypassing(player)) return
 
         if (player.inventory.itemInMainHand.type == Material.BOW) {
