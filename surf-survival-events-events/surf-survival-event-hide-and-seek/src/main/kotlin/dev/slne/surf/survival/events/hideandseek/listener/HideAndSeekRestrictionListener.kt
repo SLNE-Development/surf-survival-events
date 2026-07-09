@@ -101,7 +101,10 @@ object HideAndSeekRestrictionListener : Listener {
 
     @EventHandler
     fun onInventoryClick(event: InventoryClickEvent) {
-        if (!isBypassing(event.whoClicked as? Player ?: return)) {
+        val player = event.whoClicked as? Player ?: return
+        val context = currentContext() ?: return
+        if (player.uniqueId !in context.allEventPlayers) return
+        if (!isBypassing(player)) {
             event.cancel()
         }
     }

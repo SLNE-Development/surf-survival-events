@@ -18,6 +18,7 @@ object HideAndSeekRespawnListener : Listener {
     @EventHandler
     fun onPlayerRespawn(event: PlayerRespawnEvent) {
         val context = GameService.snapshot()?.takeIf { it.key == HideAndSeekGame.KEY } ?: return
+        if (event.player.uniqueId !in context.allEventPlayers) return
         val config = HideAndSeekConfig.getConfig()
 
         event.respawnLocation = when {

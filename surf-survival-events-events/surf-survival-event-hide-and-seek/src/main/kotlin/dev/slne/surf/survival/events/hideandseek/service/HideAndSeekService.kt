@@ -110,11 +110,15 @@ object HideAndSeekService {
 
     context(context: GameContext)
     suspend fun stopSession(reason: GameStopReason) {
-        gameJob?.cancel("The hide and seek session has been stopped.")
-        gameJob = null
         phase = Phase.IDLE
         pendingEnd = null
         remainingSeconds = 0L
+
+        gameJob?.let { job ->
+            job.cancel("The hide and seek session has been stopped.")
+            job.join()
+        }
+        gameJob = null
 
         HideAndSeekScoreboard.hideAll()
 

@@ -182,7 +182,7 @@ object HideAndSeekRoleManager {
         }
     }
 
-    private fun applyScale(player: Player, scale: Double) {
+    internal fun applyScale(player: Player, scale: Double) {
         player.getAttribute(Attribute.SCALE)?.baseValue = scale
         player.walkSpeed = (0.2 * sqrt(scale)).coerceIn(0.01, 1.0).toFloat()
     }

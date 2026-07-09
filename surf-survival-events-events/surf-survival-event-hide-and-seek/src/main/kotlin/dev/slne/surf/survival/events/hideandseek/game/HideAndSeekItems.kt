@@ -215,7 +215,7 @@ object HideAndSeekItems {
 
         val targetScale = shrinkTargetScale(heldItem)
         withContext(plugin.entityDispatcher(player)) {
-            player.getAttribute(Attribute.SCALE)?.baseValue = targetScale
+            HideAndSeekRoleManager.applyScale(player, targetScale)
         }
     }
 
@@ -224,7 +224,7 @@ object HideAndSeekItems {
 
         withContext(plugin.entityDispatcher(player)) {
             val targetScale = shrinkTargetScale(player.inventory.itemInMainHand)
-            player.getAttribute(Attribute.SCALE)?.baseValue = targetScale
+            HideAndSeekRoleManager.applyScale(player, targetScale)
         }
     }
 

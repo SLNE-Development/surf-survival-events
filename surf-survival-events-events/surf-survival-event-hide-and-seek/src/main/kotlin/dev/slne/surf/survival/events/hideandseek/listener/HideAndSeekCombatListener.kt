@@ -9,6 +9,7 @@ import dev.slne.surf.survival.events.hideandseek.game.*
 import dev.slne.surf.survival.events.hideandseek.plugin
 import dev.slne.surf.survival.events.hideandseek.service.HideAndSeekRoleManager
 import dev.slne.surf.survival.events.hideandseek.service.HideAndSeekService
+import dev.slne.surf.survival.events.hideandseek.service.currentContext
 import io.papermc.paper.event.player.PrePlayerAttackEntityEvent
 import kotlinx.coroutines.delay
 import org.bukkit.block.data.type.DecoratedPot
@@ -52,7 +53,9 @@ object HideAndSeekCombatListener : Listener {
 
     @EventHandler
     fun onEntityDamage(event: EntityDamageEvent) {
-        if (event.entity !is Player) return
+        val player = event.entity as? Player ?: return
+        val context = currentContext() ?: return
+        if (player.uniqueId !in context.allEventPlayers) return
 
         if (!HideAndSeekService.isSeekingPhase) {
             event.cancel()
@@ -66,6 +69,9 @@ object HideAndSeekCombatListener : Listener {
         if (target.uniqueId in pendingKills) return
 
         val damager = event.damager as? Player ?: return
+
+        val context = currentContext() ?: return
+        if (target.uniqueId !in context.allEventPlayers || damager.uniqueId !in context.allEventPlayers) return
 
         if (!HideAndSeekService.isSeekingPhase) return event.cancel()
 
@@ -110,10 +116,13 @@ object HideAndSeekCombatListener : Listener {
 
     @EventHandler
     fun onEntityShootBow(event: EntityShootBowEvent) {
-        if (event.entity is Player) {
-            val arrow = event.projectile as? Arrow ?: return
-            arrow.lifetimeTicks = 0
-        }
+        val shooter = event.entity as? Player ?: return
+        val context = currentContext() ?: return
+        if (shooter.uniqueId !in context.allEventPlayers) return
+        if (HideAndSeekRoleManager.roleOf(shooter) != SeekerRole) return
+
+        val arrow = event.projectile as? Arrow ?: return
+        arrow.lifetimeTicks = 0
     }
 
     @EventHandler
