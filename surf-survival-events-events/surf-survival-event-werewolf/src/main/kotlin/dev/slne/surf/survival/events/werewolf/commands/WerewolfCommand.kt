@@ -10,9 +10,9 @@ import dev.slne.surf.survival.events.werewolf.commands.subcommands.inspectWerewo
 import dev.slne.surf.survival.events.werewolf.commands.subcommands.joinWerewolfCommand
 import dev.slne.surf.survival.events.werewolf.commands.subcommands.killWerewolfCommand
 import dev.slne.surf.survival.events.werewolf.commands.subcommands.openGameWerewolfCommand
+import dev.slne.surf.survival.events.werewolf.commands.subcommands.overviewWerewolfCommand
 import dev.slne.surf.survival.events.werewolf.commands.subcommands.priestWerewolfCommand
 import dev.slne.surf.survival.events.werewolf.commands.subcommands.serialKillerWerewolfCommand
-import dev.slne.surf.survival.events.werewolf.commands.subcommands.setRespawnPointWerewolfCommand
 import dev.slne.surf.survival.events.werewolf.commands.subcommands.startWerewolfCommand
 import dev.slne.surf.survival.events.werewolf.commands.subcommands.stopWerewolfCommand
 import dev.slne.surf.survival.events.werewolf.commands.subcommands.voteWerewolfCommand
@@ -28,9 +28,9 @@ fun werewolfCommand() = commandAPICommand("werewolf"){
     subcommand(priestWerewolfCommand())
     subcommand(serialKillerWerewolfCommand())
     subcommand(witchWerewolfCommand())
+    subcommand(overviewWerewolfCommand())
     subcommand(debugWerewolfCommand())
 
-    subcommand(setRespawnPointWerewolfCommand())
     subcommand(startWerewolfCommand())
     subcommand(stopWerewolfCommand())
     subcommand(openGameWerewolfCommand())

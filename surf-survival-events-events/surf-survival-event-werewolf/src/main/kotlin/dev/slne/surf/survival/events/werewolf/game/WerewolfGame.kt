@@ -46,7 +46,6 @@ class WerewolfGame : GameHandler {
         val game = WerewolfStartGame.startWerewolfGame(
             playerList = context.participantPlayers,
             leaderUuid = resolveLeaderUuid(context),
-            eliminationRespawnPoint = context.eventWorld.spawnLocation,
         )
         activeGameId = game.gameId
     }

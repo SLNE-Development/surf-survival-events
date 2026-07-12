@@ -1,6 +1,8 @@
 package dev.slne.surf.survival.events.werewolf.service
 
 import dev.slne.surf.survival.events.werewolf.util.WerewolfCommandRequirements
+import dev.slne.surf.survival.events.werewolf.scoreboard.addToWerewolfScoreboard
+import dev.slne.surf.survival.events.werewolf.scoreboard.removeFromWerewolfScoreboard
 import dev.slne.surf.survival.events.werewolf.util.toBukkitPlayer
 import org.bukkit.entity.Player
 import java.util.*
@@ -17,6 +19,7 @@ object WerewolfGameManager {
         games[gameId] = game
         leaderUuid?.let {
             playerToGame[it] = gameId
+            it.toBukkitPlayer()?.addToWerewolfScoreboard()
             WerewolfCommandRequirements.update(it.toBukkitPlayer())
         }
         return game
@@ -31,6 +34,7 @@ object WerewolfGameManager {
 
     fun removeGame(gameId: String, participantsToRefresh: Collection<Player> = emptyList()) {
         val playersToUpdate = participantsToRefresh + (games[gameId]?.allParticipants ?: emptyList())
+        playersToUpdate.distinctBy(Player::getUniqueId).forEach(Player::removeFromWerewolfScoreboard)
         playerToGame.entries.removeIf { it.value == gameId }
         games.remove(gameId)
         WerewolfCommandRequirements.update(playersToUpdate)

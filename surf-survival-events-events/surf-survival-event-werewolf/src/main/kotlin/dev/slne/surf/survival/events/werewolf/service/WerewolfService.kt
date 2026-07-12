@@ -2,7 +2,6 @@ package dev.slne.surf.survival.events.werewolf.service
 
 import com.github.shynixn.mccoroutine.folia.entityDispatcher
 import com.github.shynixn.mccoroutine.folia.launch
-import dev.slne.surf.api.core.messages.CommonComponents
 import dev.slne.surf.api.core.messages.adventure.buildText
 import dev.slne.surf.api.core.messages.adventure.playSound
 import dev.slne.surf.api.core.messages.adventure.sendText
@@ -23,12 +22,11 @@ import dev.slne.surf.survival.events.werewolf.util.*
 import dev.slne.surf.survival.events.werewolf.voicechat.WerewolfVoicechatPlugin
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.future.await
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextDecoration
-import org.bukkit.Location
+import org.bukkit.GameMode
 import org.bukkit.Sound
 import org.bukkit.entity.Player
 import org.bukkit.potion.PotionEffect
@@ -50,7 +48,6 @@ sealed class WerewolfJoinResult {
 sealed class WerewolfStartResult {
     data object Success : WerewolfStartResult()
     data object NotInLobbyPhase : WerewolfStartResult()
-    data object MissingRespawnPoint : WerewolfStartResult()
     data class NotEnoughPlayers(val current: Int, val required: Int) : WerewolfStartResult()
     data class Error(val message: String) : WerewolfStartResult()
 }
@@ -73,11 +70,6 @@ class WerewolfService(val gameId: String) {
         get() = _state
 
     private var _state = GameState.DAY
-
-    val eliminationRespawnPoint: Location?
-        get() = _eliminationRespawnPoint?.clone()
-
-    private var _eliminationRespawnPoint: Location? = null
 
     val isPhaseTransitioning: Boolean
         get() = _isPhaseTransitioning
@@ -122,7 +114,6 @@ class WerewolfService(val gameId: String) {
         players.clear()
         _phase = GamePhase.LOBBY
         _leader = leaderUuid
-        _eliminationRespawnPoint = null
         stopRequested = false
     }
 
@@ -130,9 +121,11 @@ class WerewolfService(val gameId: String) {
         if (phase != GamePhase.LOBBY) return WerewolfJoinResult.AlreadyStarted
         if (players.containsKey(uuid)) return WerewolfJoinResult.AlreadyInGame
 
-        uuid.toBukkitPlayer()?.addToWerewolfScoreboard() ?: return WerewolfJoinResult.Error("Dein Spieler konnte nicht gefunden werden!")
+        val player = uuid.toBukkitPlayer()
+            ?: return WerewolfJoinResult.Error("Dein Spieler konnte nicht gefunden werden!")
 
-        players[uuid] = WerewolfPlayer(uuid)
+        player.addToWerewolfScoreboard()
+        players[uuid] = WerewolfPlayer(uuid, previousGameMode = player.gameMode)
 
         announceToAll {
             appendSuccessPrefix()
@@ -150,12 +143,7 @@ class WerewolfService(val gameId: String) {
             return WerewolfStartResult.NotInLobbyPhase
         }
 
-        if (_eliminationRespawnPoint == null) {
-            return WerewolfStartResult.MissingRespawnPoint
-        }
-
-        // Testing
-        val minPlayers = 1
+        val minPlayers = 8
         if (players.size < minPlayers) {
             val result = WerewolfStartResult.NotEnoughPlayers(players.size, minPlayers)
             return result
@@ -179,50 +167,27 @@ class WerewolfService(val gameId: String) {
 
                 uuid.toBukkitPlayer()?.let {
                     it.sendText {
-                        // ───────────── HEADER ─────────────
+                        appendInfoPrefix()
+                        gold("Deine Rolle", TextDecoration.BOLD)
                         appendSpace()
-                        spacer(CommonComponents.EM_DASH.content().repeat(18))
+                        spacer("-")
                         appendSpace()
-                        variableValue("DEINE ROLLE", TextDecoration.BOLD)
-                        appendSpace()
-                        spacer(CommonComponents.EM_DASH.content().repeat(18))
-
-                        appendNewInfoPrefixedLine()
-                        appendNewInfoPrefixedLine()
-
-                        // ───────────── ROLE NAME ─────────────
-                        info("Du bist: ")
                         append(role.displayName)
 
                         appendNewInfoPrefixedLine()
-                        appendNewInfoPrefixedLine()
-
-                        // ───────────── DESCRIPTION ─────────────
-                        info("Rollenbeschreibung:")
-                        appendNewInfoPrefixedLine()
+                        primary("Aufgabe:")
                         appendSpace()
                         append(role.description)
 
                         appendNewInfoPrefixedLine()
-                        appendNewInfoPrefixedLine()
-
-                        // ───────────── FLAVOR LINE ─────────────
-                        if (!role.isHostile) {
-                            info("Spiele deine Rolle weise… das Dorf zählt auf dich.")
-                        } else {
-                            info("Du bist der Schrecken der Nacht… jage klug und bleibe unentdeckt.")
-                        }
+                        primary("Tipp:")
+                        appendSpace()
+                        info(roleStartHint(role))
 
                         appendNewInfoPrefixedLine()
-                        appendNewInfoPrefixedLine()
-
-                        // ───────────── FOOTER ─────────────
+                        primary("Aktionen:")
                         appendSpace()
-                        spacer(CommonComponents.EM_DASH.content().repeat(18))
-                        appendSpace()
-                        append(role.displayName)
-                        appendSpace()
-                        spacer(CommonComponents.EM_DASH.content().repeat(18))
+                        info("Wenn du am Zug bist, bekommst du klickbare Commands im Chat.")
                     }
 
                     it.showDialog(
@@ -300,22 +265,21 @@ class WerewolfService(val gameId: String) {
 
                     if (advanceResult != null) {
                         if (advanceResult.winner != null) {
+                            executePendingNightExecutionsBeforeGameEnd()
                             finishGame(advanceResult.winner)
                             return@launch
                         }
 
                         waitForPhaseTransition()
 
-                        messenger.announcePhaseStarted(advanceResult.nextPhase)
-
                         when (advanceResult.nextPhase) {
                             GameState.NIGHT -> {
+                                messenger.announcePhaseStarted(GameState.NIGHT)
                                 engine.announceCurrentNightStep()
                             }
 
                             GameState.DAY -> {
-                                messenger.announceNightExecutionResults(pendingNightExecutions.toList())
-
+                                messenger.announceDayStarted(pendingNightExecutions.toList())
                                 executePendingNightExecutions()
                             }
 
@@ -357,8 +321,17 @@ class WerewolfService(val gameId: String) {
         }
     }
 
-    fun setEliminationRespawnPoint(location: Location) {
-        _eliminationRespawnPoint = location.clone()
+    private fun roleStartHint(role: WerwolfRoles): String = when (role) {
+        WerwolfRoles.WERWOLF -> "Stimme dich nachts mit den anderen Wölfen ab und bleib tagsüber unauffällig."
+        WerwolfRoles.VILLAGER -> "Beobachte das Dorf, höre gut zu und finde die Werwölfe über Diskussionen und Votes."
+        WerwolfRoles.SEER -> "Nutze deine nächtliche Prüfung gezielt. Teile Wissen vorsichtig, damit du nicht sofort auffällst."
+        WerwolfRoles.WITCH -> "Deine Tränke sind einmalig. Warte auf den richtigen Moment und überspringe, wenn kein Ziel sinnvoll ist."
+        WerwolfRoles.AMOR -> "Wähle in der ersten Nacht zwei Spieler als Liebespaar. Ihr Schicksal hängt danach zusammen."
+        WerwolfRoles.DOCTOR -> "Schütze jede Nacht einen lebenden Spieler. Gute Reads können das Dorf retten."
+        WerwolfRoles.GIRL -> "Du kannst nachts riskant schauen. Je öfter du dich zeigst, desto gefährlicher wird es."
+        WerwolfRoles.MAYOR -> "Deine Stimme zählt stärker. Nutze sie sichtbar, aber nicht leichtfertig."
+        WerwolfRoles.PRIEST -> "Dein Weihwasser kann einen Werwolf sofort treffen, kostet dich aber das Leben bei einem Fehlwurf."
+        WerwolfRoles.SERIAL_KILLER -> "Du spielst allein. Entferne nachts gezielt Spieler und halte beide Seiten im Gleichgewicht."
     }
 
     fun finishGame(winner: GameOutcome) {
@@ -381,14 +354,17 @@ class WerewolfService(val gameId: String) {
         clearBlindness()
         restoreHiddenPlayerVisibility()
 
-        players.forEach { (uuid, _) ->
-            uuid.toBukkitPlayer()?.removeFromWerewolfScoreboard()
+        players.forEach { (uuid, werewolfPlayer) ->
+            uuid.toBukkitPlayer()?.let { player ->
+                restorePlayerGameMode(player, werewolfPlayer)
+                player.removeFromWerewolfScoreboard()
+            }
         }
+        leader?.toBukkitPlayer()?.removeFromWerewolfScoreboard()
 
         messenger.announceGameStopped()
 
         pendingNightExecutions.clear()
-        _eliminationRespawnPoint = null
         players.clear()
         _leader = null
 
@@ -400,7 +376,7 @@ class WerewolfService(val gameId: String) {
 
     fun removePlayer(player: Player): Boolean {
         val playerId = player.uniqueId
-        if (players.remove(playerId) == null) return false
+        val werewolfPlayer = players.remove(playerId) ?: return false
 
         pendingNightExecutions.removeAll { it == playerId }
         players.values.forEach { werewolfPlayer ->
@@ -413,6 +389,7 @@ class WerewolfService(val gameId: String) {
         audioHandler.removePlayer(playerId)
 
         player.removePotionEffect(PotionEffectType.BLINDNESS)
+        restorePlayerGameMode(player, werewolfPlayer)
         player.removeFromWerewolfScoreboard()
 
         clearWerewolfGlowing()
@@ -529,6 +506,15 @@ class WerewolfService(val gameId: String) {
         }
     }
 
+    private fun restorePlayerGameMode(player: Player, werewolfPlayer: WerewolfPlayer) {
+        val previousGameMode = werewolfPlayer.previousGameMode ?: return
+
+        plugin.launch(plugin.entityDispatcher(player)) {
+            if (player.gameMode != GameMode.SPECTATOR) return@launch
+            player.gameMode = previousGameMode
+        }
+    }
+
     private fun clearWerewolfGlowing() {
         if (glowingTargetsByWerewolf.isEmpty()) return
 
@@ -619,24 +605,29 @@ class WerewolfService(val gameId: String) {
         applyEliminations(executedPlayers)
     }
 
+    private fun executePendingNightExecutionsBeforeGameEnd() {
+        if (pendingNightExecutions.isEmpty()) return
+        executePendingNightExecutions()
+    }
+
     fun debugAdvancePhase(): PhaseAdvanceResult? {
         if (phase != GamePhase.RUNNING || isPhaseTransitioning) return null
 
         val advanceResult = engine.advancePhase()
         if (advanceResult.winner != null) {
+            executePendingNightExecutionsBeforeGameEnd()
             finishGame(advanceResult.winner)
             return advanceResult
         }
 
-        messenger.announcePhaseStarted(advanceResult.nextPhase)
-
         when (advanceResult.nextPhase) {
             GameState.NIGHT -> {
+                messenger.announcePhaseStarted(GameState.NIGHT)
                 engine.announceCurrentNightStep()
             }
 
             GameState.DAY -> {
-                messenger.announceNightExecutionResults(pendingNightExecutions.toList())
+                messenger.announceDayStarted(pendingNightExecutions.toList())
                 executePendingNightExecutions()
             }
 
@@ -652,12 +643,14 @@ class WerewolfService(val gameId: String) {
         if (executedPlayers.isEmpty()) return
 
         val currentPhaseSessionId = phaseSessionId
-        val respawnPoint = eliminationRespawnPoint
-        if (respawnPoint == null) {
-            plugin.logger.warning("Could not apply eliminations in werewolf game '$gameId': missing elimination respawn point")
-            refreshCommandRequirements()
-            return
+
+        executedPlayers.forEach { deadPlayerId ->
+            audioHandler.removePlayer(deadPlayerId)
+            restoreVisibilityForPlayer(deadPlayerId)
         }
+        clearWerewolfGlowing()
+        clearWitchGlowing()
+        messenger.announceEliminatedRoles(executedPlayers)
 
         plugin.launch {
             executedPlayers.forEach { deadPlayerId ->
@@ -668,12 +661,7 @@ class WerewolfService(val gameId: String) {
                 withContext(plugin.entityDispatcher(deadPlayer)) {
                     if (phase != GamePhase.RUNNING || phaseSessionId != currentPhaseSessionId) return@withContext
                     deadPlayer.removePotionEffect(PotionEffectType.BLINDNESS)
-                }
-
-                try {
-                    deadPlayer.teleportAsync(respawnPoint).await()
-                } catch (throwable: Throwable) {
-                    plugin.logger.warning("Failed to teleport eliminated player '${deadPlayer.name}' to werewolf respawn point: ${throwable.message}")
+                    deadPlayer.gameMode = GameMode.SPECTATOR
                 }
             }
         }
@@ -725,6 +713,10 @@ class WerewolfService(val gameId: String) {
     }
 
     fun getAlivePlayers() = players.values.filter { it.isAlive }
+
+    fun getDeadPlayers() = players.values.filterNot { it.isAlive }
+
+    fun isLeader(uuid: UUID): Boolean = leader == uuid
 
     val allParticipants: List<Player>
         get() {

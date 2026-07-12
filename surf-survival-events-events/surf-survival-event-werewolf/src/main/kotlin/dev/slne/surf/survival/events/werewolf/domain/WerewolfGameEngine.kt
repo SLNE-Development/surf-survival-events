@@ -34,6 +34,9 @@ class WerewolfGameEngine(
     val currentNightStep: NightStep?
         get() = roundState.nightStep
 
+    val currentDayNumber: Int
+        get() = roundState.dayNumber
+
     val currentWerewolfTarget: UUID?
         get() = roundState.werewolfTarget
 
@@ -150,13 +153,17 @@ class WerewolfGameEngine(
 
     private fun advanceVotePhase(): PhaseAdvanceResult {
         val standings = calculateVoteStandings()
-        val votedOutPlayer = resolveVote()
+        val votedOutPlayer = resolveUniqueVoteWinner(standings)
 
         messenger.announceVotings(
             state = roundState.phase,
             standings = standings,
             eliminatedPlayers = listOfNotNull(votedOutPlayer)
         )
+
+        if (votedOutPlayer != null) {
+            service.executePlayer(votedOutPlayer)
+        }
 
         val winner = checkWinCondition()
         if (winner != null) {
@@ -411,8 +418,8 @@ class WerewolfGameEngine(
         actorPlayer.hasPriestHolyWater = false
 
         val resolution = PriestActions.resolve(actor, target, service.players)
-        resolution.eliminatedPlayers.forEach(service::executePlayer)
         messenger.announcePriestHolyWater(actor, target, resolution.hitWerewolf)
+        resolution.eliminatedPlayers.forEach(service::executePlayer)
         service.refreshCommandRequirements()
 
         return PriestActionResult.Success(

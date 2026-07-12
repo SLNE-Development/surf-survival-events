@@ -31,7 +31,7 @@ object WerewolfRoleSelection {
         WerwolfRoles.WERWOLF,
         WerwolfRoles.SEER,
         WerwolfRoles.WITCH,
-        WerwolfRoles.VILLAGER,
+        WerwolfRoles.AMOR,
         WerwolfRoles.VILLAGER,
         WerwolfRoles.VILLAGER,
         WerwolfRoles.VILLAGER

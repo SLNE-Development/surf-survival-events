@@ -34,6 +34,11 @@ object WerewolfCommandRequirements {
         return WerewolfGameManager.getGameForPlayer(player.uniqueId) == null
     }
 
+    fun canViewOverview(sender: CommandSender): Boolean {
+        val player = sender as? Player ?: return false
+        return WerewolfGameManager.getGameForPlayer(player.uniqueId) != null
+    }
+
     fun canStartGame(sender: CommandSender): Boolean = withGame(sender) { player, service ->
         service.leader == player.uniqueId && service.phase == GamePhase.LOBBY
     }

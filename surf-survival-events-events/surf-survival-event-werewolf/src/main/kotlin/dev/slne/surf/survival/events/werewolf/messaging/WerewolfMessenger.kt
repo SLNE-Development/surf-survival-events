@@ -375,10 +375,7 @@ class WerewolfMessenger(private val service: WerewolfService) {
                 info("Die Nacht beginnt.")
             }
 
-            GameState.DAY -> announceToAll {
-                appendInfoPrefix()
-                info("Der Tag beginnt.")
-            }
+            GameState.DAY -> announceDayStarted(emptyList())
 
             GameState.VOTE,
             GameState.MAYOR_VOTE -> Unit
@@ -406,22 +403,69 @@ class WerewolfMessenger(private val service: WerewolfService) {
         }
     }
 
-    fun announceNightExecutionResults(executedPlayers: List<UUID>) {
+    fun announceDayStarted(executedPlayers: List<UUID>) {
         announceToAll {
             appendInfoPrefix()
+            info("Der Tag beginnt.")
+            appendSpace()
 
             if (executedPlayers.isEmpty()) {
-                info("In dieser Nacht ist niemand ausgeschieden.")
+                success("Niemand ist ausgeschieden.")
             } else {
                 error(
                     if (executedPlayers.size == 1) {
-                        "In der Nacht ausgeschieden:"
+                        "Ausgeschieden:"
                     } else {
-                        "In der Nacht ausgeschieden sind:"
+                        "Ausgeschieden sind:"
                     }
                 )
                 appendSpace()
                 variableValue(executedPlayers.joinToString(", ", transform = ::playerName))
+            }
+        }
+
+        announcePriestActionOptions()
+    }
+
+    fun announceEliminatedRoles(executedPlayers: List<UUID>) {
+        if (executedPlayers.isEmpty()) return
+
+        announceToAlive {
+            appendInfoPrefix()
+
+            if (executedPlayers.size == 1) {
+                val playerId = executedPlayers.first()
+                val role = service.players[playerId]?.role
+
+                info("Aufgedeckte Rolle von")
+                appendSpace()
+                variableValue(playerName(playerId))
+                spacer(":")
+                appendSpace()
+
+                if (role == null) {
+                    info("unbekannt")
+                } else {
+                    variableValue(roleName(role))
+                }
+            } else {
+                info("Aufgedeckte Rollen:")
+
+                executedPlayers.forEach { playerId ->
+                    val role = service.players[playerId]?.role
+
+                    appendNewInfoPrefixedLine()
+                    variableValue(playerName(playerId))
+                    appendSpace()
+                    spacer("-")
+                    appendSpace()
+
+                    if (role == null) {
+                        info("unbekannt")
+                    } else {
+                        variableValue(roleName(role))
+                    }
+                }
             }
         }
     }
@@ -467,59 +511,135 @@ class WerewolfMessenger(private val service: WerewolfService) {
         }
 
         when (step) {
-            NightStep.AMOR -> announceToRole(WerwolfRoles.AMOR) {
-                appendInfoPrefix()
-                info("Du bist jetzt am Zug. Nutze /werewolf amor <spieler1> <spieler2>.")
-            }
+            NightStep.AMOR -> announceActionOptions(
+                role = WerwolfRoles.AMOR,
+                intro = "Du bist jetzt am Zug.",
+                ActionOption("Liebespaar wählen (1/1)", "/werewolf amor ")
+            )
 
-            NightStep.WEREWOLVES -> announceToRole(WerwolfRoles.WERWOLF) {
-                appendInfoPrefix()
-                info("Ihr seid jetzt am Zug. Nutzt /werewolf kill <spieler>.")
-            }
+            NightStep.WEREWOLVES -> announceActionOptions(
+                role = WerwolfRoles.WERWOLF,
+                intro = "Ihr seid jetzt am Zug.",
+                ActionOption("Opfer wählen (1/1)", "/werewolf kill ")
+            )
 
-            NightStep.GIRL -> announceToRole(WerwolfRoles.GIRL) {
-                appendInfoPrefix()
-                info("Du bist jetzt am Zug. Nutze /werewolf girl, wenn du die Augen öffnen willst.")
-            }
+            NightStep.GIRL -> announceActionOptions(
+                role = WerwolfRoles.GIRL,
+                intro = "Du bist jetzt am Zug.",
+                ActionOption("Augen öffnen (1/1)", "/werewolf girl")
+            )
 
-            NightStep.SEER -> announceToRole(WerwolfRoles.SEER) {
-                appendInfoPrefix()
-                info("Du bist jetzt am Zug. Nutze /werewolf inspect <spieler>.")
-            }
+            NightStep.SEER -> announceActionOptions(
+                role = WerwolfRoles.SEER,
+                intro = "Du bist jetzt am Zug.",
+                ActionOption("Rolle aufdecken (1/1)", "/werewolf inspect ")
+            )
 
-            NightStep.DOCTOR -> announceToRole(WerwolfRoles.DOCTOR) {
-                appendInfoPrefix()
-                info("Du bist jetzt am Zug. Nutze /werewolf doctor <spieler>.")
-                appendNewInfoPrefixedLine()
-                info("Du kannst einen beliebigen lebenden Spieler heilen.")
-            }
+            NightStep.DOCTOR -> announceActionOptions(
+                role = WerwolfRoles.DOCTOR,
+                intro = "Du bist jetzt am Zug.",
+                ActionOption("Spieler schützen (1/1)", "/werewolf doctor ")
+            )
 
-            NightStep.WITCH -> announceToRole(WerwolfRoles.WITCH) {
-                appendInfoPrefix()
-                info("Du bist jetzt am Zug. Nutze /werewolf witch heal <spieler>, /werewolf witch kill <spieler> oder /werewolf witch skip.")
-                appendNewInfoPrefixedLine()
+            NightStep.WITCH -> announceWitchActionOptions()
 
-                if (service.engine.currentWitchHealTargets.isNotEmpty()) {
-                    appendNewInfoPrefixedLine()
-                    info(
-                        if (service.engine.currentWitchHealTargets.size == 1) {
-                            "Ein Nachtopfer leuchtet für dich."
-                        } else {
-                            "Die Nachtopfer leuchten für dich."
-                        }
-                    )
-                }
-
-            }
-
-            NightStep.SERIAL_KILLER -> announceToRole(WerwolfRoles.SERIAL_KILLER) {
-                appendInfoPrefix()
-                info("Du bist jetzt am Zug. Nutze /werewolf serialkill <spieler>.")
-            }
+            NightStep.SERIAL_KILLER -> announceActionOptions(
+                role = WerwolfRoles.SERIAL_KILLER,
+                intro = "Du bist jetzt am Zug.",
+                ActionOption("Opfer wählen (1/1)", "/werewolf serialkill ")
+            )
 
             NightStep.RESOLVE,
             null -> Unit
         }
+    }
+
+    private fun announceActionOptions(
+        role: WerwolfRoles,
+        intro: String,
+        vararg options: ActionOption,
+    ) {
+        service.players.values
+            .filter { it.isAlive && it.role == role }
+            .forEach { actor ->
+                announceToPlayer(actor.uuid) {
+                    appendInfoPrefix()
+                    info(intro)
+                    options.forEach { option -> appendActionOption(option) }
+                }
+            }
+    }
+
+    private fun announceWitchActionOptions() {
+        val healTargets = service.engine.currentWitchHealTargets
+        val poisonAllowedThisNight = service.engine.currentDayNumber > 1
+
+        service.players.values
+            .filter { it.isAlive && it.role == WerwolfRoles.WITCH }
+            .forEach { witch ->
+                val poisonOption = when {
+                    !witch.hasWitchPoisonPotion -> ActionOption("Gifttrank verwenden (0/1)")
+                    !poisonAllowedThisNight -> ActionOption("Gifttrank verwenden (1/1, ab Nacht 2)")
+                    else -> ActionOption("Gifttrank verwenden (1/1)", "/werewolf witch kill ")
+                }
+
+                val healOption = when {
+                    !witch.hasWitchHealPotion -> ActionOption("Heiltrank verwenden (0/1)")
+                    healTargets.isEmpty() -> ActionOption("Heiltrank verwenden (1/1, kein Ziel)")
+                    else -> ActionOption("Heiltrank verwenden (1/1)", "/werewolf witch heal ")
+                }
+
+                announceToPlayer(witch.uuid) {
+                    appendInfoPrefix()
+                    info("Du bist jetzt am Zug.")
+
+                    if (healTargets.isNotEmpty()) {
+                        appendNewInfoPrefixedLine()
+                        info(
+                            if (healTargets.size == 1) {
+                                "Ein Nachtopfer leuchtet für dich."
+                            } else {
+                                "Die Nachtopfer leuchten für dich."
+                            }
+                        )
+                    }
+
+                    appendActionOption(poisonOption)
+                    appendActionOption(healOption)
+                    appendActionOption(ActionOption("Zug überspringen", "/werewolf witch skip"))
+                }
+            }
+    }
+
+    private fun announcePriestActionOptions() {
+        if (service.engine.currentPhase != GameState.DAY) return
+
+        service.players.values
+            .filter { it.isAlive && it.role == WerwolfRoles.PRIEST && it.hasPriestHolyWater }
+            .forEach { priest ->
+                announceToPlayer(priest.uuid) {
+                    appendInfoPrefix()
+                    info("Du kannst dein Weihwasser einsetzen.")
+                    appendActionOption(ActionOption("Weihwasser werfen (1/1)", "/werewolf priest "))
+                }
+            }
+    }
+
+    private fun SurfComponentBuilder.appendActionOption(option: ActionOption) {
+        appendNewInfoPrefixedLine()
+
+        val command = option.suggestedCommand
+        if (command == null) {
+            info(option.label)
+        } else {
+            append(createActionCommandSuggestion(option.label, command))
+        }
+    }
+
+    private fun createActionCommandSuggestion(label: String, command: String) = buildText {
+        text(label, Colors.VARIABLE_VALUE, TextDecoration.UNDERLINED)
+        hoverEvent(HoverEvent.showText(buildText { info("Klicke, um den Command in den Chat einzufügen.") }))
+        clickEvent(ClickEvent.suggestCommand(command))
     }
 
     fun announceLovers(lovers: Pair<UUID, UUID>?) {
@@ -662,11 +782,8 @@ class WerewolfMessenger(private val service: WerewolfService) {
 
     private fun SurfComponentBuilder.appendLeaderResolutionSection(title: String) {
         appendNewInfoPrefixedLine()
-        spacer("-----")
-        appendSpace()
-        variableValue(title)
-        appendSpace()
-        spacer("-----")
+        gold(title)
+        spacer(":")
     }
 
     private fun SurfComponentBuilder.appendLeaderResolutionPlayerLine(label: String, playerId: UUID?) {
@@ -713,13 +830,9 @@ class WerewolfMessenger(private val service: WerewolfService) {
     }
 
     private fun SurfComponentBuilder.appendLeaderActionHeader(actionName: String) {
-        info("Aktion")
+        gold(actionName)
         appendSpace()
-        spacer("|")
-        appendSpace()
-        variableValue(actionName)
-        appendSpace()
-        spacer("|")
+        spacer(">")
         appendSpace()
     }
 
@@ -772,6 +885,11 @@ class WerewolfMessenger(private val service: WerewolfService) {
             WerwolfRoles.PRIEST -> "Priester"
             WerwolfRoles.SERIAL_KILLER -> "Serienmörder"
         }
+
+    private data class ActionOption(
+        val label: String,
+        val suggestedCommand: String? = null,
+    )
 
     private fun playerName(uuid: UUID): String =
         service.players[uuid]?.name ?: uuid.toBukkitPlayer()?.name ?: "Unbekannt"
