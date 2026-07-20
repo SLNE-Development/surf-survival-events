@@ -16,6 +16,7 @@ import dev.slne.surf.survival.events.werewolf.messaging.WerewolfMessenger
 import dev.slne.surf.survival.events.werewolf.plugin
 import dev.slne.surf.survival.events.werewolf.scoreboard.addToWerewolfScoreboard
 import dev.slne.surf.survival.events.werewolf.scoreboard.removeFromWerewolfScoreboard
+import dev.slne.surf.survival.events.werewolf.scoreboard.updateWerewolfScoreboards
 import dev.slne.surf.survival.events.werewolf.service.HiddenPlayerPair
 import dev.slne.surf.survival.events.werewolf.service.WerewolfVisibilityCleanup
 import dev.slne.surf.survival.events.werewolf.util.*
@@ -26,6 +27,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextDecoration
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
 import org.bukkit.GameMode
 import org.bukkit.Sound
 import org.bukkit.entity.Player
@@ -33,8 +35,11 @@ import org.bukkit.potion.PotionEffect
 import org.bukkit.potion.PotionEffectType
 import java.util.*
 import java.util.concurrent.CancellationException
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.collections.plusAssign
 import kotlin.time.Duration
+import kotlin.time.TimeMark
+import kotlin.time.TimeSource
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
@@ -54,7 +59,7 @@ sealed class WerewolfStartResult {
 
 class WerewolfService(val gameId: String) {
 
-    internal val players = mutableMapOf<UUID, WerewolfPlayer>()
+    internal val players: MutableMap<UUID, WerewolfPlayer> = ConcurrentHashMap()
 
     val leader: UUID?
         get() = _leader
@@ -77,13 +82,16 @@ class WerewolfService(val gameId: String) {
     private var _isPhaseTransitioning = false
 
     private var werewolfTask: Job? = null
+    private var werewolfUiTask: Job? = null
 
     val werewolfTime: Duration
-        get() = _werewolfTime
+        get() = werewolfStartedAt?.elapsedNow() ?: _werewolfTime
 
     private var _werewolfTime: Duration = 0.seconds
+    private var werewolfStartedAt: TimeMark? = null
 
     private val messenger = WerewolfMessenger(this)
+    private val plainTextSerializer = PlainTextComponentSerializer.plainText()
     private var privateWerewolfVoiceChatActive = false
 
     val aliveCount: Int
@@ -114,6 +122,8 @@ class WerewolfService(val gameId: String) {
         players.clear()
         _phase = GamePhase.LOBBY
         _leader = leaderUuid
+        _werewolfTime = 0.seconds
+        werewolfStartedAt = null
         stopRequested = false
     }
 
@@ -138,6 +148,7 @@ class WerewolfService(val gameId: String) {
 
     fun start(): WerewolfStartResult {
         if (werewolfTask != null) error("Werewolf task is already running!")
+        if (werewolfUiTask != null) error("Werewolf UI task is already running!")
 
         if (phase != GamePhase.LOBBY) {
             return WerewolfStartResult.NotInLobbyPhase
@@ -154,6 +165,8 @@ class WerewolfService(val gameId: String) {
             phaseSessionId += 1
             _phase = GamePhase.RUNNING
             _state = GameState.DAY
+            _werewolfTime = 0.seconds
+            werewolfStartedAt = TimeSource.Monotonic.markNow()
             pendingNightExecutions.clear()
             restoreParticipantVisibility()
             WerewolfVisibilityCleanup.restorePendingForPlayers(allParticipantIds())
@@ -166,30 +179,7 @@ class WerewolfService(val gameId: String) {
                 werewolfPlayer.role = role
 
                 uuid.toBukkitPlayer()?.let {
-                    it.sendText {
-                        appendInfoPrefix()
-                        gold("Deine Rolle", TextDecoration.BOLD)
-                        appendSpace()
-                        spacer("-")
-                        appendSpace()
-                        append(role.displayName)
-
-                        appendNewInfoPrefixedLine()
-                        primary("Aufgabe:")
-                        appendSpace()
-                        append(role.description)
-
-                        appendNewInfoPrefixedLine()
-                        primary("Tipp:")
-                        appendSpace()
-                        info(roleStartHint(role))
-
-                        appendNewInfoPrefixedLine()
-                        primary("Aktionen:")
-                        appendSpace()
-                        info("Wenn du am Zug bist, bekommst du klickbare Commands im Chat.")
-                    }
-
+                    sendRoleStartMessage(it, role)
                     it.showDialog(
                         WerewolfRoleViewDialoge.create(it)
                     )
@@ -197,19 +187,10 @@ class WerewolfService(val gameId: String) {
             }
 
             messenger.announceLeaderRoles(roleMap)
+            werewolfUiTask = launchWerewolfUiTask()
 
             werewolfTask = plugin.launch {
                 while (isActive) {
-                    allParticipants.forEach { participant ->
-                        withContext(plugin.entityDispatcher(participant)) {
-                            participant.sendActionBar(
-                                buildText {
-                                    primary("Es ist ")
-                                    append(state.displayName)
-                                }
-                            )
-                        }
-                    }
                     if (state == GameState.NIGHT) {
                         getAlivePlayers().forEach { werewolfPlayer ->
                             val player = werewolfPlayer.uuid.toBukkitPlayer() ?: return@forEach
@@ -258,7 +239,6 @@ class WerewolfService(val gameId: String) {
                     }
 
                     delay(1.seconds)
-                    _werewolfTime += 1.seconds
 
                     //Chek if Phase is over
                     val advanceResult = engine.tick()
@@ -316,10 +296,88 @@ class WerewolfService(val gameId: String) {
             refreshCommandRequirements()
             return WerewolfStartResult.Success
         } catch (e: Exception) {
+            werewolfTask?.cancel(CancellationException("Werewolf game '$gameId' failed to start"))
+            werewolfTask = null
+            werewolfUiTask?.cancel(CancellationException("Werewolf game '$gameId' failed to start"))
+            werewolfUiTask = null
+            werewolfStartedAt = null
             _phase = GamePhase.IDLE
             return WerewolfStartResult.Error(e.message ?: "Unbekannter Fehler beim Starten")
         }
     }
+
+    private fun sendRoleStartMessage(player: Player, role: WerwolfRoles) {
+        player.sendText {
+            appendInfoPrefix()
+            appendRoleMessageHeader(role)
+        }
+
+        player.sendText {
+            appendInfoPrefix()
+            appendRoleMessageLine("Aufgabe", roleDescriptionText(role))
+        }
+
+        player.sendText {
+            appendInfoPrefix()
+            appendRoleMessageLine("Tipp", roleStartHint(role))
+        }
+
+        player.sendText {
+            appendInfoPrefix()
+            appendRoleMessageLine(
+                "Aktionen",
+                "Klickbare Commands erscheinen automatisch, wenn du dran bist."
+            )
+        }
+
+        player.sendText {
+            appendInfoPrefix()
+            appendRoleMessageHeader(role)
+        }
+    }
+
+    private fun launchWerewolfUiTask(): Job = plugin.launch {
+        while (isActive) {
+            updateWerewolfScoreboards()
+
+            allParticipants.forEach { participant ->
+                withContext(plugin.entityDispatcher(participant)) {
+                    participant.sendActionBar(
+                        buildText {
+                            primary("Es ist ")
+                            append(state.displayName)
+                        }
+                    )
+                }
+            }
+
+            delay(500.milliseconds)
+        }
+    }
+
+    private fun SurfComponentBuilder.appendRoleMessageHeader(role: WerwolfRoles) {
+        spacer("-----")
+        appendSpace()
+        gold("Deine Rolle", TextDecoration.BOLD)
+        appendSpace()
+        spacer("-")
+        appendSpace()
+        append(role.displayName)
+        appendSpace()
+        spacer("-----")
+    }
+
+    private fun SurfComponentBuilder.appendRoleMessageLine(
+        label: String,
+        text: String,
+    ) {
+        primary("$label:")
+        appendSpace()
+        info(text)
+    }
+
+    private fun roleDescriptionText(role: WerwolfRoles): String =
+        plainTextSerializer.serialize(role.description)
 
     private fun roleStartHint(role: WerwolfRoles): String = when (role) {
         WerwolfRoles.WERWOLF -> "Stimme dich nachts mit den anderen Wölfen ab und bleib tagsüber unauffällig."
@@ -346,9 +404,13 @@ class WerewolfService(val gameId: String) {
     fun stop() {
         werewolfTask?.cancel(CancellationException("Werewolf game '$gameId' stopped"))
         werewolfTask = null
+        werewolfUiTask?.cancel(CancellationException("Werewolf game '$gameId' stopped"))
+        werewolfUiTask = null
         stopRequested = false
         phaseSessionId += 1
         _phase = GamePhase.IDLE
+        _werewolfTime = 0.seconds
+        werewolfStartedAt = null
         clearWerewolfGlowing()
         clearWitchGlowing()
         clearBlindness()
@@ -712,9 +774,9 @@ class WerewolfService(val gameId: String) {
         leader?.let(::add)
     }
 
-    fun getAlivePlayers() = players.values.filter { it.isAlive }
+    fun getAlivePlayers(): List<WerewolfPlayer> = players.values.toList().filter { it.isAlive }
 
-    fun getDeadPlayers() = players.values.filterNot { it.isAlive }
+    fun getDeadPlayers(): List<WerewolfPlayer> = players.values.toList().filterNot { it.isAlive }
 
     fun isLeader(uuid: UUID): Boolean = leader == uuid
 
@@ -722,7 +784,7 @@ class WerewolfService(val gameId: String) {
         get() {
             val result = mutableListOf<Player>()
 
-            players.keys.forEach { uuid ->
+            players.keys.toList().forEach { uuid ->
                 uuid.toBukkitPlayer()?.let { result.add(it) }
             }
 
@@ -730,7 +792,7 @@ class WerewolfService(val gameId: String) {
             return result
         }
 
-    fun getAllPlayers() = players.values
+    fun getAllPlayers(): List<WerewolfPlayer> = players.values.toList()
 
     fun announceToAll(content: SurfComponentBuilder.() -> Unit) = messenger.announceToAll(content)
 

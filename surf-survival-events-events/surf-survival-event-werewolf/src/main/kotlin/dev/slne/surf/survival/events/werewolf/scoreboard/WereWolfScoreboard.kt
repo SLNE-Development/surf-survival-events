@@ -15,9 +15,10 @@ import dev.slne.surf.survival.events.werewolf.util.WerewolfPlayer
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.TextDecoration
 import org.bukkit.entity.Player
+import java.util.Collections
 import java.util.UUID
 
-private val activeScoreboards = mutableMapOf<UUID, SurfAutoUpdatableScoreboard>()
+private val activeScoreboards = Collections.synchronizedMap(mutableMapOf<UUID, SurfAutoUpdatableScoreboard>())
 private const val SCOREBOARD_MAX_LINES = 15
 private const val OVERVIEW_LINE_COUNT = 11
 
@@ -36,6 +37,14 @@ fun Player.removeFromWerewolfScoreboard() {
 
     scoreboard.removeViewer(this)
     scoreboard.disable()
+}
+
+fun updateWerewolfScoreboards() {
+    val scoreboards = synchronized(activeScoreboards) {
+        activeScoreboards.values.toList()
+    }
+
+    scoreboards.forEach(SurfAutoUpdatableScoreboard::update)
 }
 
 private fun createWerewolfScoreboard(selfPlayer: Player): SurfAutoUpdatableScoreboard {
@@ -147,12 +156,12 @@ private fun playerOverviewRows(game: WerewolfService): List<Component> {
     val rows = mutableListOf<Component>()
     rows += sectionLine("Lebende")
 
-    val visiblePlayers = alivePlayers.take(OVERVIEW_LINE_COUNT - 2)
+    val visiblePlayers = alivePlayers.take(OVERVIEW_LINE_COUNT - 4)
     rows += visiblePlayers.map { playerLine(it, includeRole = false) }
 
     val hiddenCount = alivePlayers.size - visiblePlayers.size
     if (hiddenCount > 0) {
-        rows += moreLine(hiddenCount, "weitere")
+        rows += overviewHintLines()
     }
 
     return rows.take(OVERVIEW_LINE_COUNT)
@@ -167,13 +176,13 @@ private fun leaderOverviewRows(game: WerewolfService): List<Component> {
     if (alivePlayers.isEmpty()) {
         rows += mutedLine("niemand")
     } else {
-        val aliveLimit = if (deadPlayers.isEmpty()) OVERVIEW_LINE_COUNT - 2 else 4
+        val aliveLimit = if (deadPlayers.isEmpty()) OVERVIEW_LINE_COUNT - 4 else 4
         val visibleAlivePlayers = alivePlayers.take(aliveLimit)
         rows += visibleAlivePlayers.map { playerLine(it, includeRole = true) }
 
         val hiddenAliveCount = alivePlayers.size - visibleAlivePlayers.size
         if (hiddenAliveCount > 0) {
-            rows += moreLine(hiddenAliveCount, "lebende")
+            rows += overviewHintLines()
         }
     }
 
@@ -181,12 +190,12 @@ private fun leaderOverviewRows(game: WerewolfService): List<Component> {
         rows += sectionLine("Tote")
 
         val remainingSlots = OVERVIEW_LINE_COUNT - rows.size
-        val visibleDeadPlayers = deadPlayers.take((remainingSlots - 1).coerceAtLeast(0))
+        val visibleDeadPlayers = deadPlayers.take((remainingSlots - 3).coerceAtLeast(0))
         rows += visibleDeadPlayers.map { playerLine(it, includeRole = true) }
 
         val hiddenDeadCount = deadPlayers.size - visibleDeadPlayers.size
         if (hiddenDeadCount > 0 && rows.size < OVERVIEW_LINE_COUNT) {
-            rows += moreLine(hiddenDeadCount, "tote")
+            rows += overviewHintLines()
         }
     }
 
@@ -211,12 +220,11 @@ private fun playerLine(player: WerewolfPlayer, includeRole: Boolean): Component 
     }
 }
 
-private fun moreLine(count: Int, label: String): Component = buildText {
-    spacer("+")
-    variableValue(count)
-    appendSpace()
-    info(label)
-}
+private fun overviewHintLines(): List<Component> = listOf(
+    buildText { info("Benutze") },
+    buildText { variableValue("/werewolf overview") },
+    buildText { info("um alle zusehen.") }
+)
 
 private fun mutedLine(text: String): Component = buildText {
     info(text)
