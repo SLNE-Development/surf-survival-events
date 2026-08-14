@@ -14,6 +14,7 @@ import dev.slne.surf.survival.events.base.game.StartOverflowPolicy
 import dev.slne.surf.survival.events.base.service.GameService
 import dev.slne.surf.survival.events.werewolf.permissions.PermissionRegistry
 import dev.slne.surf.survival.events.werewolf.service.WerewolfGameManager
+import dev.slne.surf.survival.events.werewolf.service.WerewolfService
 import dev.slne.surf.survival.events.werewolf.service.WerewolfStartGame
 import org.bukkit.Bukkit
 import org.bukkit.entity.Player
@@ -29,7 +30,7 @@ class WerewolfGame : GameHandler {
     }
 
     override val options: GameOptions = GameOptions(
-        minPlayersToStart = 1,
+        minPlayersToStart = WerewolfService.MIN_PLAYERS,
         mode = GameMode.ELIMINATION,
         start = GameStartOptions(
             overflow = StartOverflowPolicy.IGNORE,
@@ -48,6 +49,7 @@ class WerewolfGame : GameHandler {
             leaderUuid = resolveLeaderUuid(context),
         )
         activeGameId = game.gameId
+        WerewolfGameManager.markAsBaseSession(game.gameId)
     }
 
     context(context: GameContext)
@@ -58,8 +60,12 @@ class WerewolfGame : GameHandler {
         reason: PlayerRemoveReason,
     ) {
         val game = activeGameId?.let(WerewolfGameManager::getGame) ?: return
-        player ?: return
-        game.removePlayer(player)
+        if (player != null) {
+            game.removePlayer(player)
+        } else {
+            game.removePlayer(uuid)
+        }
+        WerewolfGameManager.leaveGame(uuid)
     }
 
     context(context: GameContext)

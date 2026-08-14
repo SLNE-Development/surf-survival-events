@@ -7,15 +7,18 @@ import java.util.*
 
 class PrivateAudioHandler {
 
-    private val secretPlayers: MutableSet<UUID> = Collections.synchronizedSet(HashSet())
-    private val silencedPlayers: MutableSet<UUID> = Collections.synchronizedSet(HashSet())
+    private val lock = Any()
+    private val secretPlayers: MutableSet<UUID> = HashSet()
+    private val silencedPlayers: MutableSet<UUID> = HashSet()
+
+    @Volatile
     private var api: VoicechatServerApi? = null
 
     fun configurePrivateChannel(
         secretPlayers: List<Player>,
         silencedPlayers: List<Player>,
         voicechatApi: VoicechatServerApi?,
-    ) {
+    ): Unit = synchronized(lock) {
         this.secretPlayers.clear()
         this.silencedPlayers.clear()
 
@@ -30,31 +33,41 @@ class PrivateAudioHandler {
         }
     }
 
-    fun clearPrivateChannel() {
+    fun clearPrivateChannel(): Unit = synchronized(lock) {
         secretPlayers.clear()
         silencedPlayers.clear()
     }
 
-    fun removePlayer(uuid: UUID) {
+    fun removePlayer(uuid: UUID): Unit = synchronized(lock) {
         secretPlayers.remove(uuid)
         silencedPlayers.remove(uuid)
     }
 
-    fun handlesPlayer(uuid: UUID): Boolean = secretPlayers.contains(uuid) || silencedPlayers.contains(uuid)
+    fun handlesPlayer(uuid: UUID): Boolean = synchronized(lock) {
+        uuid in secretPlayers || uuid in silencedPlayers
+    }
 
     fun onMicrophone(event: MicrophonePacketEvent) {
         val senderConnection = event.senderConnection ?: return
         val senderUuid = senderConnection.player.uuid
 
         val voicechatApi = api ?: event.voicechat
+
+        val isSecret: Boolean
+        val isSilenced: Boolean
+        val secretRecipients: List<UUID>
+        synchronized(lock) {
+            isSecret = senderUuid in secretPlayers
+            isSilenced = senderUuid in silencedPlayers
+            secretRecipients = if (isSecret) secretPlayers.filter { it != senderUuid } else emptyList()
+        }
+
         when {
-            secretPlayers.contains(senderUuid) -> {
+            isSecret -> {
                 event.cancel()
                 val packet = event.packet.staticSoundPacketBuilder().build()
 
-                secretPlayers
-                    .asSequence()
-                    .filter { it != senderUuid }
+                secretRecipients
                     .mapNotNull(voicechatApi::getConnectionOf)
                     .forEach { connection ->
                         try {
@@ -65,7 +78,7 @@ class PrivateAudioHandler {
                     }
             }
 
-            silencedPlayers.contains(senderUuid) -> event.cancel()
+            isSilenced -> event.cancel()
         }
     }
 }

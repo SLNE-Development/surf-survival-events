@@ -11,6 +11,7 @@ import java.util.*
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
+
 class WerewolfGameEngine(
     private val service: WerewolfService
 ) {
@@ -21,34 +22,39 @@ class WerewolfGameEngine(
         service.players,
         roundState.dayNumber,
         roundState.werewolfTarget,
-        currentSerialKillerTarget
+        currentSerialKillerTargetLocked()
     )
     private fun nightStepCoordinator() = NightStepCoordinator(service.players, roundState.dayNumber)
 
     val currentPhase: GameState
-        get() = roundState.phase
+        get() = synchronized(service.lock) { roundState.phase }
 
     val phaseRemainingSeconds: Duration
-        get() = roundState.phaseRemainingSeconds
+        get() = synchronized(service.lock) { roundState.phaseRemainingSeconds }
 
     val currentNightStep: NightStep?
-        get() = roundState.nightStep
+        get() = synchronized(service.lock) { roundState.nightStep }
 
     val currentDayNumber: Int
-        get() = roundState.dayNumber
+        get() = synchronized(service.lock) { roundState.dayNumber }
 
     val currentWerewolfTarget: UUID?
-        get() = roundState.werewolfTarget
+        get() = synchronized(service.lock) { roundState.werewolfTarget }
 
     val currentSerialKillerTarget: UUID?
-        get() = SerialKillerActions.resolveTarget(roundState.nightActions)
+        get() = synchronized(service.lock) { currentSerialKillerTargetLocked() }
 
     val currentWitchHealTargets: Set<UUID>
-        get() = setOfNotNull(roundState.werewolfTarget, currentSerialKillerTarget)
-            .filter { targetId -> service.players[targetId]?.isAlive == true }
-            .toSet()
+        get() = synchronized(service.lock) {
+            setOfNotNull(roundState.werewolfTarget, currentSerialKillerTargetLocked())
+                .filter { targetId -> service.players[targetId]?.isAlive == true }
+                .toSet()
+        }
 
-    fun startGameEngine(): PhaseAdvanceResult {
+    private fun currentSerialKillerTargetLocked(): UUID? =
+        SerialKillerActions.resolveTarget(roundState.nightActions)
+
+    fun startGameEngine(): PhaseAdvanceResult = synchronized(service.lock) {
         roundState = GameRoundState(
             phase = GameState.DAY,
             dayNumber = 1,
@@ -58,10 +64,10 @@ class WerewolfGameEngine(
             phaseRemainingSeconds = GameState.DAY.time,
         )
 
-        return PhaseAdvanceResult(nextPhase = roundState.phase)
+        PhaseAdvanceResult(nextPhase = roundState.phase)
     }
 
-    fun tick(): PhaseAdvanceResult? {
+    fun tick(): PhaseAdvanceResult? = synchronized(service.lock) {
         if (roundState.phaseRemainingSeconds <= 1.seconds) {
             roundState = roundState.copy(phaseRemainingSeconds = 0.seconds)
 
@@ -70,10 +76,10 @@ class WerewolfGameEngine(
                 roundState.nightStep != NightStep.RESOLVE
             ) {
                 advanceNightStepOnTimeout()
-                return null
+                return@synchronized null
             }
 
-            return advancePhase()
+            return@synchronized advancePhaseLocked()
         }
 
         roundState = roundState.copy(
@@ -81,16 +87,16 @@ class WerewolfGameEngine(
         )
 
         plugin.logger.fine(
-            "Werewolf tick state: remaining=$phaseRemainingSeconds, " +
+            "Werewolf tick state: remaining=${roundState.phaseRemainingSeconds}, " +
                     "phase=${roundState.phase}, " +
                     "nightStep=${roundState.nightStep}, " +
                     "nightStepTime=${roundState.nightStep?.time}"
         )
 
-        return null
+        null
     }
 
-    fun removePlayer(playerId: UUID) {
+    fun removePlayer(playerId: UUID): Unit = synchronized(service.lock) {
         roundState = roundState.copy(
             nightActions = roundState.nightActions
                 .filterNot { actionReferencesPlayer(it, playerId) }
@@ -114,7 +120,9 @@ class WerewolfGameEngine(
         }
     }
 
-    fun advancePhase(): PhaseAdvanceResult = when (roundState.phase) {
+    fun advancePhase(): PhaseAdvanceResult = synchronized(service.lock) { advancePhaseLocked() }
+
+    private fun advancePhaseLocked(): PhaseAdvanceResult = when (roundState.phase) {
             GameState.MAYOR_VOTE -> advanceMayorVotePhase()
             GameState.DAY -> advanceDayPhase()
             GameState.VOTE -> advanceVotePhase()
@@ -130,7 +138,7 @@ class WerewolfGameEngine(
         )
 
         messenger.announceVotings(roundState.phase, standings, electedMayor)
-        beginNightPhase()
+        beginNightPhaseLocked()
 
         return PhaseAdvanceResult(
             nextPhase = roundState.phase,
@@ -143,9 +151,9 @@ class WerewolfGameEngine(
         clearDeadMayorIfNeeded()
 
         if (roundState.mayorVoteRequired) {
-            beginMayorVoting()
+            beginMayorVotingLocked()
         } else {
-            beginVotePhase()
+            beginVotePhaseLocked()
         }
 
         return PhaseAdvanceResult(nextPhase = roundState.phase)
@@ -165,7 +173,7 @@ class WerewolfGameEngine(
             service.executePlayer(votedOutPlayer)
         }
 
-        val winner = checkWinCondition()
+        val winner = checkWinConditionLocked()
         if (winner != null) {
             return PhaseAdvanceResult(
                 nextPhase = roundState.phase,
@@ -175,7 +183,7 @@ class WerewolfGameEngine(
             )
         }
 
-        beginNightPhase()
+        beginNightPhaseLocked()
         return PhaseAdvanceResult(
             nextPhase = roundState.phase,
             eliminatedPlayers = listOfNotNull(votedOutPlayer),
@@ -184,8 +192,8 @@ class WerewolfGameEngine(
     }
 
     private fun advanceNightPhase(): PhaseAdvanceResult {
-        val nightResolution = resolveNight()
-        val winner = checkWinCondition()
+        val nightResolution = resolveNightLocked()
+        val winner = checkWinConditionLocked()
 
         if (winner != null) {
             return PhaseAdvanceResult(
@@ -195,14 +203,16 @@ class WerewolfGameEngine(
             )
         }
 
-        beginDayPhase(increaseDayNumber = true)
+        beginDayPhaseLocked(increaseDayNumber = true)
         return PhaseAdvanceResult(
             nextPhase = roundState.phase,
             eliminatedPlayers = nightResolution.eliminatedPlayers
         )
     }
 
-    fun beginMayorVoting() {
+    fun beginMayorVoting(): Unit = synchronized(service.lock) { beginMayorVotingLocked() }
+
+    private fun beginMayorVotingLocked() {
         roundState = roundState.copy(
             phase = GameState.MAYOR_VOTE,
             phaseRemainingSeconds = GameState.MAYOR_VOTE.time,
@@ -214,7 +224,9 @@ class WerewolfGameEngine(
         service.setGameState(GameState.MAYOR_VOTE)
     }
 
-    fun beginVotePhase() {
+    fun beginVotePhase(): Unit = synchronized(service.lock) { beginVotePhaseLocked() }
+
+    private fun beginVotePhaseLocked() {
         roundState = roundState.copy(
             phase = GameState.VOTE,
             phaseRemainingSeconds = GameState.VOTE.time,
@@ -226,7 +238,9 @@ class WerewolfGameEngine(
         service.setGameState(GameState.VOTE)
     }
 
-    fun beginNightPhase() {
+    fun beginNightPhase(): Unit = synchronized(service.lock) { beginNightPhaseLocked() }
+
+    private fun beginNightPhaseLocked() {
         roundState = roundState.copy(
             phase = GameState.NIGHT,
             phaseRemainingSeconds = GameState.NIGHT.time,
@@ -240,7 +254,10 @@ class WerewolfGameEngine(
         service.setGameState(GameState.NIGHT)
     }
 
-    fun beginDayPhase(increaseDayNumber: Boolean = true) {
+    fun beginDayPhase(increaseDayNumber: Boolean = true): Unit =
+        synchronized(service.lock) { beginDayPhaseLocked(increaseDayNumber) }
+
+    private fun beginDayPhaseLocked(increaseDayNumber: Boolean = true) {
         roundState = roundState.copy(
             phase = GameState.DAY,
             phaseRemainingSeconds = GameState.DAY.time,
@@ -256,30 +273,34 @@ class WerewolfGameEngine(
         service.setGameState(GameState.DAY)
     }
 
-    fun submitMayorVote(voter: UUID, target: UUID): Boolean = submitVote(
-        expectedPhase = GameState.MAYOR_VOTE,
-        votes = roundState.mayorVotes,
-        voter = voter,
-        target = target
-    )
-
-    fun resolveMayorVote(): UUID? {
-        if (roundState.phase != GameState.MAYOR_VOTE) return null
-        return resolveMayorVoteWinner(calculateMayorVoteStandings())
+    fun submitMayorVote(voter: UUID, target: UUID): Boolean = synchronized(service.lock) {
+        submitVote(
+            expectedPhase = GameState.MAYOR_VOTE,
+            votes = roundState.mayorVotes,
+            voter = voter,
+            target = target
+        )
     }
 
-    fun submitVote(voter: UUID, target: UUID): Boolean = submitVote(
-        expectedPhase = GameState.VOTE,
-        votes = roundState.votes,
-        voter = voter,
-        target = target
-    )
+    fun resolveMayorVote(): UUID? = synchronized(service.lock) {
+        if (roundState.phase != GameState.MAYOR_VOTE) return@synchronized null
+        resolveMayorVoteWinner(calculateMayorVoteStandings())
+    }
 
-    fun resolveVote(): UUID? {
-        if (roundState.phase != GameState.VOTE) return null
-        val killed = resolveUniqueVoteWinner(calculateVoteStandings()) ?: return null
+    fun submitVote(voter: UUID, target: UUID): Boolean = synchronized(service.lock) {
+        submitVote(
+            expectedPhase = GameState.VOTE,
+            votes = roundState.votes,
+            voter = voter,
+            target = target
+        )
+    }
+
+    fun resolveVote(): UUID? = synchronized(service.lock) {
+        if (roundState.phase != GameState.VOTE) return@synchronized null
+        val killed = resolveUniqueVoteWinner(calculateVoteStandings()) ?: return@synchronized null
         service.executePlayer(killed)
-        return killed
+        killed
     }
 
     private fun resolveUniqueVoteWinner(standings: List<VoteStanding>): UUID? {
@@ -353,12 +374,12 @@ class WerewolfGameEngine(
         )
     }
 
-    fun submitNightAction(action: NightAction): Boolean {
-        if (roundState.phase != GameState.NIGHT) return false
-        val actor = service.players[action.actor] ?: return false
-        if (!actor.isAlive) return false
-        if (!nightStepCoordinator().isActionAllowed(roundState.nightStep, action)) return false
-        if (!nightResolver().isValid(action, actor.role)) return false
+    fun submitNightAction(action: NightAction): Boolean = synchronized(service.lock) {
+        if (roundState.phase != GameState.NIGHT) return@synchronized false
+        val actor = service.players[action.actor] ?: return@synchronized false
+        if (!actor.isAlive) return@synchronized false
+        if (!nightStepCoordinator().isActionAllowed(roundState.nightStep, action)) return@synchronized false
+        if (!nightResolver().isValid(action, actor.role)) return@synchronized false
 
         val previousAction = replaceNightAction(action)
         if (previousAction != action &&
@@ -371,48 +392,48 @@ class WerewolfGameEngine(
         advanceNightStepIfReady()
         service.refreshCommandRequirements()
 
-        return true
+        true
     }
 
-    fun inspectWithSeer(actor: UUID, target: UUID): WerwolfRoles? {
+    fun inspectWithSeer(actor: UUID, target: UUID): WerwolfRoles? = synchronized(service.lock) {
         val action = NightAction.SeerInspect(actor = actor, target = target)
-        if (!submitNightAction(action)) return null
+        if (!submitNightAction(action)) return@synchronized null
 
-        return SeerActions.inspectTarget(action, service.players)?.also { inspectedRole ->
+        SeerActions.inspectTarget(action, service.players)?.also { inspectedRole ->
             messenger.announceLeaderSeerInspection(actor, target, inspectedRole)
         }
     }
 
-    fun peekWithGirl(actor: UUID): GirlPeekOutcome? {
-        if (roundState.phase != GameState.NIGHT) return null
-        if (roundState.nightStep != NightStep.GIRL) return null
-        if (service.players[actor]?.role != WerwolfRoles.GIRL) return null
-        if (service.players[actor]?.isAlive != true) return null
+    fun peekWithGirl(actor: UUID): GirlPeekOutcome? = synchronized(service.lock) {
+        if (roundState.phase != GameState.NIGHT) return@synchronized null
+        if (roundState.nightStep != NightStep.GIRL) return@synchronized null
+        if (service.players[actor]?.role != WerwolfRoles.GIRL) return@synchronized null
+        if (service.players[actor]?.isAlive != true) return@synchronized null
 
         val outcome = GirlActions.rollOutcome(service.players)
         val action = NightAction.GirlPeek(actor = actor, outcome = outcome)
-        if (!submitNightAction(action)) return null
+        if (!submitNightAction(action)) return@synchronized null
 
         messenger.announceLeaderGirlPeek(actor, outcome)
-        return outcome
+        outcome
     }
 
-    fun usePriestHolyWater(actor: UUID, target: UUID): PriestActionResult {
-        if (roundState.phase != GameState.DAY) return PriestActionResult.WrongPhase
+    fun usePriestHolyWater(actor: UUID, target: UUID): PriestActionResult = synchronized(service.lock) {
+        if (roundState.phase != GameState.DAY) return@synchronized PriestActionResult.WrongPhase
 
-        val actorPlayer = service.players[actor] ?: return PriestActionResult.InvalidActor
-        val targetPlayer = service.players[target] ?: return PriestActionResult.InvalidTarget
+        val actorPlayer = service.players[actor] ?: return@synchronized PriestActionResult.InvalidActor
+        val targetPlayer = service.players[target] ?: return@synchronized PriestActionResult.InvalidTarget
 
         if (actorPlayer.role != WerwolfRoles.PRIEST || !actorPlayer.isAlive) {
-            return PriestActionResult.InvalidActor
+            return@synchronized PriestActionResult.InvalidActor
         }
 
         if (!actorPlayer.hasPriestHolyWater) {
-            return PriestActionResult.AlreadyUsed
+            return@synchronized PriestActionResult.AlreadyUsed
         }
 
         if (!PriestActions.isValid(actorPlayer, targetPlayer)) {
-            return PriestActionResult.InvalidTarget
+            return@synchronized PriestActionResult.InvalidTarget
         }
 
         actorPlayer.hasPriestHolyWater = false
@@ -422,14 +443,16 @@ class WerewolfGameEngine(
         resolution.eliminatedPlayers.forEach(service::executePlayer)
         service.refreshCommandRequirements()
 
-        return PriestActionResult.Success(
+        PriestActionResult.Success(
             hitWerewolf = resolution.hitWerewolf,
             eliminatedPlayers = resolution.eliminatedPlayers,
-            winner = checkWinCondition()
+            winner = checkWinConditionLocked()
         )
     }
 
-    fun resolveNight(): NightResolutionResult {
+    fun resolveNight(): NightResolutionResult = synchronized(service.lock) { resolveNightLocked() }
+
+    private fun resolveNightLocked(): NightResolutionResult {
         if (roundState.phase != GameState.NIGHT) return NightResolutionResult()
 
         val doctorProtectedPlayer = DoctorActions.resolveTarget(roundState.nightActions)
@@ -460,38 +483,42 @@ class WerewolfGameEngine(
         return resolution
     }
 
-    fun announceCurrentNightStep() {
+    fun announceCurrentNightStep(): Unit = synchronized(service.lock) {
         messenger.announceNightStep(roundState.nightStep)
     }
 
-    fun canRoleActAtNight(role: WerwolfRoles): Boolean {
-        if (roundState.phase != GameState.NIGHT) return false
-        return roundState.nightStep?.activeRole == role
+    fun canRoleActAtNight(role: WerwolfRoles): Boolean = synchronized(service.lock) {
+        if (roundState.phase != GameState.NIGHT) return@synchronized false
+        roundState.nightStep?.activeRole == role
     }
 
-    fun getWerewolfTargetFromLineOfSight(player: Player): UUID? {
-        if (roundState.phase != GameState.NIGHT) return null
-        if (service.getPlayerRole(player.uniqueId) != WerwolfRoles.WERWOLF) return null
-        if (service.players[player.uniqueId]?.isAlive != true) return null
+    fun getWerewolfTargetFromLineOfSight(player: Player): UUID? = synchronized(service.lock) {
+        if (roundState.phase != GameState.NIGHT) return@synchronized null
+        if (service.getPlayerRole(player.uniqueId) != WerwolfRoles.WERWOLF) return@synchronized null
+        if (service.players[player.uniqueId]?.isAlive != true) return@synchronized null
 
-        val targetPlayer = player.getTargetEntity(50, true) as? Player ?: return null
+        val targetPlayer = player.getTargetEntity(50, true) as? Player ?: return@synchronized null
         val targetId = targetPlayer.uniqueId
 
-        if (service.players[targetId]?.isAlive != true) return null
+        if (service.players[targetId]?.isAlive != true) return@synchronized null
 
-        return targetId
+        targetId
     }
 
-    fun getWitchHealTargets(player: Player): Set<UUID> {
-        if (roundState.phase != GameState.NIGHT) return emptySet()
-        if (roundState.nightStep != NightStep.WITCH) return emptySet()
-        if (service.getPlayerRole(player.uniqueId) != WerwolfRoles.WITCH) return emptySet()
-        if (service.players[player.uniqueId]?.isAlive != true) return emptySet()
+    fun getWitchHealTargets(player: Player): Set<UUID> = synchronized(service.lock) {
+        if (roundState.phase != GameState.NIGHT) return@synchronized emptySet()
+        if (roundState.nightStep != NightStep.WITCH) return@synchronized emptySet()
+        if (service.getPlayerRole(player.uniqueId) != WerwolfRoles.WITCH) return@synchronized emptySet()
+        if (service.players[player.uniqueId]?.isAlive != true) return@synchronized emptySet()
 
-        return currentWitchHealTargets
+        setOfNotNull(roundState.werewolfTarget, currentSerialKillerTargetLocked())
+            .filter { targetId -> service.players[targetId]?.isAlive == true }
+            .toSet()
     }
 
-    fun checkWinCondition(): GameOutcome? {
+    fun checkWinCondition(): GameOutcome? = synchronized(service.lock) { checkWinConditionLocked() }
+
+    private fun checkWinConditionLocked(): GameOutcome? {
         val alivePlayers = service.players.values.filter { it.isAlive }
         if (hasAliveLoverPair(alivePlayers)) return GameOutcome.LoversWin
 
@@ -582,14 +609,14 @@ class WerewolfGameEngine(
         existingAction.actor == newAction.actor &&
                 existingAction::class == newAction::class
 
-    fun skipCurrentNightStep(skippedBy: UUID? = null): Boolean {
-        if (roundState.phase != GameState.NIGHT) return false
-        val currentStep = roundState.nightStep ?: return false
-        if (currentStep == NightStep.RESOLVE) return false
+    fun skipCurrentNightStep(skippedBy: UUID? = null): Boolean = synchronized(service.lock) {
+        if (roundState.phase != GameState.NIGHT) return@synchronized false
+        val currentStep = roundState.nightStep ?: return@synchronized false
+        if (currentStep == NightStep.RESOLVE) return@synchronized false
 
         advanceNightStepOnTimeout(NightStepAdvanceCause.SKIPPED, skippedBy)
         service.refreshCommandRequirements()
-        return true
+        true
     }
 
     private fun resolveWerewolfTargetForCurrentStep() {

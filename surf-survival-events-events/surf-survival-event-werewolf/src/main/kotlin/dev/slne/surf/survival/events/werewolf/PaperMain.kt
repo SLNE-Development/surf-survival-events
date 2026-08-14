@@ -9,6 +9,7 @@ import dev.slne.surf.survival.events.base.game.GameStopReason
 import dev.slne.surf.survival.events.base.service.GameService
 import dev.slne.surf.survival.events.werewolf.commands.werewolfCommand
 import dev.slne.surf.survival.events.werewolf.game.WerewolfGame
+import dev.slne.surf.survival.events.werewolf.listeners.WerewolfDisconnectListener
 import dev.slne.surf.survival.events.werewolf.service.WerewolfVisibilityCleanupListener
 import dev.slne.surf.survival.events.werewolf.voicechat.WerewolfVoicechatPlugin
 import net.kyori.adventure.text.format.TextColor
@@ -20,6 +21,7 @@ class PaperMain : SuspendingJavaPlugin() {
     override suspend fun onEnableAsync() {
         werewolfCommand()
         WerewolfVisibilityCleanupListener.register()
+        WerewolfDisconnectListener.register()
         GameRegistry.register(WerewolfGame.KEY, WerewolfGame())
 
         val voicechatService = server.servicesManager.load(BukkitVoicechatService::class.java)

@@ -1,5 +1,7 @@
 package dev.slne.surf.survival.events.werewolf.service
 
+import dev.slne.surf.survival.events.base.game.GameStopReason
+import dev.slne.surf.survival.events.base.service.GameService
 import dev.slne.surf.survival.events.werewolf.util.WerewolfCommandRequirements
 import dev.slne.surf.survival.events.werewolf.scoreboard.addToWerewolfScoreboard
 import dev.slne.surf.survival.events.werewolf.scoreboard.removeFromWerewolfScoreboard
@@ -7,62 +9,93 @@ import dev.slne.surf.survival.events.werewolf.util.toBukkitPlayer
 import org.bukkit.entity.Player
 import java.util.*
 
+
 object WerewolfGameManager {
+
+    private val lock = Any()
 
     private val games = mutableMapOf<String, WerewolfService>()
     private val playerToGame = mutableMapOf<UUID, String>()
 
+    private var baseSessionGameId: String? = null
+
     fun createGame(gameId: String, leaderUuid: UUID? = null): WerewolfService? {
-        if (games.containsKey(gameId)) return null
-        val game = WerewolfService(gameId)
-        game.openLobby(leaderUuid)
-        games[gameId] = game
+        val game = synchronized(lock) {
+            if (games.containsKey(gameId)) return null
+            val game = WerewolfService(gameId)
+            game.openLobby(leaderUuid)
+            games[gameId] = game
+            leaderUuid?.let { playerToGame[it] = gameId }
+            game
+        }
+
         leaderUuid?.let {
-            playerToGame[it] = gameId
             it.toBukkitPlayer()?.addToWerewolfScoreboard()
             WerewolfCommandRequirements.update(it.toBukkitPlayer())
         }
         return game
     }
 
-    fun getGame(gameId: String): WerewolfService? = games[gameId]
+    fun getGame(gameId: String): WerewolfService? = synchronized(lock) { games[gameId] }
 
-    fun getGameForPlayer(uuid: UUID): WerewolfService? {
-        val gameId = playerToGame[uuid] ?: return null
-        return getGame(gameId)
+    fun getGameForPlayer(uuid: UUID): WerewolfService? = synchronized(lock) {
+        playerToGame[uuid]?.let { games[it] }
     }
 
     fun removeGame(gameId: String, participantsToRefresh: Collection<Player> = emptyList()) {
-        val playersToUpdate = participantsToRefresh + (games[gameId]?.allParticipants ?: emptyList())
+        val playersToUpdate = synchronized(lock) {
+            val playersToUpdate = participantsToRefresh + (games[gameId]?.allParticipants ?: emptyList())
+            playerToGame.entries.removeIf { it.value == gameId }
+            games.remove(gameId)
+            if (baseSessionGameId == gameId) baseSessionGameId = null
+            playersToUpdate
+        }
+
         playersToUpdate.distinctBy(Player::getUniqueId).forEach(Player::removeFromWerewolfScoreboard)
-        playerToGame.entries.removeIf { it.value == gameId }
-        games.remove(gameId)
         WerewolfCommandRequirements.update(playersToUpdate)
     }
 
-    fun getAllGames(): Map<String, WerewolfService> = games.toMap()
+    fun getAllGames(): Map<String, WerewolfService> = synchronized(lock) { games.toMap() }
 
     fun joinGame(gameId: String, uuid: UUID) {
-        playerToGame[uuid] = gameId
+        synchronized(lock) { playerToGame[uuid] = gameId }
         WerewolfCommandRequirements.update(uuid.toBukkitPlayer())
     }
 
+    fun leaveGame(uuid: UUID) {
+        synchronized(lock) { playerToGame.remove(uuid) }
+        WerewolfCommandRequirements.update(uuid.toBukkitPlayer())
+    }
+
+    fun markAsBaseSession(gameId: String) {
+        synchronized(lock) { baseSessionGameId = gameId }
+    }
+
+    fun isBaseSession(gameId: String): Boolean = synchronized(lock) { baseSessionGameId == gameId }
+
     fun handleDisconnect(player: Player) {
         val uuid = player.uniqueId
-        val gameId = playerToGame[uuid] ?: return
-        val game = games[gameId] ?: run {
-            playerToGame.remove(uuid)
-            return
+        val (game, gameId, isLeader) = synchronized(lock) {
+            val gameId = playerToGame[uuid] ?: return
+            val game = games[gameId] ?: run {
+                playerToGame.remove(uuid)
+                return
+            }
+            Triple(game, gameId, game.leader == uuid)
         }
 
-        if (game.leader == uuid) {
-            val participants = game.allParticipants
-            game.stop()
-            removeGame(gameId, participants)
+        if (isLeader) {
+            if (isBaseSession(gameId)) {
+                GameService.stopGame(GameStopReason.HANDLER)
+            } else {
+                val participants = game.allParticipants
+                game.stop()
+                removeGame(gameId, participants)
+            }
             return
         }
 
         game.removePlayer(player)
-        playerToGame.remove(uuid)
+        leaveGame(uuid)
     }
 }

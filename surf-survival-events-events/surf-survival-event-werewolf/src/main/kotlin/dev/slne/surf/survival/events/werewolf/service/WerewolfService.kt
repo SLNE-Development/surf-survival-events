@@ -28,6 +28,7 @@ import kotlinx.coroutines.withContext
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextDecoration
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
+import org.bukkit.Bukkit
 import org.bukkit.GameMode
 import org.bukkit.Sound
 import org.bukkit.entity.Player
@@ -59,25 +60,31 @@ sealed class WerewolfStartResult {
 
 class WerewolfService(val gameId: String) {
 
+    companion object {
+        const val MIN_PLAYERS = 8
+    }
+
+    internal val lock: Any = Any()
+
     internal val players: MutableMap<UUID, WerewolfPlayer> = ConcurrentHashMap()
 
     val leader: UUID?
-        get() = _leader
+        get() = synchronized(lock) { _leader }
 
     private var _leader: UUID? = null
 
     val phase: GamePhase
-        get() = _phase
+        get() = synchronized(lock) { _phase }
 
     private var _phase = GamePhase.IDLE
 
     val state: GameState
-        get() = _state
+        get() = synchronized(lock) { _state }
 
     private var _state = GameState.DAY
 
     val isPhaseTransitioning: Boolean
-        get() = _isPhaseTransitioning
+        get() = synchronized(lock) { _isPhaseTransitioning }
 
     private var _isPhaseTransitioning = false
 
@@ -109,15 +116,15 @@ class WerewolfService(val gameId: String) {
     private var phaseSessionId = 0
 
     private var _engine = WerewolfGameEngine(this)
-    private val glowingTargetsByWerewolf = mutableMapOf<UUID, UUID>()
-    private val glowingTargetsByWitch = mutableMapOf<UUID, Set<UUID>>()
-    private val hiddenPlayerPairs = mutableSetOf<HiddenPlayerPair>()
-    private val pendingNightExecutions = mutableListOf<UUID>()
+    private val glowingTargetsByWerewolf = Collections.synchronizedMap(mutableMapOf<UUID, UUID>())
+    private val glowingTargetsByWitch = Collections.synchronizedMap(mutableMapOf<UUID, Set<UUID>>())
+    private val hiddenPlayerPairs = Collections.synchronizedSet(mutableSetOf<HiddenPlayerPair>())
+    private val pendingNightExecutions = Collections.synchronizedList(mutableListOf<UUID>())
     private val phaseTransitionDelay = 3.seconds
     private var stopRequested = false
 
-    fun openLobby(leaderUuid: UUID?) {
-        if (phase != GamePhase.IDLE) return
+    fun openLobby(leaderUuid: UUID?): Unit = synchronized(lock) {
+        if (_phase != GamePhase.IDLE) return@synchronized
 
         players.clear()
         _phase = GamePhase.LOBBY
@@ -127,69 +134,138 @@ class WerewolfService(val gameId: String) {
         stopRequested = false
     }
 
-    fun join(uuid: UUID): WerewolfJoinResult {
-        if (phase != GamePhase.LOBBY) return WerewolfJoinResult.AlreadyStarted
-        if (players.containsKey(uuid)) return WerewolfJoinResult.AlreadyInGame
+    suspend fun join(uuid: UUID): WerewolfJoinResult {
+        val precheck = synchronized(lock) { checkJoinable(uuid) }
+        if (precheck != null) return precheck
 
         val player = uuid.toBukkitPlayer()
             ?: return WerewolfJoinResult.Error("Dein Spieler konnte nicht gefunden werden!")
 
-        player.addToWerewolfScoreboard()
-        players[uuid] = WerewolfPlayer(uuid, previousGameMode = player.gameMode)
+        val previousGameMode = withContext(plugin.entityDispatcher(player)) {
+            player.addToWerewolfScoreboard()
+            player.gameMode
+        }
+
+        val joined = synchronized(lock) {
+            if (checkJoinable(uuid) != null) return@synchronized false
+            players[uuid] = WerewolfPlayer(uuid, previousGameMode = previousGameMode)
+            true
+        }
+
+        if (!joined) {
+            withContext(plugin.entityDispatcher(player)) { player.removeFromWerewolfScoreboard() }
+            return synchronized(lock) { checkJoinable(uuid) } ?: WerewolfJoinResult.AlreadyInGame
+        }
 
         announceToAll {
             appendSuccessPrefix()
-            variableValue(uuid.toBukkitPlayer()?.name ?: "#Unbekannt")
+            variableValue(player.name)
             appendSpace()
             success("ist der Werwolf-Runde beigetreten!")
         }
         return WerewolfJoinResult.Success
     }
 
-    fun start(): WerewolfStartResult {
-        if (werewolfTask != null) error("Werewolf task is already running!")
-        if (werewolfUiTask != null) error("Werewolf UI task is already running!")
+    private fun checkJoinable(uuid: UUID): WerewolfJoinResult? {
+        if (_phase != GamePhase.LOBBY) return WerewolfJoinResult.AlreadyStarted
+        if (players.containsKey(uuid)) return WerewolfJoinResult.AlreadyInGame
+        return null
+    }
 
-        if (phase != GamePhase.LOBBY) {
-            return WerewolfStartResult.NotInLobbyPhase
-        }
+    suspend fun start(): WerewolfStartResult {
+        val prepared = synchronized(lock) {
+            if (werewolfTask != null) error("Werewolf task is already running!")
+            if (werewolfUiTask != null) error("Werewolf UI task is already running!")
 
-        val minPlayers = 8
-        if (players.size < minPlayers) {
-            val result = WerewolfStartResult.NotEnoughPlayers(players.size, minPlayers)
-            return result
-        }
-
-        try {
-            stopRequested = false
-            phaseSessionId += 1
-            _phase = GamePhase.RUNNING
-            _state = GameState.DAY
-            _werewolfTime = 0.seconds
-            werewolfStartedAt = TimeSource.Monotonic.markNow()
-            pendingNightExecutions.clear()
-            restoreParticipantVisibility()
-            WerewolfVisibilityCleanup.restorePendingForPlayers(allParticipantIds())
-            val roleMap = WerewolfRoleSelection.assignRoles(players.keys.toList())
-
-            this._engine.startGameEngine()
-
-            roleMap.forEach { (uuid, role) ->
-                val werewolfPlayer = players[uuid] ?: return@forEach
-                werewolfPlayer.role = role
-
-                uuid.toBukkitPlayer()?.let {
-                    sendRoleStartMessage(it, role)
-                    it.showDialog(
-                        WerewolfRoleViewDialoge.create(it)
-                    )
-                }
+            if (_phase != GamePhase.LOBBY) {
+                return@synchronized StartPreparation.Failure(WerewolfStartResult.NotInLobbyPhase)
             }
 
-            messenger.announceLeaderRoles(roleMap)
-            werewolfUiTask = launchWerewolfUiTask()
+            if (players.size < MIN_PLAYERS) {
+                return@synchronized StartPreparation.Failure(
+                    WerewolfStartResult.NotEnoughPlayers(players.size, MIN_PLAYERS)
+                )
+            }
 
-            werewolfTask = plugin.launch {
+            try {
+                stopRequested = false
+                phaseSessionId += 1
+                _phase = GamePhase.RUNNING
+                _state = GameState.DAY
+                _werewolfTime = 0.seconds
+                werewolfStartedAt = TimeSource.Monotonic.markNow()
+                pendingNightExecutions.clear()
+                restoreParticipantVisibility()
+                WerewolfVisibilityCleanup.restorePendingForPlayers(allParticipantIds())
+                val roleMap = WerewolfRoleSelection.assignRoles(players.keys.toList())
+
+                this._engine.startGameEngine()
+
+                roleMap.forEach { (uuid, role) ->
+                    players[uuid]?.role = role
+                }
+
+                messenger.announceLeaderRoles(roleMap)
+                werewolfUiTask = launchWerewolfUiTask()
+                startWerewolfTickTask()
+
+                StartPreparation.Success(roleMap)
+            } catch (e: Exception) {
+                werewolfTask?.cancel(CancellationException("Werewolf game '$gameId' failed to start"))
+                werewolfTask = null
+                werewolfUiTask?.cancel(CancellationException("Werewolf game '$gameId' failed to start"))
+                werewolfUiTask = null
+                werewolfStartedAt = null
+                _phase = GamePhase.IDLE
+                StartPreparation.Failure(WerewolfStartResult.Error(e.message ?: "Unbekannter Fehler beim Starten"))
+            }
+        }
+
+        val roleMap = when (prepared) {
+            is StartPreparation.Failure -> return prepared.result
+            is StartPreparation.Success -> prepared.roleMap
+        }
+
+        roleMap.forEach { (uuid, role) ->
+            val player = uuid.toBukkitPlayer() ?: return@forEach
+            withContext(plugin.entityDispatcher(player)) {
+                sendRoleStartMessage(player, role)
+                player.showDialog(WerewolfRoleViewDialoge.create(player))
+            }
+        }
+
+        messenger.announceGameStarted()
+        players.keys.toList().forEach { uuid ->
+            val player = uuid.toBukkitPlayer() ?: return@forEach
+            withContext(plugin.entityDispatcher(player)) {
+                player.showTitle {
+                    title { primary("Werwolf gestartet") }
+                    subtitle { variableValue("Viel Spaß!") }
+                    times {
+                        fadeIn(500.milliseconds)
+                        stay(3.seconds)
+                        fadeOut(500.milliseconds)
+                    }
+                }
+                player.playSound(true) {
+                    type(Sound.BLOCK_BEACON_ACTIVATE)
+                    volume(.5f)
+                    pitch(.5f)
+                }
+            }
+        }
+
+        refreshCommandRequirements()
+        return WerewolfStartResult.Success
+    }
+
+    private sealed class StartPreparation {
+        data class Success(val roleMap: Map<UUID, WerwolfRoles>) : StartPreparation()
+        data class Failure(val result: WerewolfStartResult) : StartPreparation()
+    }
+
+    private fun startWerewolfTickTask() {
+        werewolfTask = plugin.launch {
                 while (isActive) {
                     if (state == GameState.NIGHT) {
                         getAlivePlayers().forEach { werewolfPlayer ->
@@ -271,38 +347,6 @@ class WerewolfService(val gameId: String) {
                         refreshCommandRequirements()
                     }
                 }
-            }
-
-            messenger.announceGameStarted()
-            players.forEach { (uuid, _) ->
-                uuid.toBukkitPlayer()?.let {
-                    it.showTitle {
-                        title { primary("Werwolf gestartet") }
-                        subtitle { variableValue("Viel Spaß!") }
-                        times {
-                            fadeIn(500.milliseconds)
-                            stay(3.seconds)
-                            fadeOut(500.milliseconds)
-                        }
-                    }
-                    it.playSound(true) {
-                        type(Sound.BLOCK_BEACON_ACTIVATE)
-                        volume(.5f)
-                        pitch(.5f)
-                    }
-                }
-            }
-
-            refreshCommandRequirements()
-            return WerewolfStartResult.Success
-        } catch (e: Exception) {
-            werewolfTask?.cancel(CancellationException("Werewolf game '$gameId' failed to start"))
-            werewolfTask = null
-            werewolfUiTask?.cancel(CancellationException("Werewolf game '$gameId' failed to start"))
-            werewolfUiTask = null
-            werewolfStartedAt = null
-            _phase = GamePhase.IDLE
-            return WerewolfStartResult.Error(e.message ?: "Unbekannter Fehler beim Starten")
         }
     }
 
@@ -393,15 +437,27 @@ class WerewolfService(val gameId: String) {
     }
 
     fun finishGame(winner: GameOutcome) {
-        if (stopRequested || phase == GamePhase.IDLE) return
-        stopRequested = true
+        val shouldFinish = synchronized(lock) {
+            if (stopRequested || _phase == GamePhase.IDLE) return@synchronized false
+            stopRequested = true
+            true
+        }
+        if (!shouldFinish) return
+
         messenger.announceWinner(winner)
+
         plugin.launch {
-            GameService.endGame(GameStopReason.HANDLER)
+            if (WerewolfGameManager.isBaseSession(gameId)) {
+                GameService.endGame(GameStopReason.HANDLER)
+            } else {
+                val participants = allParticipants
+                stop()
+                WerewolfGameManager.removeGame(gameId, participants)
+            }
         }
     }
 
-    fun stop() {
+    fun stop(): Unit = synchronized(lock) {
         werewolfTask?.cancel(CancellationException("Werewolf game '$gameId' stopped"))
         werewolfTask = null
         werewolfUiTask?.cancel(CancellationException("Werewolf game '$gameId' stopped"))
@@ -422,7 +478,7 @@ class WerewolfService(val gameId: String) {
                 player.removeFromWerewolfScoreboard()
             }
         }
-        leader?.toBukkitPlayer()?.removeFromWerewolfScoreboard()
+        _leader?.toBukkitPlayer()?.removeFromWerewolfScoreboard()
 
         messenger.announceGameStopped()
 
@@ -436,23 +492,28 @@ class WerewolfService(val gameId: String) {
         WerewolfVoicechatPlugin.removeAudioHandler(gameId)
     }
 
-    fun removePlayer(player: Player): Boolean {
-        val playerId = player.uniqueId
-        val werewolfPlayer = players.remove(playerId) ?: return false
+    fun removePlayer(player: Player): Boolean = removePlayer(player.uniqueId, player)
+
+    fun removePlayer(uuid: UUID): Boolean = removePlayer(uuid, uuid.toBukkitPlayer())
+
+    private fun removePlayer(playerId: UUID, player: Player?): Boolean = synchronized(lock) {
+        val werewolfPlayer = players.remove(playerId) ?: return@synchronized false
 
         pendingNightExecutions.removeAll { it == playerId }
-        players.values.forEach { werewolfPlayer ->
-            if (werewolfPlayer.inLoveWith == playerId) {
-                werewolfPlayer.inLoveWith = null
+        players.values.forEach { other ->
+            if (other.inLoveWith == playerId) {
+                other.inLoveWith = null
             }
         }
 
         engine.removePlayer(playerId)
         audioHandler.removePlayer(playerId)
 
-        player.removePotionEffect(PotionEffectType.BLINDNESS)
-        restorePlayerGameMode(player, werewolfPlayer)
-        player.removeFromWerewolfScoreboard()
+        if (player != null) {
+            player.removePotionEffect(PotionEffectType.BLINDNESS)
+            restorePlayerGameMode(player, werewolfPlayer)
+            player.removeFromWerewolfScoreboard()
+        }
 
         clearWerewolfGlowing()
         clearWitchGlowing()
@@ -460,20 +521,24 @@ class WerewolfService(val gameId: String) {
 
         announceToAll {
             appendErrorPrefix()
-            variableValue(player.name)
+            variableValue(player?.name ?: Bukkit.getOfflinePlayer(playerId).name ?: "#Unbekannt")
             appendSpace()
-            error("hat die Verbindung verloren und wurde aus dem Spiel entfernt.")
+            if (player != null) {
+                error("hat die Verbindung verloren und wurde aus dem Spiel entfernt.")
+            } else {
+                error("wurde aus dem Spiel entfernt.")
+            }
         }
 
-        if (phase == GamePhase.RUNNING) {
+        if (_phase == GamePhase.RUNNING) {
             engine.checkWinCondition()?.let(::finishGame)
         }
 
-        if (phase != GamePhase.IDLE) {
+        if (_phase != GamePhase.IDLE) {
             refreshCommandRequirements()
         }
 
-        return true
+        true
     }
 
     private fun makeGlowing(werewolf: Player) {
@@ -534,18 +599,18 @@ class WerewolfService(val gameId: String) {
     }
 
     private suspend fun clearWerewolfGlowingNow() {
-        if (glowingTargetsByWerewolf.isEmpty()) return
-
-        val glowingTargets = glowingTargetsByWerewolf.toMap()
-        glowingTargetsByWerewolf.clear()
+        val glowingTargets = synchronized(glowingTargetsByWerewolf) {
+            if (glowingTargetsByWerewolf.isEmpty()) return
+            glowingTargetsByWerewolf.toMap().also { glowingTargetsByWerewolf.clear() }
+        }
         removeWerewolfGlowing(glowingTargets)
     }
 
     private suspend fun clearWitchGlowingNow() {
-        if (glowingTargetsByWitch.isEmpty()) return
-
-        val glowingTargets = glowingTargetsByWitch.toMap()
-        glowingTargetsByWitch.clear()
+        val glowingTargets = synchronized(glowingTargetsByWitch) {
+            if (glowingTargetsByWitch.isEmpty()) return
+            glowingTargetsByWitch.toMap().also { glowingTargetsByWitch.clear() }
+        }
         removeWitchGlowing(glowingTargets)
     }
 
@@ -578,10 +643,10 @@ class WerewolfService(val gameId: String) {
     }
 
     private fun clearWerewolfGlowing() {
-        if (glowingTargetsByWerewolf.isEmpty()) return
-
-        val glowingTargets = glowingTargetsByWerewolf.toMap()
-        glowingTargetsByWerewolf.clear()
+        val glowingTargets = synchronized(glowingTargetsByWerewolf) {
+            if (glowingTargetsByWerewolf.isEmpty()) return
+            glowingTargetsByWerewolf.toMap().also { glowingTargetsByWerewolf.clear() }
+        }
 
         plugin.launch {
             removeWerewolfGlowing(glowingTargets)
@@ -589,10 +654,10 @@ class WerewolfService(val gameId: String) {
     }
 
     private fun clearWitchGlowing() {
-        if (glowingTargetsByWitch.isEmpty()) return
-
-        val glowingTargets = glowingTargetsByWitch.toMap()
-        glowingTargetsByWitch.clear()
+        val glowingTargets = synchronized(glowingTargetsByWitch) {
+            if (glowingTargetsByWitch.isEmpty()) return
+            glowingTargetsByWitch.toMap().also { glowingTargetsByWitch.clear() }
+        }
 
         plugin.launch {
             removeWitchGlowing(glowingTargets)
@@ -623,19 +688,19 @@ class WerewolfService(val gameId: String) {
         }
     }
 
-    fun executePlayer(playerToExecute: UUID) {
+    fun executePlayer(playerToExecute: UUID): Unit = synchronized(lock) {
         val executionChain = collectExecutionChain(playerToExecute)
-        if (executionChain.isEmpty()) return
+        if (executionChain.isEmpty()) return@synchronized
 
         executionChain.forEach { executedPlayerId ->
             players[executedPlayerId]?.isAlive = false
         }
 
-        messenger.announceLeaderEliminationChain(executionChain, state)
+        messenger.announceLeaderEliminationChain(executionChain, _state)
 
-        if (state == GameState.NIGHT) {
+        if (_state == GameState.NIGHT) {
             pendingNightExecutions.addAll(executionChain)
-            return
+            return@synchronized
         }
 
         applyEliminations(executionChain)
@@ -660,7 +725,7 @@ class WerewolfService(val gameId: String) {
         return collectedPlayers.toList()
     }
 
-    fun executePendingNightExecutions() {
+    fun executePendingNightExecutions(): Unit = synchronized(lock) {
         val executedPlayers = pendingNightExecutions.toList()
         pendingNightExecutions.clear()
 
@@ -672,14 +737,14 @@ class WerewolfService(val gameId: String) {
         executePendingNightExecutions()
     }
 
-    fun debugAdvancePhase(): PhaseAdvanceResult? {
-        if (phase != GamePhase.RUNNING || isPhaseTransitioning) return null
+    fun debugAdvancePhase(): PhaseAdvanceResult? = synchronized(lock) {
+        if (_phase != GamePhase.RUNNING || _isPhaseTransitioning) return@synchronized null
 
         val advanceResult = engine.advancePhase()
         if (advanceResult.winner != null) {
             executePendingNightExecutionsBeforeGameEnd()
             finishGame(advanceResult.winner)
-            return advanceResult
+            return@synchronized advanceResult
         }
 
         when (advanceResult.nextPhase) {
@@ -698,7 +763,7 @@ class WerewolfService(val gameId: String) {
         }
 
         refreshCommandRequirements()
-        return advanceResult
+        advanceResult
     }
 
     private fun applyEliminations(executedPlayers: List<UUID>) {
@@ -752,26 +817,31 @@ class WerewolfService(val gameId: String) {
     }
 
     private fun restoreHiddenPlayerVisibility() {
-        if (hiddenPlayerPairs.isEmpty()) return
+        val pairs = synchronized(hiddenPlayerPairs) {
+            if (hiddenPlayerPairs.isEmpty()) return
+            hiddenPlayerPairs.toSet().also { hiddenPlayerPairs.clear() }
+        }
 
-        WerewolfVisibilityCleanup.queueRestore(hiddenPlayerPairs.toSet())
-        hiddenPlayerPairs.clear()
+        WerewolfVisibilityCleanup.queueRestore(pairs)
     }
 
     private fun restoreVisibilityForPlayer(playerId: UUID) {
-        val affectedPairs = hiddenPlayerPairs
-            .filter { it.viewerId == playerId || it.targetId == playerId }
-            .toSet()
+        val affectedPairs = synchronized(hiddenPlayerPairs) {
+            val affected = hiddenPlayerPairs
+                .filter { it.viewerId == playerId || it.targetId == playerId }
+                .toSet()
 
-        if (affectedPairs.isEmpty()) return
+            if (affected.isEmpty()) return
+            hiddenPlayerPairs.removeAll(affected)
+            affected
+        }
 
-        hiddenPlayerPairs.removeAll(affectedPairs)
         WerewolfVisibilityCleanup.queueRestore(affectedPairs)
     }
 
     private fun allParticipantIds(): Set<UUID> = buildSet {
         addAll(players.keys)
-        leader?.let(::add)
+        _leader?.let(::add)
     }
 
     fun getAlivePlayers(): List<WerewolfPlayer> = players.values.toList().filter { it.isAlive }
@@ -806,19 +876,19 @@ class WerewolfService(val gameId: String) {
 
     fun getPlayerRole(uuid: UUID): WerwolfRoles? = players[uuid]?.role
 
-    fun setGameState(gameState: GameState) {
+    fun setGameState(gameState: GameState): Unit = synchronized(lock) {
         _state = gameState
     }
 
-    fun syncWerewolfPrivateChannel(nightStep: NightStep?) {
+    fun syncWerewolfPrivateChannel(nightStep: NightStep?): Unit = synchronized(lock) {
         if (nightStep == null) {
             removePlayersFromPrivateChannel()
-            return
+            return@synchronized
         }
 
         if (nightStep != NightStep.WEREWOLVES) {
             mutePlayersAtNight()
-            return
+            return@synchronized
         }
 
         val aliveWerewolves = players.values
@@ -829,24 +899,24 @@ class WerewolfService(val gameId: String) {
 
         if (aliveWerewolves.isEmpty()) {
             removePlayersFromPrivateChannel()
-            return
+            return@synchronized
         }
 
         movePlayersToPrivateChannel(aliveWerewolves)
     }
 
-    fun movePlayersToPrivateChannel(playerList: List<Player>) {
-        if (playerList.isEmpty()) return
+    fun movePlayersToPrivateChannel(playerList: List<Player>): Unit = synchronized(lock) {
+        if (playerList.isEmpty()) return@synchronized
 
         val silencedPlayers = players.values
             .asSequence()
-            .filter { it.isAlive && it.role != WerwolfRoles.WERWOLF && it.uuid != leader }
+            .filter { it.isAlive && it.role != WerwolfRoles.WERWOLF && it.uuid != _leader }
             .mapNotNull { it.uuid.toBukkitPlayer() }
             .toList()
 
         val api = WerewolfVoicechatPlugin.getVoicechatApi()
         audioHandler.configurePrivateChannel(playerList, silencedPlayers, api)
-        if (privateWerewolfVoiceChatActive) return
+        if (privateWerewolfVoiceChatActive) return@synchronized
 
         privateWerewolfVoiceChatActive = true
 
@@ -858,17 +928,17 @@ class WerewolfService(val gameId: String) {
         messenger.announceLeaderVoiceChatOpened(playerList.map(Player::getUniqueId))
     }
 
-    private fun mutePlayersAtNight() {
+    private fun mutePlayersAtNight(): Unit = synchronized(lock) {
         val silencedPlayers = players.values
             .asSequence()
-            .filter { it.isAlive && it.uuid != leader }
+            .filter { it.isAlive && it.uuid != _leader }
             .mapNotNull { it.uuid.toBukkitPlayer() }
             .toList()
 
         val api = WerewolfVoicechatPlugin.getVoicechatApi()
         audioHandler.configurePrivateChannel(emptyList(), silencedPlayers, api)
 
-        if (!privateWerewolfVoiceChatActive) return
+        if (!privateWerewolfVoiceChatActive) return@synchronized
 
         privateWerewolfVoiceChatActive = false
 
@@ -880,9 +950,9 @@ class WerewolfService(val gameId: String) {
         messenger.announceLeaderVoiceChatClosed()
     }
 
-    fun removePlayersFromPrivateChannel() {
+    fun removePlayersFromPrivateChannel(): Unit = synchronized(lock) {
         audioHandler.clearPrivateChannel()
-        if (!privateWerewolfVoiceChatActive) return
+        if (!privateWerewolfVoiceChatActive) return@synchronized
 
         privateWerewolfVoiceChatActive = false
 
@@ -895,12 +965,12 @@ class WerewolfService(val gameId: String) {
     }
 
     private suspend fun waitForPhaseTransition() {
-        _isPhaseTransitioning = true
+        synchronized(lock) { _isPhaseTransitioning = true }
         refreshCommandRequirements()
         try {
             delay(phaseTransitionDelay)
         } finally {
-            _isPhaseTransitioning = false
+            synchronized(lock) { _isPhaseTransitioning = false }
         }
     }
 }

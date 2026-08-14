@@ -4,7 +4,7 @@ import java.util.UUID
 
 object WerewolfStartGame {
 
-    fun startWerewolfGame(
+    suspend fun startWerewolfGame(
         playerList: Collection<UUID>,
         leaderUuid: UUID? = null,
     ): WerewolfService {
@@ -30,7 +30,9 @@ object WerewolfStartGame {
                 is WerewolfStartResult.Error -> error("Could not start werewolf game '$gameId': ${startResult.message}")
             }
         } catch (exception: Exception) {
-            WerewolfGameManager.removeGame(gameId, game.allParticipants)
+            val participants = game.allParticipants
+            game.stop()
+            WerewolfGameManager.removeGame(gameId, participants)
             throw exception
         }
     }
