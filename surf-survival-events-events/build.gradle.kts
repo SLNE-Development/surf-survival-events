@@ -24,6 +24,10 @@ subprojects {
 
         serverDependencies {
             registerRequired("surf-survival-events-base")
+
+            if (project.name == "surf-survival-event-werewolf") {
+                registerRequired("voicechat")
+            }
         }
     }
 }
