@@ -1,11 +1,10 @@
 package dev.slne.surf.survival.events.werewolf.commands.subcommands
 
-import dev.jorel.commandapi.arguments.EntitySelectorArgument
+import dev.jorel.commandapi.kotlindsl.entitySelectorArgumentOnePlayer
 import dev.jorel.commandapi.kotlindsl.getValue
 import dev.jorel.commandapi.kotlindsl.playerExecutor
 import dev.jorel.commandapi.kotlindsl.subcommand
 import dev.slne.surf.api.core.messages.adventure.sendText
-import dev.slne.surf.api.core.messages.adventure.uuid
 import dev.slne.surf.survival.events.werewolf.service.WerewolfGameManager
 import dev.slne.surf.survival.events.werewolf.util.GameState
 import dev.slne.surf.survival.events.werewolf.util.WerewolfCommandRequirements
@@ -14,10 +13,10 @@ import org.bukkit.entity.Player
 
 fun voteWerewolfCommand() = subcommand("vote") {
     withRequirement { sender -> WerewolfCommandRequirements.canVote(sender) }
-    withArguments(EntitySelectorArgument.OnePlayer("targetPlayer"))
+    entitySelectorArgumentOnePlayer("targetPlayer")
     playerExecutor { commandSender, arguments ->
         val targetPlayer: Player by arguments
-        val service = WerewolfGameManager.getGameForPlayer(commandSender.uuid())
+        val service = WerewolfGameManager.getGameForPlayer(commandSender.uniqueId)
 
         if (service == null) {
             commandSender.sendText {
@@ -47,7 +46,7 @@ fun voteWerewolfCommand() = subcommand("vote") {
         when (currentPhase) {
             GameState.MAYOR_VOTE -> {
 
-                if (!service.engine.submitMayorVote(commandSender.uuid(), targetPlayer.uuid())) {
+                if (!service.engine.submitMayorVote(commandSender.uniqueId, targetPlayer.uniqueId)) {
                     commandSender.sendText {
                         appendErrorPrefix()
                         error("Die Bürgermeisterwahl ist aktuell nicht verfügbar oder das Ziel ist ungültig.")
@@ -67,7 +66,7 @@ fun voteWerewolfCommand() = subcommand("vote") {
 
             GameState.VOTE -> {
 
-                if (!service.engine.submitVote(commandSender.uuid(), targetPlayer.uuid())) {
+                if (!service.engine.submitVote(commandSender.uniqueId, targetPlayer.uniqueId)) {
                     commandSender.sendText {
                         appendErrorPrefix()
                         error("Die Abstimmung ist aktuell nicht verfügbar oder das Ziel ist ungültig.")

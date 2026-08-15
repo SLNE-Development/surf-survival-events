@@ -1,11 +1,10 @@
 package dev.slne.surf.survival.events.werewolf.commands.subcommands
 
-import dev.jorel.commandapi.arguments.EntitySelectorArgument
+import dev.jorel.commandapi.kotlindsl.entitySelectorArgumentOnePlayer
 import dev.jorel.commandapi.kotlindsl.getValue
 import dev.jorel.commandapi.kotlindsl.playerExecutor
 import dev.jorel.commandapi.kotlindsl.subcommand
 import dev.slne.surf.api.core.messages.adventure.sendText
-import dev.slne.surf.api.core.messages.adventure.uuid
 import dev.slne.surf.survival.events.werewolf.service.WerewolfGameManager
 import dev.slne.surf.survival.events.werewolf.util.GameState
 import dev.slne.surf.survival.events.werewolf.util.PriestActionResult
@@ -15,11 +14,11 @@ import org.bukkit.entity.Player
 
 fun priestWerewolfCommand() = subcommand("priest") {
     withRequirement { sender -> WerewolfCommandRequirements.canActAsPriest(sender) }
-    withArguments(EntitySelectorArgument.OnePlayer("targetPlayer"))
+    entitySelectorArgumentOnePlayer("targetPlayer")
 
     playerExecutor { commandSender, arguments ->
         val targetPlayer: Player by arguments
-        val service = WerewolfGameManager.getGameForPlayer(commandSender.uuid())
+        val service = WerewolfGameManager.getGameForPlayer(commandSender.uniqueId)
 
         if (service == null) {
             commandSender.sendText {
@@ -45,7 +44,7 @@ fun priestWerewolfCommand() = subcommand("priest") {
             return@playerExecutor
         }
 
-        if (service.getPlayerRole(commandSender.uuid()) != WerwolfRoles.PRIEST) {
+        if (service.getPlayerRole(commandSender.uniqueId) != WerwolfRoles.PRIEST) {
             commandSender.sendText {
                 appendErrorPrefix()
                 error("Nur der Priester darf diesen Befehl benutzen.")
@@ -53,7 +52,7 @@ fun priestWerewolfCommand() = subcommand("priest") {
             return@playerExecutor
         }
 
-        when (val result = service.engine.usePriestHolyWater(commandSender.uuid(), targetPlayer.uuid())) {
+        when (val result = service.engine.usePriestHolyWater(commandSender.uniqueId, targetPlayer.uniqueId)) {
             PriestActionResult.WrongPhase -> commandSender.sendText {
                 appendErrorPrefix()
                 error("Du kannst Weihwasser nur während des Tages werfen.")

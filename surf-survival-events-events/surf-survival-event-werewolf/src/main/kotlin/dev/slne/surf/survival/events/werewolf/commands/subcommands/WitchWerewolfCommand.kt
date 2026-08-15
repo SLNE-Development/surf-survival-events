@@ -1,6 +1,6 @@
 package dev.slne.surf.survival.events.werewolf.commands.subcommands
 
-import dev.jorel.commandapi.arguments.EntitySelectorArgument
+import dev.jorel.commandapi.kotlindsl.entitySelectorArgumentOnePlayer
 import dev.jorel.commandapi.kotlindsl.getValue
 import dev.jorel.commandapi.kotlindsl.playerExecutor
 import dev.jorel.commandapi.kotlindsl.subcommand
@@ -19,7 +19,7 @@ fun witchWerewolfCommand() = subcommand("witch") {
     withRequirement { sender -> WerewolfCommandRequirements.canActAsWitch(sender) }
 
     subcommand("heal") {
-        withArguments(EntitySelectorArgument.OnePlayer("targetPlayer"))
+        entitySelectorArgumentOnePlayer("targetPlayer")
 
         playerExecutor { commandSender, arguments ->
             val targetPlayer: Player by arguments
@@ -34,7 +34,7 @@ fun witchWerewolfCommand() = subcommand("witch") {
     }
 
     subcommand("kill") {
-        withArguments(EntitySelectorArgument.OnePlayer("targetPlayer"))
+        entitySelectorArgumentOnePlayer("targetPlayer")
 
         playerExecutor { commandSender, arguments ->
             val targetPlayer: Player by arguments

@@ -75,7 +75,6 @@ class WerewolfGame : GameHandler {
         activeGameId = null
 
         if (gameId != null) {
-            WerewolfGameManager.getGame(gameId)?.stop()
             WerewolfGameManager.removeGame(gameId, onlinePlayers)
         }
 

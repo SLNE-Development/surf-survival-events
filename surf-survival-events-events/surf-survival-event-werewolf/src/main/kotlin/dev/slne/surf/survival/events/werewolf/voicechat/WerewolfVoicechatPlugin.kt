@@ -8,18 +8,19 @@ import de.maxhenkel.voicechat.api.events.MicrophonePacketEvent
 import de.maxhenkel.voicechat.api.events.VoicechatServerStartedEvent
 import de.maxhenkel.voicechat.api.events.VoicechatServerStoppedEvent
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 
 class WerewolfVoicechatPlugin : VoicechatPlugin {
 
     val PLUGIN_ID = "werewolf_voicechat"
 
     companion object {
-        private val audioHandlers = mutableMapOf<String, PrivateAudioHandler>()
+        private val audioHandlers = ConcurrentHashMap<String, PrivateAudioHandler>()
+        @Volatile
         private var voicechatApi: VoicechatServerApi? = null
 
-        fun getAudioHandler(gameId: String): PrivateAudioHandler = audioHandlers.getOrPut(gameId) {
-            PrivateAudioHandler()
-        }
+        fun getAudioHandler(gameId: String): PrivateAudioHandler =
+            audioHandlers.computeIfAbsent(gameId) { PrivateAudioHandler() }
 
         fun removeAudioHandler(gameId: String) {
             audioHandlers.remove(gameId)

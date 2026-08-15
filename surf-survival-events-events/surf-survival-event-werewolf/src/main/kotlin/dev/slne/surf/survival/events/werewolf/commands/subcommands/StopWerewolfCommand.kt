@@ -21,9 +21,7 @@ fun stopWerewolfCommand() = subcommand("stop") {
         if (WerewolfGameManager.isBaseSession(game.gameId)) {
             GameService.stopGameAndWait(GameStopReason.COMMAND)
         } else {
-            val participants = game.allParticipants
-            game.stop()
-            WerewolfGameManager.removeGame(game.gameId, participants)
+            WerewolfGameManager.removeGame(game.gameId, game.allParticipants)
         }
 
         player.sendText {

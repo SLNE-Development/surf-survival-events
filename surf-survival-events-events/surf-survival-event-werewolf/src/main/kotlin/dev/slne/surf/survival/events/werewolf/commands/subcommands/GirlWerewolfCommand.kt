@@ -3,7 +3,6 @@ package dev.slne.surf.survival.events.werewolf.commands.subcommands
 import dev.jorel.commandapi.kotlindsl.playerExecutor
 import dev.jorel.commandapi.kotlindsl.subcommand
 import dev.slne.surf.api.core.messages.adventure.sendText
-import dev.slne.surf.api.core.messages.adventure.uuid
 import dev.slne.surf.survival.events.werewolf.service.WerewolfGameManager
 import dev.slne.surf.survival.events.werewolf.util.GameState
 import dev.slne.surf.survival.events.werewolf.util.GirlPeekOutcome
@@ -15,7 +14,7 @@ import net.kyori.adventure.text.format.TextDecoration
 fun girlWerewolfCommand() = subcommand("girl") {
     withRequirement { sender -> WerewolfCommandRequirements.canActAsGirl(sender) }
     playerExecutor { commandSender, _ ->
-        val service = WerewolfGameManager.getGameForPlayer(commandSender.uuid())
+        val service = WerewolfGameManager.getGameForPlayer(commandSender.uniqueId)
 
         if (service == null) {
             commandSender.sendText {
@@ -41,7 +40,7 @@ fun girlWerewolfCommand() = subcommand("girl") {
             return@playerExecutor
         }
 
-        if (service.getPlayerRole(commandSender.uuid()) != WerwolfRoles.GIRL) {
+        if (service.getPlayerRole(commandSender.uniqueId) != WerwolfRoles.GIRL) {
             commandSender.sendText {
                 appendErrorPrefix()
                 error("Nur das Mädchen darf diesen Befehl benutzen.")
@@ -57,7 +56,7 @@ fun girlWerewolfCommand() = subcommand("girl") {
             return@playerExecutor
         }
 
-        when (val outcome = service.engine.peekWithGirl(commandSender.uuid())) {
+        when (val outcome = service.engine.peekWithGirl(commandSender.uniqueId)) {
             null -> commandSender.sendText {
                 appendErrorPrefix()
                 error("Deine Nachtaktion konnte nicht gespeichert werden.")

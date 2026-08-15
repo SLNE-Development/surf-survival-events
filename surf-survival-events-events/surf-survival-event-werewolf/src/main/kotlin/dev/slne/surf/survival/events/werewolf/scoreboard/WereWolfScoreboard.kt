@@ -15,10 +15,10 @@ import dev.slne.surf.survival.events.werewolf.util.WerewolfPlayer
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.TextDecoration
 import org.bukkit.entity.Player
-import java.util.Collections
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 
-private val activeScoreboards = Collections.synchronizedMap(mutableMapOf<UUID, SurfAutoUpdatableScoreboard>())
+private val activeScoreboards = ConcurrentHashMap<UUID, SurfAutoUpdatableScoreboard>()
 private const val SCOREBOARD_MAX_LINES = 15
 private const val OVERVIEW_LINE_COUNT = 11
 
@@ -40,11 +40,7 @@ fun Player.removeFromWerewolfScoreboard() {
 }
 
 fun updateWerewolfScoreboards() {
-    val scoreboards = synchronized(activeScoreboards) {
-        activeScoreboards.values.toList()
-    }
-
-    scoreboards.forEach(SurfAutoUpdatableScoreboard::update)
+    activeScoreboards.values.forEach(SurfAutoUpdatableScoreboard::update)
 }
 
 private fun createWerewolfScoreboard(selfPlayer: Player): SurfAutoUpdatableScoreboard {

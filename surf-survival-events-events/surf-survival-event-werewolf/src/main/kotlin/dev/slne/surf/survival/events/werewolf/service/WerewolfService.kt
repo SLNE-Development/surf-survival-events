@@ -3,6 +3,7 @@ package dev.slne.surf.survival.events.werewolf.service
 import com.github.shynixn.mccoroutine.folia.entityDispatcher
 import com.github.shynixn.mccoroutine.folia.launch
 import dev.slne.surf.api.core.messages.adventure.buildText
+import dev.slne.surf.api.core.messages.adventure.plain
 import dev.slne.surf.api.core.messages.adventure.playSound
 import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.api.core.messages.adventure.showTitle
@@ -27,7 +28,6 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextDecoration
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
 import org.bukkit.Bukkit
 import org.bukkit.GameMode
 import org.bukkit.Sound
@@ -98,7 +98,6 @@ class WerewolfService(val gameId: String) {
     private var werewolfStartedAt: TimeMark? = null
 
     private val messenger = WerewolfMessenger(this)
-    private val plainTextSerializer = PlainTextComponentSerializer.plainText()
     private var privateWerewolfVoiceChatActive = false
 
     val aliveCount: Int
@@ -106,6 +105,8 @@ class WerewolfService(val gameId: String) {
 
     val totalCount: Int
         get() = players.size
+
+    fun playerUuids(): Set<UUID> = players.keys.toSet()
 
     private val audioHandler = WerewolfVoicechatPlugin.getAudioHandler(gameId)
 
@@ -420,8 +421,7 @@ class WerewolfService(val gameId: String) {
         info(text)
     }
 
-    private fun roleDescriptionText(role: WerwolfRoles): String =
-        plainTextSerializer.serialize(role.description)
+    private fun roleDescriptionText(role: WerwolfRoles): String = role.description.plain()
 
     private fun roleStartHint(role: WerwolfRoles): String = when (role) {
         WerwolfRoles.WERWOLF -> "Stimme dich nachts mit den anderen Wölfen ab und bleib tagsüber unauffällig."
@@ -450,9 +450,7 @@ class WerewolfService(val gameId: String) {
             if (WerewolfGameManager.isBaseSession(gameId)) {
                 GameService.endGame(GameStopReason.HANDLER)
             } else {
-                val participants = allParticipants
-                stop()
-                WerewolfGameManager.removeGame(gameId, participants)
+                WerewolfGameManager.removeGame(gameId, allParticipants)
             }
         }
     }

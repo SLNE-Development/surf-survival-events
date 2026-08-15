@@ -4,25 +4,23 @@ import dev.jorel.commandapi.kotlindsl.getValue
 import dev.jorel.commandapi.kotlindsl.playerExecutor
 import dev.jorel.commandapi.kotlindsl.stringArgument
 import dev.jorel.commandapi.kotlindsl.subcommand
-import dev.slne.surf.api.core.messages.Colors
 import dev.slne.surf.api.core.messages.adventure.buildText
 import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.survival.events.werewolf.permissions.PermissionRegistry
 import dev.slne.surf.survival.events.werewolf.service.WerewolfGameManager
 import net.kyori.adventure.text.event.ClickEvent
-import net.kyori.adventure.text.event.HoverEvent
 import net.kyori.adventure.text.format.TextDecoration
 import org.bukkit.entity.Player
 
 private fun createClickable(gameId: String) = buildText {
-    text("HIER", Colors.VARIABLE_VALUE, TextDecoration.UNDERLINED)
-    hoverEvent(HoverEvent.showText(buildText { info("Klicke hier, um der Einladung zu folgen und dem Spiel '$gameId' beizutreten!") }))
+    variableValue("HIER", TextDecoration.UNDERLINED)
+    hoverEvent(buildText { info("Klicke hier, um der Einladung zu folgen und dem Spiel '$gameId' beizutreten!") })
     clickEvent(ClickEvent.runCommand("/werewolf join $gameId"))
 }
 
 
 fun openGameWerewolfCommand() = subcommand("openGame") {
-    withRequirement { sender -> sender is Player && sender.hasPermission(PermissionRegistry.COMMAND_WEREWOLF_ADMIN) }
+    withPermission(PermissionRegistry.COMMAND_WEREWOLF_ADMIN)
     stringArgument("gameId")
     playerExecutor { player, arguments ->
         val gameId: String by arguments

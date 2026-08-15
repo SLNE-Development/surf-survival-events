@@ -1,11 +1,10 @@
 package dev.slne.surf.survival.events.werewolf.commands.subcommands
 
-import dev.jorel.commandapi.arguments.EntitySelectorArgument
+import dev.jorel.commandapi.kotlindsl.entitySelectorArgumentOnePlayer
 import dev.jorel.commandapi.kotlindsl.getValue
 import dev.jorel.commandapi.kotlindsl.playerExecutor
 import dev.jorel.commandapi.kotlindsl.subcommand
 import dev.slne.surf.api.core.messages.adventure.sendText
-import dev.slne.surf.api.core.messages.adventure.uuid
 import dev.slne.surf.survival.events.werewolf.service.WerewolfGameManager
 import dev.slne.surf.survival.events.werewolf.util.GameState
 import dev.slne.surf.survival.events.werewolf.util.NightStep
@@ -16,11 +15,11 @@ import org.bukkit.entity.Player
 
 fun inspectWerewolfCommand() = subcommand("inspect") {
     withRequirement { sender -> WerewolfCommandRequirements.canActAsSeer(sender) }
-    withArguments(EntitySelectorArgument.OnePlayer("targetPlayer"))
+    entitySelectorArgumentOnePlayer("targetPlayer")
 
     playerExecutor { commandSender, arguments ->
         val targetPlayer: Player by arguments
-        val service = WerewolfGameManager.getGameForPlayer(commandSender.uuid())
+        val service = WerewolfGameManager.getGameForPlayer(commandSender.uniqueId)
 
         if (service == null) {
             commandSender.sendText {
@@ -46,7 +45,7 @@ fun inspectWerewolfCommand() = subcommand("inspect") {
             return@playerExecutor
         }
 
-        if (service.getPlayerRole(commandSender.uuid()) != WerwolfRoles.SEER) {
+        if (service.getPlayerRole(commandSender.uniqueId) != WerwolfRoles.SEER) {
             commandSender.sendText {
                 appendErrorPrefix()
                 error("Nur die Seherin darf Rollen aufdecken.")
@@ -71,8 +70,8 @@ fun inspectWerewolfCommand() = subcommand("inspect") {
         }
 
         val inspectedRole = service.engine.inspectWithSeer(
-            actor = commandSender.uuid(),
-            target = targetPlayer.uuid()
+            actor = commandSender.uniqueId,
+            target = targetPlayer.uniqueId
         )
 
         if (inspectedRole == null) {

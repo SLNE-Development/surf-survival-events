@@ -19,7 +19,7 @@ class WerewolfMessenger(private val service: WerewolfService) {
 
     fun announceToAll(content: SurfComponentBuilder.() -> Unit) {
         val recipientIds = linkedSetOf<UUID>()
-        recipientIds.addAll(service.players.keys)
+        recipientIds.addAll(service.playerUuids())
         service.leader?.let(recipientIds::add)
 
         recipientIds.forEach { uuid ->

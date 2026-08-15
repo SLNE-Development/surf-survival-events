@@ -1,11 +1,10 @@
 package dev.slne.surf.survival.events.werewolf.commands.subcommands
 
-import dev.jorel.commandapi.arguments.EntitySelectorArgument
+import dev.jorel.commandapi.kotlindsl.entitySelectorArgumentOnePlayer
 import dev.jorel.commandapi.kotlindsl.getValue
 import dev.jorel.commandapi.kotlindsl.playerExecutor
 import dev.jorel.commandapi.kotlindsl.subcommand
 import dev.slne.surf.api.core.messages.adventure.sendText
-import dev.slne.surf.api.core.messages.adventure.uuid
 import dev.slne.surf.survival.events.werewolf.service.WerewolfGameManager
 import dev.slne.surf.survival.events.werewolf.util.GameState
 import dev.slne.surf.survival.events.werewolf.util.NightAction
@@ -17,13 +16,13 @@ import org.bukkit.entity.Player
 
 fun amorWerewolfCommand() = subcommand("amor") {
     withRequirement { sender -> WerewolfCommandRequirements.canActAsAmor(sender) }
-    withArguments(EntitySelectorArgument.OnePlayer("firstPlayer"))
-    withArguments(EntitySelectorArgument.OnePlayer("secondPlayer"))
+    entitySelectorArgumentOnePlayer("firstPlayer")
+    entitySelectorArgumentOnePlayer("secondPlayer")
 
     playerExecutor { commandSender, arguments ->
         val firstPlayer: Player by arguments
         val secondPlayer: Player by arguments
-        val service = WerewolfGameManager.getGameForPlayer(commandSender.uuid())
+        val service = WerewolfGameManager.getGameForPlayer(commandSender.uniqueId)
 
         if (service == null) {
             commandSender.sendText {
@@ -49,7 +48,7 @@ fun amorWerewolfCommand() = subcommand("amor") {
             return@playerExecutor
         }
 
-        if (service.getPlayerRole(commandSender.uuid()) != WerwolfRoles.AMOR) {
+        if (service.getPlayerRole(commandSender.uniqueId) != WerwolfRoles.AMOR) {
             commandSender.sendText {
                 appendErrorPrefix()
                 error("Nur Amor darf Liebespaare bestimmen.")
@@ -75,9 +74,9 @@ fun amorWerewolfCommand() = subcommand("amor") {
 
         val submitted = service.engine.submitNightAction(
             NightAction.AmorLink(
-                actor = commandSender.uuid(),
-                first = firstPlayer.uuid(),
-                second = secondPlayer.uuid()
+                actor = commandSender.uniqueId,
+                first = firstPlayer.uniqueId,
+                second = secondPlayer.uniqueId
             )
         )
 

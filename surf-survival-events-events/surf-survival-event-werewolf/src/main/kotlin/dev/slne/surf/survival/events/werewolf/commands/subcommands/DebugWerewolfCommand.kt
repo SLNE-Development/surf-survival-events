@@ -1,6 +1,6 @@
 package dev.slne.surf.survival.events.werewolf.commands.subcommands
 
-import dev.jorel.commandapi.arguments.EntitySelectorArgument
+import dev.jorel.commandapi.kotlindsl.entitySelectorArgumentOnePlayer
 import dev.jorel.commandapi.kotlindsl.getValue
 import dev.jorel.commandapi.kotlindsl.playerExecutor
 import dev.jorel.commandapi.kotlindsl.subcommand
@@ -168,7 +168,7 @@ private fun debugAdvancePhaseWerewolfCommand() = subcommand("advancePhase") {
 }
 
 private fun debugEliminateWerewolfCommand() = subcommand("eliminate") {
-    withArguments(EntitySelectorArgument.OnePlayer("targetPlayer"))
+    entitySelectorArgumentOnePlayer("targetPlayer")
 
     playerExecutor { player, arguments ->
         val targetPlayer: Player by arguments

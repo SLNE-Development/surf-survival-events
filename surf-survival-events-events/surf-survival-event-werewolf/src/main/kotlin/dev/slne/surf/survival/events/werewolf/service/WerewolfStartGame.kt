@@ -30,9 +30,7 @@ object WerewolfStartGame {
                 is WerewolfStartResult.Error -> error("Could not start werewolf game '$gameId': ${startResult.message}")
             }
         } catch (exception: Exception) {
-            val participants = game.allParticipants
-            game.stop()
-            WerewolfGameManager.removeGame(gameId, participants)
+            WerewolfGameManager.removeGame(gameId, game.allParticipants)
             throw exception
         }
     }

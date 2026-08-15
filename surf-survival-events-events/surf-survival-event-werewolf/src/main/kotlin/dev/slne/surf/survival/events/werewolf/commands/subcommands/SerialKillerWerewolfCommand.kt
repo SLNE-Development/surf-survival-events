@@ -1,11 +1,10 @@
 package dev.slne.surf.survival.events.werewolf.commands.subcommands
 
-import dev.jorel.commandapi.arguments.EntitySelectorArgument
+import dev.jorel.commandapi.kotlindsl.entitySelectorArgumentOnePlayer
 import dev.jorel.commandapi.kotlindsl.getValue
 import dev.jorel.commandapi.kotlindsl.playerExecutor
 import dev.jorel.commandapi.kotlindsl.subcommand
 import dev.slne.surf.api.core.messages.adventure.sendText
-import dev.slne.surf.api.core.messages.adventure.uuid
 import dev.slne.surf.survival.events.werewolf.service.WerewolfGameManager
 import dev.slne.surf.survival.events.werewolf.util.GameState
 import dev.slne.surf.survival.events.werewolf.util.NightAction
@@ -17,11 +16,11 @@ import org.bukkit.entity.Player
 
 fun serialKillerWerewolfCommand() = subcommand("serialkill") {
     withRequirement { sender -> WerewolfCommandRequirements.canActAsSerialKiller(sender) }
-    withArguments(EntitySelectorArgument.OnePlayer("targetPlayer"))
+    entitySelectorArgumentOnePlayer("targetPlayer")
 
     playerExecutor { commandSender, arguments ->
         val targetPlayer: Player by arguments
-        val service = WerewolfGameManager.getGameForPlayer(commandSender.uuid())
+        val service = WerewolfGameManager.getGameForPlayer(commandSender.uniqueId)
 
         if (service == null) {
             commandSender.sendText {
@@ -47,7 +46,7 @@ fun serialKillerWerewolfCommand() = subcommand("serialkill") {
             return@playerExecutor
         }
 
-        if (service.getPlayerRole(commandSender.uuid()) != WerwolfRoles.SERIAL_KILLER) {
+        if (service.getPlayerRole(commandSender.uniqueId) != WerwolfRoles.SERIAL_KILLER) {
             commandSender.sendText {
                 appendErrorPrefix()
                 error("Nur der Serienmörder darf diesen Befehl benutzen.")
@@ -65,8 +64,8 @@ fun serialKillerWerewolfCommand() = subcommand("serialkill") {
 
         val submitted = service.engine.submitNightAction(
             NightAction.SerialKillerKill(
-                actor = commandSender.uuid(),
-                target = targetPlayer.uuid()
+                actor = commandSender.uniqueId,
+                target = targetPlayer.uniqueId
             )
         )
 

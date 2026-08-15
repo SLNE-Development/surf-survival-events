@@ -10,8 +10,8 @@ import kotlinx.coroutines.withContext
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.player.PlayerJoinEvent
-import java.util.Collections
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration.Companion.seconds
 
 data class HiddenPlayerPair(
@@ -21,7 +21,7 @@ data class HiddenPlayerPair(
 
 object WerewolfVisibilityCleanup {
 
-    private val pendingRestores = Collections.synchronizedSet(mutableSetOf<HiddenPlayerPair>())
+    private val pendingRestores = ConcurrentHashMap.newKeySet<HiddenPlayerPair>()
 
     fun queueRestore(hiddenPairs: Collection<HiddenPlayerPair>) {
         if (hiddenPairs.isEmpty()) return
@@ -46,9 +46,7 @@ object WerewolfVisibilityCleanup {
         predicate: (HiddenPlayerPair) -> Boolean,
         removeAfterRestore: Boolean = true,
     ) {
-        val pairsToRestore = synchronized(pendingRestores) {
-            pendingRestores.filter(predicate)
-        }
+        val pairsToRestore = pendingRestores.filter(predicate)
 
         if (pairsToRestore.isEmpty()) return
 

@@ -44,9 +44,10 @@ object WerewolfGameManager {
 
     fun removeGame(gameId: String, participantsToRefresh: Collection<Player> = emptyList()) {
         val playersToUpdate = synchronized(lock) {
-            val playersToUpdate = participantsToRefresh + (games[gameId]?.allParticipants ?: emptyList())
+            val game = games.remove(gameId)
+            val playersToUpdate = participantsToRefresh + (game?.allParticipants ?: emptyList())
+            game?.stop()
             playerToGame.entries.removeIf { it.value == gameId }
-            games.remove(gameId)
             if (baseSessionGameId == gameId) baseSessionGameId = null
             playersToUpdate
         }
@@ -88,9 +89,7 @@ object WerewolfGameManager {
             if (isBaseSession(gameId)) {
                 GameService.stopGame(GameStopReason.HANDLER)
             } else {
-                val participants = game.allParticipants
-                game.stop()
-                removeGame(gameId, participants)
+                removeGame(gameId, game.allParticipants)
             }
             return
         }

@@ -1,11 +1,10 @@
 package dev.slne.surf.survival.events.werewolf.commands.subcommands
 
-import dev.jorel.commandapi.arguments.EntitySelectorArgument
+import dev.jorel.commandapi.kotlindsl.entitySelectorArgumentOnePlayer
 import dev.jorel.commandapi.kotlindsl.getValue
 import dev.jorel.commandapi.kotlindsl.playerExecutor
 import dev.jorel.commandapi.kotlindsl.subcommand
 import dev.slne.surf.api.core.messages.adventure.sendText
-import dev.slne.surf.api.core.messages.adventure.uuid
 import dev.slne.surf.survival.events.werewolf.service.WerewolfGameManager
 import dev.slne.surf.survival.events.werewolf.util.GameState
 import dev.slne.surf.survival.events.werewolf.util.NightAction
@@ -17,11 +16,11 @@ import org.bukkit.entity.Player
 
 fun killWerewolfCommand() = subcommand("kill") {
     withRequirement { sender -> WerewolfCommandRequirements.canActAsWerewolf(sender) }
-    withArguments(EntitySelectorArgument.OnePlayer("targetPlayer"))
+    entitySelectorArgumentOnePlayer("targetPlayer")
 
     playerExecutor { commandSender, arguments ->
         val targetPlayer: Player by arguments
-        val service = WerewolfGameManager.getGameForPlayer(commandSender.uuid())
+        val service = WerewolfGameManager.getGameForPlayer(commandSender.uniqueId)
 
         if (service == null) {
             commandSender.sendText {
@@ -48,7 +47,7 @@ fun killWerewolfCommand() = subcommand("kill") {
             return@playerExecutor
         }
 
-        val playerRole = service.getPlayerRole(commandSender.uuid())
+        val playerRole = service.getPlayerRole(commandSender.uniqueId)
         if (playerRole != WerwolfRoles.WERWOLF) {
             commandSender.sendText {
                 appendErrorPrefix()
@@ -73,8 +72,8 @@ fun killWerewolfCommand() = subcommand("kill") {
             return@playerExecutor
         }
 
-        val senderRole = service.getPlayerRole(commandSender.uuid())
-        val targetPlayerRole = service.getPlayerRole(targetPlayer.uuid())
+        val senderRole = service.getPlayerRole(commandSender.uniqueId)
+        val targetPlayerRole = service.getPlayerRole(targetPlayer.uniqueId)
 
         if (senderRole == targetPlayerRole) {
             commandSender.sendText {
@@ -86,8 +85,8 @@ fun killWerewolfCommand() = subcommand("kill") {
 
         val submitted = service.engine.submitNightAction(
             NightAction.WerewolfKill(
-                actor = commandSender.uuid(),
-                target = targetPlayer.uuid()
+                actor = commandSender.uniqueId,
+                target = targetPlayer.uniqueId
             )
         )
 
