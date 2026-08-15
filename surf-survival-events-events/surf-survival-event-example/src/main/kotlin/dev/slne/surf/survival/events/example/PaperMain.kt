@@ -30,4 +30,6 @@ class PaperMain : SuspendingJavaPlugin() {
 
         GameRegistry.unregister(ExampleGame.KEY)
     }
+
+
 }
