@@ -15,7 +15,6 @@ import org.bukkit.entity.Player
 import java.util.UUID
 
 object RlglMessenger {
-
     fun sendRoundInvite(invitee: Player, sender: Player, roundId: String) {
         invitee.sendText {
             appendInfoPrefix()

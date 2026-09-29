@@ -1,6 +1,5 @@
 package dev.slne.surf.survival.events.red.light.green.light.command.util
 
-import com.github.shynixn.mccoroutine.folia.launch
 import com.github.shynixn.mccoroutine.folia.scope
 import dev.slne.surf.api.core.messages.adventure.buildText
 import dev.slne.surf.api.core.util.runAtFixedRate
@@ -16,14 +15,12 @@ object AreaSelectionActionBar {
     private val jobs = ConcurrentHashMap<UUID, Job>()
 
     fun start(player: Player, target: AreaTarget) {
-        jobs.put(player.uniqueId, plugin.launch {
-            plugin.scope.runAtFixedRate(1.seconds) {
-                player.sendActionBar(
-                    buildText {
-                        success("${target.displayName}-Area-Set-Modus aktiv")
-                    }
-                )
-            }
+        jobs.put(player.uniqueId, plugin.scope.runAtFixedRate(1.seconds) {
+            player.sendActionBar(
+                buildText {
+                    success("${target.displayName}-Area-Set-Modus aktiv")
+                }
+            )
         })?.cancel()
     }
 

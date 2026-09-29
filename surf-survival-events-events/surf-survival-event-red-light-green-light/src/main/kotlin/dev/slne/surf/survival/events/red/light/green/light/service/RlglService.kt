@@ -403,7 +403,7 @@ object RlglService {
         player.gameMode = GameMode.SPECTATOR
 
         RlglMessenger.playFinishSound(player)
-        RlglMessenger.broadcastFinish(originalPlayers.mapNotNull(Bukkit::getPlayer), player, placement)
+        RlglMessenger.broadcastFinish(context.eventWorld.players, player, placement)
 
         checkRoundEnd()
     }
