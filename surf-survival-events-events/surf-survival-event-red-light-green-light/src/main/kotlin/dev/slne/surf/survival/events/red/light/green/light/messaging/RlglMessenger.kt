@@ -10,7 +10,11 @@ import net.kyori.adventure.text.event.ClickEvent
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextDecoration
 import org.bukkit.Bukkit
+import org.bukkit.Color
+import org.bukkit.FireworkEffect
 import org.bukkit.Sound
+import org.bukkit.entity.EntityType
+import org.bukkit.entity.Firework
 import org.bukkit.entity.Player
 import java.util.UUID
 
@@ -113,6 +117,34 @@ object RlglMessenger {
             type(Sound.UI_TOAST_CHALLENGE_COMPLETE)
             volume(0.5f)
             pitch(1f)
+        }
+    }
+
+    fun playWinnerFanfare(player: Player) {
+        val firework = player.world.spawnEntity(player.location, EntityType.FIREWORK_ROCKET) as Firework
+        firework.fireworkMeta = firework.fireworkMeta.apply {
+            addEffect(
+                FireworkEffect.builder()
+                    .withColor(Color.YELLOW, Color.ORANGE)
+                    .withFade(Color.RED)
+                    .with(FireworkEffect.Type.BURST)
+                    .trail(true)
+                    .flicker(true)
+                    .build()
+            )
+            power = 0
+        }
+        firework.detonate()
+
+        player.playSound(true) {
+            type(Sound.ENTITY_FIREWORK_ROCKET_BLAST)
+            volume(1f)
+            pitch(1f)
+        }
+        player.playSound(true) {
+            type(Sound.UI_TOAST_CHALLENGE_COMPLETE)
+            volume(1f)
+            pitch(1.4f)
         }
     }
 

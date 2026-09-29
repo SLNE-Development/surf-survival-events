@@ -9,6 +9,7 @@ import dev.slne.surf.survival.events.base.util.GamePosition
 import dev.slne.surf.survival.events.red.light.green.light.config.RlglConfig
 import dev.slne.surf.survival.events.red.light.green.light.messaging.RlglMessenger
 import dev.slne.surf.survival.events.red.light.green.light.plugin
+import dev.slne.surf.survival.events.red.light.green.light.visual.RlglPlayerFeedback
 import dev.slne.surf.survival.events.red.light.green.light.visual.RlglZoneBorder
 import it.unimi.dsi.fastutil.objects.ObjectLinkedOpenHashSet
 import kotlinx.coroutines.Job
@@ -268,6 +269,10 @@ object RlglService {
         }
 
         RlglZoneBorder.start { context.eventWorld.players }
+        RlglPlayerFeedback.start(
+            recipients = { originalPlayers.mapNotNull(Bukkit::getPlayer).filter { GameService.isPlayer(it.uniqueId) } },
+            state = { state }
+        )
 
         lightJob = plugin.launch {
             runStartCountdown()
@@ -403,6 +408,9 @@ object RlglService {
         player.gameMode = GameMode.SPECTATOR
 
         RlglMessenger.playFinishSound(player)
+        if (placement == 1) {
+            RlglMessenger.playWinnerFanfare(player)
+        }
         RlglMessenger.broadcastFinish(context.eventWorld.players, player, placement)
 
         checkRoundEnd()
@@ -501,6 +509,7 @@ object RlglService {
         lightJob?.cancel()
         lightJob = null
         RlglZoneBorder.stop()
+        RlglPlayerFeedback.stop()
         countdownActive = false
     }
 
