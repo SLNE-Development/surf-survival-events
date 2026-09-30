@@ -265,6 +265,7 @@ object RlglService {
 
         originalPlayers.forEach {
             GameService.setParticipantRole(it, ParticipantRole.PLAYER)
+            restorePendingGameMode(it)
             teleportToStart(it)
         }
 
@@ -437,11 +438,13 @@ object RlglService {
     }
 
     private fun restoreAllGameModes() {
-        val uuids = previousGameModes.keys.toList()
-        uuids.forEach { uuid ->
-            val player = Bukkit.getPlayer(uuid) ?: return@forEach
-            plugin.launch(plugin.entityDispatcher(player)) { applyPendingGameModeRestore(player) }
-        }
+        previousGameModes.keys.toList().forEach { restorePendingGameMode(it) }
+    }
+
+    private fun restorePendingGameMode(uuid: UUID) {
+        if (!previousGameModes.containsKey(uuid)) return
+        val player = Bukkit.getPlayer(uuid) ?: return
+        plugin.launch(plugin.entityDispatcher(player)) { applyPendingGameModeRestore(player) }
     }
 
     fun applyPendingGameModeRestore(player: Player) {
