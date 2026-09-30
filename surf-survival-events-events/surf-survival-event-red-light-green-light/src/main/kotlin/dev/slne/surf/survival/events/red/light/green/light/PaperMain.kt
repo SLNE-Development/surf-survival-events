@@ -11,7 +11,6 @@ import dev.slne.surf.survival.events.red.light.green.light.game.RedLightGreenLig
 import dev.slne.surf.survival.events.red.light.green.light.listener.AreaSelectionListener
 import dev.slne.surf.survival.events.red.light.green.light.listener.RlglGameModeRestoreListener
 import dev.slne.surf.survival.events.red.light.green.light.listener.RlglMovementListener
-import dev.slne.surf.survival.events.red.light.green.light.listener.RlglPlayerActionsListener
 import org.bukkit.plugin.java.JavaPlugin
 
 val plugin get() = JavaPlugin.getPlugin(PaperMain::class.java)
@@ -26,7 +25,6 @@ class PaperMain : SuspendingJavaPlugin() {
         AreaSelectionListener.register()
         RlglMovementListener.register()
         RlglGameModeRestoreListener.register()
-        RlglPlayerActionsListener.register()
 
         GameRegistry.register(RedLightGreenLightGame.KEY, RedLightGreenLightGame())
     }

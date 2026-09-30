@@ -1,5 +1,8 @@
 package dev.slne.surf.survival.events.red.light.green.light.game
 
+import com.github.shynixn.mccoroutine.folia.scope
+import dev.slne.surf.api.core.util.runAtFixedRate
+import dev.slne.surf.api.paper.util.forEachPlayerInRegion
 import dev.slne.surf.survival.events.base.game.GameContext
 import dev.slne.surf.survival.events.base.game.GameHandler
 import dev.slne.surf.survival.events.base.game.GameKey
@@ -12,8 +15,16 @@ import dev.slne.surf.survival.events.red.light.green.light.plugin
 import dev.slne.surf.survival.events.red.light.green.light.scoreboard.addToRlglScoreboard
 import dev.slne.surf.survival.events.red.light.green.light.scoreboard.removeFromRlglScoreboard
 import dev.slne.surf.survival.events.red.light.green.light.service.RlglService
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.ensureActive
+import org.bukkit.Difficulty
+import org.bukkit.GameRules
+import org.bukkit.World
 import org.bukkit.entity.Player
+import org.bukkit.potion.PotionEffectType
 import java.util.UUID
+import kotlin.coroutines.cancellation.CancellationException
+import kotlin.time.Duration.Companion.seconds
 
 class RedLightGreenLightGame : GameHandler {
     companion object {
@@ -24,12 +35,24 @@ class RedLightGreenLightGame : GameHandler {
             .build()
     }
 
+    private var effectJob: Job? = null
+
     override val options: GameOptions
         get() = GameOptions()
 
     context(context: GameContext)
     override suspend fun onStarting() {
         RlglService.validateConfig()
+    }
+
+    override fun customizeEventWorld(world: World) {
+        world.setGameRule(GameRules.PVP, false)
+        world.setGameRule(GameRules.SPAWN_MOBS, false)
+        world.setGameRule(GameRules.ADVANCE_WEATHER, false)
+        world.setGameRule(GameRules.ADVANCE_TIME, false)
+
+        world.difficulty = Difficulty.PEACEFUL
+        world.time = 6000L
     }
 
     context(context: GameContext)
@@ -42,6 +65,18 @@ class RedLightGreenLightGame : GameHandler {
             "Starting ${context.key.displayName} in ${context.eventWorldName}: " +
                     "players=${context.activePlayerCount}"
         )
+
+        effectJob?.cancel()
+        effectJob = plugin.scope.runAtFixedRate(1.seconds) {
+            try {
+                forEachPlayerInRegion(plugin, { player ->
+                    player.addPotionEffect(PotionEffectType.SATURATION.createEffect(40, 10).withParticles(false))
+                })
+            } catch (e: Throwable) {
+                if (e is CancellationException) ensureActive()
+                plugin.componentLogger.error("Failed to play effect.", e)
+            }
+        }
     }
 
     context(context: GameContext)
@@ -78,6 +113,8 @@ class RedLightGreenLightGame : GameHandler {
     context(context: GameContext)
     override suspend fun onStop(reason: GameStopReason) {
         RlglService.onSessionStopped()
+
+        effectJob?.cancel()
 
         context.onlineEventPlayers.forEach { player ->
             player.removeFromRlglScoreboard()
