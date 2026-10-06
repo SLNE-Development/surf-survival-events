@@ -7,15 +7,18 @@ import com.sksamuel.aedile.core.expireAfterWrite
 import dev.slne.surf.api.core.font.toSmallCaps
 import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.api.core.util.toObjectSet
+import dev.slne.surf.api.paper.hook.papi.SurfPaperPAPIHook
 import dev.slne.surf.core.api.common.SurfCoreApi
 import dev.slne.surf.core.api.paper.util.surfPlayer
 import dev.slne.surf.npc.api.dsl.npc
 import dev.slne.surf.npc.api.event.NpcInteractEvent
 import dev.slne.surf.npc.api.npc.skin.NpcSkin
 import dev.slne.surf.npc.api.npc.skin.NpcSkinPart
+import dev.slne.surf.survival.events.freebuild.command.joinEventCommand
 import dev.slne.surf.survival.events.freebuild.command.reloadFreebuildSurvivalEventsConfigCommand
 import dev.slne.surf.survival.events.freebuild.command.switchFreebuildSurvivalServerEventsServerNpcCommand
 import dev.slne.surf.survival.events.freebuild.config.FreebuildPartConfig
+import dev.slne.surf.survival.events.freebuild.papi.PapiExpansion
 import net.kyori.adventure.text.format.TextDecoration
 import org.bukkit.Bukkit
 import org.bukkit.Location
@@ -27,7 +30,7 @@ import kotlin.time.Duration.Companion.seconds
 val plugin get() = JavaPlugin.getPlugin(PaperMain::class.java)
 
 private const val NPC_UNIQUE_NAME = "survival_events_freebuild_server_npc"
-private val npcCooldown = Caffeine.newBuilder()
+val joinCooldown = Caffeine.newBuilder()
     .expireAfterWrite(2.seconds)
     .build<UUID, Unit>()
 
@@ -35,6 +38,9 @@ class PaperMain : SuspendingJavaPlugin() {
     override suspend fun onLoadAsync() {
         switchFreebuildSurvivalServerEventsServerNpcCommand()
         reloadFreebuildSurvivalEventsConfigCommand()
+        joinEventCommand()
+
+        SurfPaperPAPIHook.register(PapiExpansion)
     }
 
     override suspend fun onEnableAsync() {
@@ -76,13 +82,15 @@ class PaperMain : SuspendingJavaPlugin() {
                     return@withEventHandler
                 }
 
-                if (npcCooldown.getIfPresent(event.player.uniqueId) != null) {
+                if (joinCooldown.getIfPresent(event.player.uniqueId) != null) {
                     event.player.sendText {
                         appendErrorPrefix()
                         error("Bitte warte einen Moment bevor du erneut mit Arty interagierst.")
                     }
                     return@withEventHandler
                 }
+
+                joinCooldown.put(event.player.uniqueId, Unit)
 
                 plugin.launch {
                     val surfPlayer = event.player.surfPlayer
@@ -94,8 +102,6 @@ class PaperMain : SuspendingJavaPlugin() {
                             error("Beim Verbinden zum Survival Event Server ist ein Fehler aufgetreten. Bitte versuche es später erneut. (${result.status})")
                         }
                     }
-
-                    npcCooldown.put(event.player.uniqueId, Unit)
                 }
             }
         }
