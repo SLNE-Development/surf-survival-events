@@ -43,10 +43,6 @@ class PaperMain : SuspendingJavaPlugin() {
         joinEventCommand()
 
         SurfPaperPAPIHook.register(PapiExpansion)
-
-        if (hudAvailable) {
-            HudListener.register()
-        }
     }
 
     override suspend fun onEnableAsync() {
@@ -111,7 +107,11 @@ class PaperMain : SuspendingJavaPlugin() {
                 }
             }
         }
+
+        if (hudAvailable) {
+            HudListener.register()
+        }
     }
 
-    val hudAvailable = Bukkit.getPluginManager().isPluginEnabled("surf-hud-paper")
+    val hudAvailable get() = Bukkit.getPluginManager().isPluginEnabled("surf-hud-paper")
 }
