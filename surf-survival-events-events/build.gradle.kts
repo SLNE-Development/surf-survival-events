@@ -1,5 +1,6 @@
 import dev.slne.surf.api.gradle.platform.paper.plugin.PaperPluginSurfExtension
 import dev.slne.surf.api.gradle.util.registerRequired
+import dev.slne.surf.api.gradle.util.registerSoft
 
 
 subprojects {
@@ -11,6 +12,7 @@ subprojects {
 
     val main: String? by project
     val authors: String? by project
+    val softDependencies: String? by project
 
     configure<PaperPluginSurfExtension> {
         main?.let { mainClass(it) }
@@ -24,6 +26,8 @@ subprojects {
 
         serverDependencies {
             registerRequired("surf-survival-events-base")
+
+            softDependencies?.split(",")?.map(String::trim)?.forEach { registerSoft(it) }
         }
     }
 }
