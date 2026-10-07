@@ -13,13 +13,13 @@ object HudManager {
     private const val HUD_ID = "freebuild-event-join"
 
     fun show(player: Player) {
-        player.hud.set {
+        player.hud.add {
             line(1) {
                 element(HUD_ID, 0, buildText {
-                    decorate(TextDecoration.BOLD)
-                    text("Betrete das Survival Event mit ", infoColor)
+                    white("Betrete das Survival Event mit ")
                     append {
-                        text("/survivalevents", infoColor, TextDecoration.UNDERLINED)
+                        text("/survivalevents", infoColor)
+                        decorate(TextDecoration.BOLD)
                     }
                 })
             }
@@ -27,7 +27,7 @@ object HudManager {
     }
 
     fun handleUpdate() {
-        if(FreebuildPartConfig.getConfig().enableSurvivalEventsNpc) {
+        if (FreebuildPartConfig.getConfig().enableSurvivalEventsNpc) {
             forEachPlayer {
                 show(it)
             }

@@ -20,5 +20,5 @@ surfPaperPluginApi {
 }
 
 dependencies {
-    compileOnly("dev.slne.surf.hud:surf-hud-api:+")
+    compileOnly("dev.slne.surf.hud:surf-hud-api:1.0.1")
 }
