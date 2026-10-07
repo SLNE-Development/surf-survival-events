@@ -7,6 +7,7 @@ import com.sksamuel.aedile.core.expireAfterWrite
 import dev.slne.surf.api.core.font.toSmallCaps
 import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.api.core.util.toObjectSet
+import dev.slne.surf.api.paper.event.register
 import dev.slne.surf.api.paper.hook.papi.SurfPaperPAPIHook
 import dev.slne.surf.core.api.common.SurfCoreApi
 import dev.slne.surf.core.api.paper.util.surfPlayer
@@ -18,6 +19,7 @@ import dev.slne.surf.survival.events.freebuild.command.joinEventCommand
 import dev.slne.surf.survival.events.freebuild.command.reloadFreebuildSurvivalEventsConfigCommand
 import dev.slne.surf.survival.events.freebuild.command.switchFreebuildSurvivalServerEventsServerNpcCommand
 import dev.slne.surf.survival.events.freebuild.config.FreebuildPartConfig
+import dev.slne.surf.survival.events.freebuild.hud.HudListener
 import dev.slne.surf.survival.events.freebuild.papi.PapiExpansion
 import net.kyori.adventure.text.format.TextDecoration
 import org.bukkit.Bukkit
@@ -41,6 +43,10 @@ class PaperMain : SuspendingJavaPlugin() {
         joinEventCommand()
 
         SurfPaperPAPIHook.register(PapiExpansion)
+
+        if (hudAvailable) {
+            HudListener.register()
+        }
     }
 
     override suspend fun onEnableAsync() {
@@ -106,4 +112,6 @@ class PaperMain : SuspendingJavaPlugin() {
             }
         }
     }
+
+    val hudAvailable = Bukkit.getPluginManager().isPluginEnabled("surf-hud-paper")
 }
