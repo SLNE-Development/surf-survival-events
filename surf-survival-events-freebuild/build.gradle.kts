@@ -1,3 +1,5 @@
+import dev.slne.surf.api.gradle.util.registerSoft
+
 plugins {
     id("dev.slne.surf.api.gradle.paper-plugin")
 }
@@ -11,4 +13,12 @@ surfPaperPluginApi {
     withCorePaper()
 
     authors.addAll("red")
+
+    serverDependencies {
+        registerSoft("surf-hud-paper")
+    }
+}
+
+dependencies {
+    compileOnly("dev.slne.surf.hud:surf-hud-api:1.0.1")
 }
