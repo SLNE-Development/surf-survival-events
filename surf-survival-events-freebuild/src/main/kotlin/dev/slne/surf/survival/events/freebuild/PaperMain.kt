@@ -15,6 +15,9 @@ import dev.slne.surf.npc.api.dsl.npc
 import dev.slne.surf.npc.api.event.NpcInteractEvent
 import dev.slne.surf.npc.api.npc.skin.NpcSkin
 import dev.slne.surf.npc.api.npc.skin.NpcSkinPart
+import dev.slne.surf.survival.events.freebuild.certificate.CertificateMapListener
+import dev.slne.surf.survival.events.freebuild.certificate.CertificateService
+import dev.slne.surf.survival.events.freebuild.command.certificateCommand
 import dev.slne.surf.survival.events.freebuild.command.joinEventCommand
 import dev.slne.surf.survival.events.freebuild.command.reloadFreebuildSurvivalEventsConfigCommand
 import dev.slne.surf.survival.events.freebuild.command.switchFreebuildSurvivalServerEventsServerNpcCommand
@@ -27,6 +30,7 @@ import org.bukkit.Location
 import org.bukkit.entity.EntityType
 import org.bukkit.plugin.java.JavaPlugin
 import java.util.*
+import java.util.logging.Level
 import kotlin.time.Duration.Companion.seconds
 
 val plugin get() = JavaPlugin.getPlugin(PaperMain::class.java)
@@ -41,11 +45,19 @@ class PaperMain : SuspendingJavaPlugin() {
         switchFreebuildSurvivalServerEventsServerNpcCommand()
         reloadFreebuildSurvivalEventsConfigCommand()
         joinEventCommand()
+        certificateCommand()
 
         SurfPaperPAPIHook.register(PapiExpansion)
     }
 
     override suspend fun onEnableAsync() {
+        CertificateMapListener.register()
+        try {
+            CertificateService.restore()
+        } catch (exception: Exception) {
+            logger.log(Level.SEVERE, "Failed to restore certificate maps", exception)
+        }
+
         npc {
             uniqueName = NPC_UNIQUE_NAME
             displayName {

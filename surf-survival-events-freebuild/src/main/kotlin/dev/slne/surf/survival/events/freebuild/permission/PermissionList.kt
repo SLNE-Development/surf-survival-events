@@ -8,4 +8,5 @@ object PermissionList : PermissionRegistry() {
     val COMMAND_SWITCH = create("$BASE.switch")
     val COMMAND_RELOAD = create("$BASE.reload")
     val COMMAND_JOIN = create("$BASE.join")
+    val COMMAND_CERTIFICATE = create("$BASE.certificate")
 }
