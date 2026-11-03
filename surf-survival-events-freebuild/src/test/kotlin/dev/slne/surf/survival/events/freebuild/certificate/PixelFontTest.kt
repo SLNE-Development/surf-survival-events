@@ -29,24 +29,48 @@ class PixelFontTest {
 
     @Test
     fun `characters the minecraft font does not know are replaced instead of failing`() {
-        assertEquals(PixelFont.width("Event ? 2026", false), PixelFont.width("Event – 2026", false))
+        assertEquals(PixelFont.width("Event ? 2026", false), PixelFont.width("Event € 2026", false))
 
         val image = BufferedImage(128, 16, BufferedImage.TYPE_INT_ARGB)
-        PixelFont.draw(image, 0, 0, "Event – 2026", ink, bold = false)
+        PixelFont.draw(image, 0, 0, "Event € 2026", ink, bold = false)
         assertTrue(inkColumns(image).second > 0)
     }
 
     @Test
-    fun `german umlauts are drawn as themselves and not replaced`() {
-        for (umlaut in listOf("Ä", "Ö", "Ü", "ä", "ö", "ü", "ß")) {
-            assertTrue(!render(umlaut).contentEquals(render("?")), "$umlaut was replaced")
+    fun `lowercase umlauts are the base letter with two dots above`() {
+        for ((umlaut, letter) in listOf("ä" to "a", "ö" to "o", "ü" to "u")) {
+            val umlautRows = rows(umlaut)
+            val letterRows = rows(letter)
+
+            assertEquals(letterRows.drop(2), umlautRows.drop(2), "$umlaut below the dots")
+            assertEquals(".#.#.", umlautRows[0].take(5), "$umlaut dots")
         }
     }
 
-    private fun render(text: String): IntArray {
-        val image = BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB)
+    @Test
+    fun `uppercase umlauts carry two dots in their first row`() {
+        for (umlaut in listOf("Ä", "Ö", "Ü")) {
+            assertEquals("#...#", rows(umlaut)[0].take(5), umlaut)
+        }
+    }
+
+    @Test
+    fun `sharp s and typographic punctuation are written in their plain form`() {
+        assertEquals("Strasse - \"Fest\" 's...", PixelFont.sanitize("Straße – „Fest“ ‚s…"))
+        assertEquals(PixelFont.width("Strasse", bold = true), PixelFont.width("Straße", bold = true))
+    }
+
+    @Test
+    fun `accented letters the font draws wrongly count as undrawable`() {
+        assertEquals("Caf?", PixelFont.sanitize("Café"))
+        assertEquals(setOf('é', '€'), PixelFont.undrawable("Café für 5 €"))
+        assertEquals(emptySet(), PixelFont.undrawable("Straße – Größe Übung"))
+    }
+
+    private fun rows(text: String): List<String> {
+        val image = BufferedImage(16, 8, BufferedImage.TYPE_INT_ARGB)
         PixelFont.draw(image, 0, 0, text, ink, bold = false)
-        return image.getRGB(0, 0, 16, 16, null, 0, 16)
+        return (0 until 8).map { y -> (0 until 8).joinToString("") { x -> if (image.getRGB(x, y) == ink.rgb) "#" else "." } }
     }
 
     private fun inkColumns(image: BufferedImage): Pair<Int, Int> {

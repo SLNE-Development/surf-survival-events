@@ -9,12 +9,17 @@ import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.api.core.util.toObjectSet
 import dev.slne.surf.api.paper.event.register
 import dev.slne.surf.api.paper.hook.papi.SurfPaperPAPIHook
+import dev.slne.surf.api.paper.packet.SurfPaperPacketApi
 import dev.slne.surf.core.api.common.SurfCoreApi
 import dev.slne.surf.core.api.paper.util.surfPlayer
 import dev.slne.surf.npc.api.dsl.npc
 import dev.slne.surf.npc.api.event.NpcInteractEvent
 import dev.slne.surf.npc.api.npc.skin.NpcSkin
 import dev.slne.surf.npc.api.npc.skin.NpcSkinPart
+import dev.slne.surf.survival.events.freebuild.certificate.CertificateCopyProtection
+import dev.slne.surf.survival.events.freebuild.certificate.CertificateDelivery
+import dev.slne.surf.survival.events.freebuild.certificate.CertificateItem
+import dev.slne.surf.survival.events.freebuild.certificate.CertificateLore
 import dev.slne.surf.survival.events.freebuild.certificate.CertificateMapListener
 import dev.slne.surf.survival.events.freebuild.certificate.CertificateService
 import dev.slne.surf.survival.events.freebuild.command.certificateCommand
@@ -52,6 +57,9 @@ class PaperMain : SuspendingJavaPlugin() {
 
     override suspend fun onEnableAsync() {
         CertificateMapListener.register()
+        CertificateDelivery.register()
+        CertificateCopyProtection(CertificateService::isCertificate).register()
+        SurfPaperPacketApi.registerPacketLoreListener(this, CertificateItem.key, CertificateLore)
         try {
             CertificateService.restore()
         } catch (exception: Exception) {
@@ -123,6 +131,10 @@ class PaperMain : SuspendingJavaPlugin() {
         if (hudAvailable) {
             HudListener.register()
         }
+    }
+
+    override suspend fun onDisableAsync() {
+        SurfPaperPacketApi.unregisterPacketLoreListener(this)
     }
 
     val hudAvailable get() = Bukkit.getPluginManager().isPluginEnabled("surf-hud-paper")

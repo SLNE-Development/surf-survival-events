@@ -4,6 +4,7 @@ import dev.slne.surf.survival.events.freebuild.plugin
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.future.await
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
@@ -16,35 +17,66 @@ import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.time.Duration
 import java.util.*
-import java.util.logging.Level
 import javax.imageio.ImageIO
 import kotlin.time.Duration.Companion.seconds
 
-/** Loads the face of a player's current skin without blocking any server thread. */
+/** Result of [SkinLoader.loadFace]. */
+sealed interface SkinFace {
+    /** The 8x8 face of the player's skin. */
+    data class Loaded(val image: BufferedImage) : SkinFace
+
+    /** The player uses one of the default skins. */
+    data object DefaultSkin : SkinFace
+
+    /** The skin could not be loaded, for example because the session server refused further requests. */
+    data object Unavailable : SkinFace
+}
+
+/**
+ * Loads the face of a player's current skin without blocking any server thread.
+ *
+ * Paper keeps the profiles of known players in its profile cache, so most lookups do not reach the session server. A
+ * failed lookup, for example because of its rate limit, is tried once more after a short pause.
+ */
 object SkinLoader {
     private const val TEXTURE_HOST = "textures.minecraft.net"
-    private val timeout = 15.seconds
+    private const val ATTEMPTS = 2
+    private val timeout = 10.seconds
+    private val retryDelay = 5.seconds
     private val http = HttpClient.newBuilder()
         .connectTimeout(Duration.ofSeconds(5))
         .followRedirects(HttpClient.Redirect.NORMAL)
         .build()
 
-    /** Returns the 8x8 face of the player's skin, or `null` if the player has no custom skin or loading failed. */
-    suspend fun loadFace(uuid: UUID): BufferedImage? = try {
-        withTimeout(timeout) {
-            val profile = Bukkit.createProfile(uuid).update().await()
-            val skinUrl = profile.textures.skin ?: return@withTimeout null
-            val skin = download(skinUrl.toURI())
-            SkinHead.extractFace(skin)
+    suspend fun loadFace(uuid: UUID): SkinFace {
+        var lastFailure: Exception? = null
+
+        repeat(ATTEMPTS) { attempt ->
+            if (attempt > 0) {
+                delay(retryDelay)
+            }
+
+            try {
+                return withTimeout(timeout) { loadOnce(uuid) }
+            } catch (exception: TimeoutCancellationException) {
+                lastFailure = exception
+            } catch (exception: CancellationException) {
+                throw exception
+            } catch (exception: Exception) {
+                lastFailure = exception
+            }
         }
-    } catch (_: TimeoutCancellationException) {
-        plugin.logger.warning("Loading the skin of $uuid timed out, using the fallback face")
-        null
-    } catch (exception: CancellationException) {
-        throw exception
-    } catch (exception: Exception) {
-        plugin.logger.log(Level.WARNING, "Could not load the skin of $uuid, using the fallback face", exception)
-        null
+
+        plugin.logger.warning("Could not load the skin of $uuid, using the fallback face: $lastFailure")
+        return SkinFace.Unavailable
+    }
+
+    private suspend fun loadOnce(uuid: UUID): SkinFace {
+        val profile = Bukkit.createProfile(uuid).update().await()
+        check(profile.hasTextures()) { "The session server returned no textures" }
+
+        val skinUrl = profile.textures.skin ?: return SkinFace.DefaultSkin
+        return SkinFace.Loaded(SkinHead.extractFace(download(skinUrl.toURI())))
     }
 
     private suspend fun download(url: URI): BufferedImage {

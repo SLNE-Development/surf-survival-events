@@ -13,16 +13,19 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertSame
 
 class CertificateMapRendererTest {
     private val image = BufferedImage(128, 128, BufferedImage.TYPE_INT_ARGB)
     private val view = mockk<MapView>(relaxed = true)
     private val player = mockk<Player>()
 
+    private fun loadingRightAway() = CertificateMapRenderer { it.provide(image) }
+
     @Test
     fun `draws the certificate once and keeps the canvas afterwards`() {
         val canvas = mockk<MapCanvas>(relaxed = true)
-        val renderer = CertificateMapRenderer(image)
+        val renderer = loadingRightAway()
 
         repeat(3) { renderer.render(view, canvas, player) }
 
@@ -34,7 +37,7 @@ class CertificateMapRendererTest {
         val canvas = mockk<MapCanvas>()
         var attempts = 0
         every { canvas.drawImage(0, 0, image) } answers { if (++attempts == 1) error("boom") }
-        val renderer = CertificateMapRenderer(image)
+        val renderer = loadingRightAway()
 
         assertFailsWith<IllegalStateException> { renderer.render(view, canvas, player) }
         renderer.render(view, canvas, player)
@@ -45,32 +48,74 @@ class CertificateMapRendererTest {
 
     @Test
     fun `renders the same picture for every viewer`() {
-        assertFalse(CertificateMapRenderer(image).isContextual)
+        assertFalse(loadingRightAway().isContextual)
     }
 
     @Test
-    fun `attaching replaces the vanilla renderer and locks the map`() {
+    fun `requests the image on the first render and only once`() {
+        val canvas = mockk<MapCanvas>(relaxed = true)
+        var requests = 0
+        val renderer = CertificateMapRenderer { requests++ }
+        assertEquals(0, requests)
+
+        repeat(3) { renderer.render(view, canvas, player) }
+
+        assertEquals(1, requests)
+        verify(exactly = 0) { canvas.drawImage(any(), any(), any()) }
+    }
+
+    @Test
+    fun `draws the image once it arrives and releases it`() {
+        val canvas = mockk<MapCanvas>(relaxed = true)
+        var requests = 0
+        val renderer = CertificateMapRenderer { requests++ }
+        renderer.render(view, canvas, player)
+
+        renderer.provide(image)
+        renderer.render(view, canvas, player)
+        renderer.render(view, canvas, player)
+
+        verify(exactly = 1) { canvas.drawImage(0, 0, image) }
+        assertEquals(1, requests)
+    }
+
+    @Test
+    fun `ignores an image provided after drawing`() {
+        val canvas = mockk<MapCanvas>(relaxed = true)
+        val renderer = loadingRightAway()
+        renderer.render(view, canvas, player)
+
+        renderer.provide(BufferedImage(128, 128, BufferedImage.TYPE_INT_ARGB))
+        renderer.render(view, canvas, player)
+
+        verify(exactly = 1) { canvas.drawImage(any(), any(), any()) }
+    }
+
+    @Test
+    fun `attaching replaces the vanilla renderer and locks the map without loading the image`() {
         val renderers = mutableListOf<MapRenderer>(mockk<MapRenderer>())
         val map = fakeMapView(renderers)
+        var requests = 0
 
-        CertificateMapRenderer.attach(map, image)
+        CertificateMapRenderer.attach(map) { requests++ }
 
         assertIs<CertificateMapRenderer>(renderers.single())
+        assertEquals(0, requests)
         verify { map.isLocked = true }
         verify { map.isTrackingPosition = false }
         verify { map.isUnlimitedTracking = false }
     }
 
     @Test
-    fun `attaching twice keeps a single certificate renderer`() {
+    fun `attaching twice keeps and returns a single certificate renderer`() {
         val renderers = mutableListOf<MapRenderer>()
         val map = fakeMapView(renderers)
 
-        CertificateMapRenderer.attach(map, image)
-        val first = renderers.single()
-        CertificateMapRenderer.attach(map, image)
+        val first = CertificateMapRenderer.attach(map) {}
+        val second = CertificateMapRenderer.attach(map) {}
 
-        assertEquals(listOf(first), renderers)
+        assertEquals(listOf<MapRenderer>(first), renderers)
+        assertSame(first, second)
     }
 
     private fun fakeMapView(renderers: MutableList<MapRenderer>) = mockk<MapView>(relaxed = true) {
