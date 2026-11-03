@@ -10,6 +10,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.job
@@ -77,6 +78,8 @@ object CertificateService {
     }
     private val persistLocks = Array(PERSIST_LOCK_STRIPES) { Any() }
     private val persistence = CoroutineScope(SupervisorJob() + Dispatchers.IO + CoroutineName("certificate-writes"))
+    private val persistenceLifecycle = Any()
+    private var shuttingDown = false
 
     /**
      * Loads the metadata of all stored certificates during plugin enable and then checks the world's map ids on the
@@ -288,26 +291,43 @@ object CertificateService {
 
     /**
      * Claims run on the thread of the player, so the record is written in the background. A crash before the write
-     * offers the certificate again after the restart, which at worst hands out a second copy.
+     * offers the certificate again after the restart, which at worst hands out a second copy. Once [shutdown] has
+     * started, claims write right away instead, so no write can start after it returned.
      */
     private fun persistClaim(record: CertificateRecord) {
-        persistence.launch {
-            try {
-                persist(record.mapId)
-            } catch (exception: Exception) {
-                plugin.logger.log(Level.SEVERE, "Failed to save the claim of certificate map #${record.mapId}", exception)
+        synchronized(persistenceLifecycle) {
+            if (!shuttingDown) {
+                persistence.launch { writeClaim(record) }
+                return
             }
+        }
+        writeClaim(record)
+    }
+
+    private fun writeClaim(record: CertificateRecord) {
+        try {
+            persist(record.mapId)
+        } catch (exception: Exception) {
+            plugin.logger.log(Level.SEVERE, "Failed to save the claim of certificate map #${record.mapId}", exception)
         }
     }
 
-    /** Waits for pending writes during plugin disable, so a stop right after a claim does not lose the claim. */
+    /**
+     * Waits during plugin disable for the writes that are still running, so a stop right after a claim does not lose
+     * the claim, and then closes the background writes.
+     */
     suspend fun shutdown() {
+        synchronized(persistenceLifecycle) {
+            shuttingDown = true
+        }
+
         val finished = withTimeoutOrNull(SHUTDOWN_TIMEOUT) {
             persistence.coroutineContext.job.children.toList().joinAll()
         }
         if (finished == null) {
             plugin.logger.warning("Gave up waiting for certificate writes after $SHUTDOWN_TIMEOUT")
         }
+        persistence.cancel()
     }
 
     /**
