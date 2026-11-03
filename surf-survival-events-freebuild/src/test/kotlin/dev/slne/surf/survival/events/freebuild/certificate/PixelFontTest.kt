@@ -67,6 +67,17 @@ class PixelFontTest {
         assertEquals(emptySet(), PixelFont.undrawable("Straße – Größe Übung"))
     }
 
+    @Test
+    fun `signs the font draws as code page 437 symbols count as undrawable`() {
+        assertEquals(setOf('°', '½', '²', '·', '¿', '\u007F'), PixelFont.undrawable("30° ½ m² · ¿ \u007F"))
+        assertEquals(emptySet(), PixelFont.undrawable("® ¬ ¡ « ª £"))
+    }
+
+    @Test
+    fun `the apostrophe leans like an apostrophe`() {
+        assertEquals(listOf(".#", ".#", "#."), rows("'").take(3).map { it.take(2) })
+    }
+
     private fun rows(text: String): List<String> {
         val image = BufferedImage(16, 8, BufferedImage.TYPE_INT_ARGB)
         PixelFont.draw(image, 0, 0, text, ink, bold = false)

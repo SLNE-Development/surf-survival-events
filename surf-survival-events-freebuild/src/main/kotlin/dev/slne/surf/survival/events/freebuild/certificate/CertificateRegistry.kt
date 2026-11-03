@@ -67,8 +67,20 @@ class CertificateRegistry {
         records[mapId]
     }
 
+    /** The highest map id of all readable certificates; unreadable ones only come from file names. */
     fun highestMapId(): Int? = synchronized(lock) {
-        (records.keys + unreadable).maxOrNull()
+        records.keys.maxOrNull()
+    }
+
+    /** Makes the claimed certificate [mapId] claimable again and returns whether it was claimed. */
+    fun reopen(mapId: Int): Boolean = synchronized(lock) {
+        val record = records[mapId]
+        if (record == null || !record.isClaimed) {
+            return false
+        }
+
+        add(record.copy(claimedAt = null))
+        true
     }
 
     fun pendingFor(playerUuid: UUID): List<CertificateRecord> = synchronized(lock) {

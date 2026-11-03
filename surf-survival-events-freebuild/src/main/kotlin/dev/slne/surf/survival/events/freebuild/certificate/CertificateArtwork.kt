@@ -6,7 +6,8 @@ import java.time.LocalDate
 
 /**
  * Composes the 128x128 certificate image. All design colours are exact map palette colours, so the map shows them
- * without any colour approximation; only the player head gets matched to the palette by the server.
+ * without any colour approximation. The player head is rendered from the skin and matched to the palette here,
+ * without the colours of the paper, so it always stands out from the background.
  */
 object CertificateArtwork {
     const val SIZE = 128
@@ -20,26 +21,29 @@ object CertificateArtwork {
     private const val SECTION_GAP = 4
     private const val HEAD_GAP = 5
     private const val DIVIDER_HEIGHT = 3
-    private const val HEAD_SCALE = 5
-    private const val HEAD_SCALE_COMPACT = 4
+    private const val HEAD_SIZE = 40
+    private const val HEAD_SIZE_COMPACT = 32
+    private const val OUTLINE = 1
 
     private val PARCHMENT = Color(0xF7E9A3)
     private val PARCHMENT_SHADE = Color(0xD5C98C)
     private val BORDER = Color(0x815631)
     private val INK = Color(0x4C3223)
+    private val HEAD_EXCLUDED_COLORS = setOf(PARCHMENT.rgb and 0xFFFFFF, PARCHMENT_SHADE.rgb and 0xFFFFFF)
 
-    fun compose(eventName: String, playerName: String, date: LocalDate, face: BufferedImage): BufferedImage {
+    fun compose(eventName: String, playerName: String, date: LocalDate, skin: BufferedImage): BufferedImage {
         val image = BufferedImage(SIZE, SIZE, BufferedImage.TYPE_INT_ARGB)
         drawBackground(image)
 
         val lineHeight = PixelFont.lineHeight
         val eventLines = PixelFont.wrap(eventName, CONTENT_WIDTH, MAX_EVENT_LINES, bold = false)
         val nameLine = PixelFont.wrap(playerName, CONTENT_WIDTH, 1, bold = false).firstOrNull().orEmpty()
-        val head = SkinHead.scale(face, if (eventLines.size > 1) HEAD_SCALE_COMPACT else HEAD_SCALE)
+        val headSize = if (eventLines.size > 1) HEAD_SIZE_COMPACT else HEAD_SIZE
+        val head = SkinHead.render(skin, headSize - 2 * OUTLINE)
         val eventHeight = eventLines.size.coerceAtLeast(1).let { it * lineHeight + (it - 1) * LINE_GAP }
 
         val contentHeight = lineHeight + SECTION_GAP + DIVIDER_HEIGHT + SECTION_GAP +
-                eventHeight + HEAD_GAP + head.height + HEAD_GAP +
+                eventHeight + HEAD_GAP + headSize + HEAD_GAP +
                 lineHeight + SECTION_GAP + DIVIDER_HEIGHT + SECTION_GAP + lineHeight
         var y = INNER_TOP + (INNER_HEIGHT - contentHeight) / 2
 
@@ -53,8 +57,8 @@ object CertificateArtwork {
         }
         y += eventHeight + HEAD_GAP
 
-        drawHead(image, head, y)
-        y += head.height + HEAD_GAP
+        drawHead(image, head, y + OUTLINE)
+        y += headSize + HEAD_GAP
 
         drawCentered(image, nameLine, y, bold = false)
         y += lineHeight + SECTION_GAP
@@ -97,11 +101,21 @@ object CertificateArtwork {
         fill(image, center - 1, top + 2, 2, 1, INK)
     }
 
+    /** Draws the head in map colours and surrounds its shape with a line of ink, which separates it from the paper. */
     private fun drawHead(image: BufferedImage, head: BufferedImage, top: Int) {
         val left = (SIZE - head.width) / 2
-        for (y in 0 until head.height) {
-            for (x in 0 until head.width) {
-                image.setRGB(left + x, top + y, head.getRGB(x, y) or 0xFF000000.toInt())
+        val matched = HashMap<Int, Int>()
+        fun isHead(x: Int, y: Int) = x in 0 until head.width && y in 0 until head.height && head.getRGB(x, y) ushr 24 != 0
+
+        for (y in -OUTLINE until head.height + OUTLINE) {
+            for (x in -OUTLINE until head.width + OUTLINE) {
+                if (isHead(x, y)) {
+                    val color = head.getRGB(x, y)
+                    val mapColor = matched.getOrPut(color) { MapColors.nearest(color, HEAD_EXCLUDED_COLORS) }
+                    image.setRGB(left + x, top + y, mapColor or 0xFF000000.toInt())
+                } else if (isHead(x + 1, y) || isHead(x - 1, y) || isHead(x, y + 1) || isHead(x, y - 1)) {
+                    image.setRGB(left + x, top + y, INK.rgb)
+                }
             }
         }
     }

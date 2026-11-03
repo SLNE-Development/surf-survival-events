@@ -20,20 +20,20 @@ import java.util.*
 import javax.imageio.ImageIO
 import kotlin.time.Duration.Companion.seconds
 
-/** Result of [SkinLoader.loadFace]. */
-sealed interface SkinFace {
-    /** The 8x8 face of the player's skin. */
-    data class Loaded(val image: BufferedImage) : SkinFace
+/** Result of [SkinLoader.loadSkin]. */
+sealed interface PlayerSkin {
+    /** The skin texture of the player. */
+    data class Loaded(val texture: BufferedImage) : PlayerSkin
 
     /** The player uses one of the default skins. */
-    data object DefaultSkin : SkinFace
+    data object DefaultSkin : PlayerSkin
 
     /** The skin could not be loaded, for example because the session server refused further requests. */
-    data object Unavailable : SkinFace
+    data object Unavailable : PlayerSkin
 }
 
 /**
- * Loads the face of a player's current skin without blocking any server thread.
+ * Loads the texture of a player's current skin without blocking any server thread.
  *
  * Paper keeps the profiles of known players in its profile cache, so most lookups do not reach the session server. A
  * failed lookup, for example because of its rate limit, is tried once more after a short pause.
@@ -48,7 +48,7 @@ object SkinLoader {
         .followRedirects(HttpClient.Redirect.NORMAL)
         .build()
 
-    suspend fun loadFace(uuid: UUID): SkinFace {
+    suspend fun loadSkin(uuid: UUID): PlayerSkin {
         var lastFailure: Exception? = null
 
         repeat(ATTEMPTS) { attempt ->
@@ -68,15 +68,15 @@ object SkinLoader {
         }
 
         plugin.logger.warning("Could not load the skin of $uuid, using the fallback face: $lastFailure")
-        return SkinFace.Unavailable
+        return PlayerSkin.Unavailable
     }
 
-    private suspend fun loadOnce(uuid: UUID): SkinFace {
+    private suspend fun loadOnce(uuid: UUID): PlayerSkin {
         val profile = Bukkit.createProfile(uuid).update().await()
         check(profile.hasTextures()) { "The session server returned no textures" }
 
-        val skinUrl = profile.textures.skin ?: return SkinFace.DefaultSkin
-        return SkinFace.Loaded(SkinHead.extractFace(download(skinUrl.toURI())))
+        val skinUrl = profile.textures.skin ?: return PlayerSkin.DefaultSkin
+        return PlayerSkin.Loaded(SkinHead.requireSkin(download(skinUrl.toURI())))
     }
 
     private suspend fun download(url: URI): BufferedImage {

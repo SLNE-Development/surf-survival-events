@@ -41,9 +41,12 @@ object CertificateDelivery : Listener {
         1f
     )
 
+    /** Can be called from any thread; the player is looked up on the global region. */
     fun notifyIfOnline(record: CertificateRecord) {
-        val player = Bukkit.getPlayer(record.playerUuid) ?: return
-        player.scheduler.run(plugin, { notify(player, listOf(record)) }, null)
+        Bukkit.getGlobalRegionScheduler().execute(plugin) {
+            val player = Bukkit.getPlayer(record.playerUuid) ?: return@execute
+            player.scheduler.run(plugin, { notify(player, listOf(record)) }, null)
+        }
     }
 
     /** Sends one message per certificate and plays the sound once. Must run on the thread of [player]. */

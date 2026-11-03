@@ -80,6 +80,25 @@ class CertificateMapRendererTest {
     }
 
     @Test
+    fun `requests the image again a while after loading it failed`() {
+        val canvas = mockk<MapCanvas>(relaxed = true)
+        var now = 0L
+        var requests = 0
+        val renderer = CertificateMapRenderer(clock = { now }) { requests++ }
+        renderer.render(view, canvas, player)
+
+        renderer.loadFailed()
+        now += CertificateMapRenderer.RETRY_DELAY_MILLIS - 1
+        renderer.render(view, canvas, player)
+        assertEquals(1, requests)
+
+        now += 1
+        renderer.render(view, canvas, player)
+        renderer.render(view, canvas, player)
+        assertEquals(2, requests)
+    }
+
+    @Test
     fun `ignores an image provided after drawing`() {
         val canvas = mockk<MapCanvas>(relaxed = true)
         val renderer = loadingRightAway()

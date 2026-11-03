@@ -134,15 +134,37 @@ class CertificateRegistryTest {
     }
 
     @Test
-    fun `knows the highest map id of all certificates`() {
+    fun `knows the highest map id of all readable certificates`() {
         val registry = CertificateRegistry()
         assertNull(registry.highestMapId())
 
         registry.add(record(4))
         registry.add(record(2))
-        registry.addUnreadable(11)
+        registry.addUnreadable(2_147_483_647)
 
-        assertEquals(11, registry.highestMapId())
+        assertEquals(4, registry.highestMapId())
+    }
+
+    @Test
+    fun `reopening a claimed certificate makes it pending again`() {
+        val registry = CertificateRegistry()
+        registry.add(record(1, claimedAt = Instant.parse("2026-11-02T20:00:00Z")))
+
+        assertTrue(registry.reopen(1))
+
+        assertNull(registry[1]?.claimedAt)
+        assertEquals(listOf(1), registry.pendingFor(notch).map { it.mapId })
+    }
+
+    @Test
+    fun `reopening a pending or unknown certificate changes nothing`() {
+        val registry = CertificateRegistry()
+        val pending = record(1)
+        registry.add(pending)
+
+        assertFalse(registry.reopen(1))
+        assertFalse(registry.reopen(2))
+        assertEquals(pending, registry[1])
     }
 
     @Test

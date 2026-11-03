@@ -27,6 +27,13 @@ class CertificateFormTest {
     }
 
     @Test
+    fun `ignores minutes a modified client could send`() {
+        assertEquals(0, form(minutes = Float.NaN).minimumMinutes)
+        assertEquals(0, form(minutes = Float.POSITIVE_INFINITY).minimumMinutes)
+        assertEquals(0, form(minutes = -30f).minimumMinutes)
+    }
+
+    @Test
     fun `accepts a complete form`() {
         assertNull(form().validate())
     }

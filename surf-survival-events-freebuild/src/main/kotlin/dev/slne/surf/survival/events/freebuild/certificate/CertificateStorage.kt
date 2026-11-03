@@ -10,7 +10,6 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption.ATOMIC_MOVE
 import java.nio.file.StandardCopyOption.REPLACE_EXISTING
-import java.nio.file.StandardOpenOption.CREATE
 import java.nio.file.StandardOpenOption.TRUNCATE_EXISTING
 import java.nio.file.StandardOpenOption.WRITE
 import java.time.Instant
@@ -67,10 +66,14 @@ class CertificateStorage(dataDirectory: Path) {
         }
     }
 
-    /** Loads the metadata of all certificates whose image exists; unreadable certificates are reported as failures. */
+    /**
+     * Loads the metadata of all certificates whose image exists; unreadable certificates are reported as failures.
+     * Temporary files left behind by a crash are removed. Must not run while certificates are being saved.
+     */
     fun loadRecords(): LoadedRecords {
         if (!directory.isDirectory()) return LoadedRecords(emptyList(), emptyList())
 
+        directory.listDirectoryEntries("*.tmp").forEach { it.deleteIfExists() }
         val records = mutableListOf<CertificateRecord>()
         val failures = mutableListOf<LoadFailure>()
         for (metadata in directory.listDirectoryEntries("*.json").sortedBy { it.name }) {
@@ -106,17 +109,21 @@ class CertificateStorage(dataDirectory: Path) {
     private fun imageFile(mapId: Int) = directory.resolve("$mapId.png")
 
     private fun writeAtomically(target: Path, write: (OutputStream) -> Unit) {
-        val temporary = target.resolveSibling("${target.name}.tmp")
-        FileChannel.open(temporary, WRITE, CREATE, TRUNCATE_EXISTING).use { channel ->
-            val output = Channels.newOutputStream(channel).buffered()
-            write(output)
-            output.flush()
-            channel.force(true)
-        }
+        val temporary = Files.createTempFile(directory, "${target.name}.", ".tmp")
         try {
-            Files.move(temporary, target, ATOMIC_MOVE, REPLACE_EXISTING)
-        } catch (_: AtomicMoveNotSupportedException) {
-            Files.move(temporary, target, REPLACE_EXISTING)
+            FileChannel.open(temporary, WRITE, TRUNCATE_EXISTING).use { channel ->
+                val output = Channels.newOutputStream(channel).buffered()
+                write(output)
+                output.flush()
+                channel.force(true)
+            }
+            try {
+                Files.move(temporary, target, ATOMIC_MOVE, REPLACE_EXISTING)
+            } catch (_: AtomicMoveNotSupportedException) {
+                Files.move(temporary, target, REPLACE_EXISTING)
+            }
+        } finally {
+            temporary.deleteIfExists()
         }
     }
 

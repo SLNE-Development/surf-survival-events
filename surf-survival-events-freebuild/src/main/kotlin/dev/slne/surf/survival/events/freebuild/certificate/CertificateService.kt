@@ -53,14 +53,24 @@ sealed interface GiveResult {
  */
 object CertificateService {
     private const val PARALLEL_ISSUES = 4
+    private const val PERSIST_LOCK_STRIPES = 64
 
     private val storage by lazy { CertificateStorage(plugin.dataPath) }
     private val registry = CertificateRegistry()
     private val claims = CertificateClaims(registry, ::persistClaim)
+    private val maps by lazy {
+        CertificateMaps(
+            registry = registry,
+            createMap = { Bukkit.createMap(Bukkit.getWorlds().first()) },
+            attach = ::attach,
+            logger = plugin.logger,
+        )
+    }
+    private val persistLocks = Array(PERSIST_LOCK_STRIPES) { Any() }
 
     /**
      * Loads the metadata of all stored certificates during plugin enable and then checks the world's map ids on the
-     * global region, see [repairMapIds].
+     * global region, see [CertificateMaps.repair].
      */
     suspend fun restore() {
         val loaded = withContext(Dispatchers.IO) { storage.loadRecords() }
@@ -73,7 +83,7 @@ object CertificateService {
 
         plugin.launch(plugin.globalRegionDispatcher) {
             try {
-                repairMapIds()
+                reportRepair(maps.repair())
             } catch (exception: CancellationException) {
                 throw exception
             } catch (exception: Exception) {
@@ -82,18 +92,8 @@ object CertificateService {
         }
     }
 
-    /**
-     * Attaches the certificate renderer when Minecraft loads the map of a certificate, before anyone sees it.
-     *
-     * Certificate maps are always locked. A map that is not locked has just been created; if its id belongs to a
-     * certificate, the world's map data is older than the certificates and the map is someone else's, so it is left
-     * alone.
-     */
-    fun onMapInitialize(map: MapView) {
-        if (map.isLocked && map.id in registry) {
-            attach(map)
-        }
-    }
+    /** Attaches the certificate renderer when Minecraft loads or creates the map of a certificate. */
+    fun onMapInitialize(map: MapView) = maps.onInitialize(map)
 
     /** Whether [item] is a certificate map or a copy of one. */
     fun isCertificate(item: ItemStack?): Boolean {
@@ -124,7 +124,7 @@ object CertificateService {
             GiveResult.Issued(issueReserved(playerUuid, playerName, eventName, date, createdBy, onIssuing))
         }
 
-        is Reservation.Exists -> offerAgain(reservation.record)
+        is Reservation.Exists -> offerAgain(reservation.record.mapId)
         Reservation.InProgress -> GiveResult.InProgress
     }
 
@@ -154,14 +154,8 @@ object CertificateService {
                         return@withPermit
                     }
 
-                    try {
-                        val certificate =
-                            issueReserved(participant.uuid, participant.name, eventName, date, createdBy)
-                        issued += certificate.record
-                        if (certificate.skinUnavailable) {
-                            withoutSkin += participant
-                        }
-                        onIssued(certificate.record)
+                    val certificate = try {
+                        issueReserved(participant.uuid, participant.name, eventName, date, createdBy)
                     } catch (exception: CancellationException) {
                         throw exception
                     } catch (exception: Exception) {
@@ -171,6 +165,19 @@ object CertificateService {
                             exception
                         )
                         failed += participant
+                        return@withPermit
+                    }
+
+                    issued += certificate.record
+                    if (certificate.skinUnavailable) {
+                        withoutSkin += participant
+                    }
+                    try {
+                        onIssued(certificate.record)
+                    } catch (exception: CancellationException) {
+                        throw exception
+                    } catch (exception: Exception) {
+                        plugin.logger.log(Level.WARNING, "Could not notify ${participant.name}", exception)
                     }
                 }
             }
@@ -186,10 +193,7 @@ object CertificateService {
     fun claim(player: Player, mapId: Int): ClaimResult = claims.claim(
         playerUuid = player.uniqueId,
         mapId = mapId,
-        handOver = { record ->
-            val inventory = player.inventory
-            inventory.firstEmpty() != -1 && inventory.addItem(CertificateItem.create(record)).isEmpty()
-        },
+        handOver = { record -> player.inventory.addItem(CertificateItem.create(record)).isEmpty() },
         savePlayer = {
             try {
                 player.saveData()
@@ -214,17 +218,17 @@ object CertificateService {
         var registered = false
         try {
             onIssuing()
-            val face = SkinLoader.loadFace(playerUuid)
+            val skin = SkinLoader.loadSkin(playerUuid)
             val image = withContext(Dispatchers.Default) {
                 CertificateArtwork.compose(
                     eventName,
                     playerName,
                     date,
-                    (face as? SkinFace.Loaded)?.image ?: SkinHead.fallbackFace()
+                    (skin as? PlayerSkin.Loaded)?.texture ?: SkinHead.fallbackSkin()
                 )
             }
 
-            val mapId = withContext(plugin.globalRegionDispatcher) { createUnusedMap().id }
+            val mapId = withContext(plugin.globalRegionDispatcher) { maps.createUnused().id }
             val record = CertificateRecord(
                 mapId = mapId,
                 playerUuid = playerUuid,
@@ -238,7 +242,7 @@ object CertificateService {
             registry.add(record)
             registered = true
 
-            return IssuedCertificate(record, skinUnavailable = face == SkinFace.Unavailable)
+            return IssuedCertificate(record, skinUnavailable = skin == PlayerSkin.Unavailable)
         } finally {
             if (!registered) {
                 registry.release(playerUuid, eventName, date)
@@ -246,68 +250,48 @@ object CertificateService {
         }
     }
 
-    private suspend fun offerAgain(record: CertificateRecord): GiveResult.Offered {
-        if (!record.isClaimed) {
-            return GiveResult.Offered(record, wasClaimed = false)
+    private suspend fun offerAgain(mapId: Int): GiveResult.Offered {
+        val reopened = registry.reopen(mapId)
+        if (reopened) {
+            withContext(Dispatchers.IO) { persist(mapId) }
         }
 
-        val pending = record.copy(claimedAt = null)
-        withContext(Dispatchers.IO) { storage.saveRecord(pending) }
-        registry.add(pending)
-        return GiveResult.Offered(pending, wasClaimed = true)
+        return GiveResult.Offered(checkNotNull(registry[mapId]), wasClaimed = reopened)
     }
 
     private fun persistClaim(record: CertificateRecord) {
         try {
-            storage.saveRecord(record)
+            persist(record.mapId)
         } catch (exception: Exception) {
             plugin.logger.log(Level.SEVERE, "Failed to save the claim of certificate map #${record.mapId}", exception)
         }
     }
 
     /**
-     * Makes sure that new maps get ids above all certificates. If the world's map data is older than the
-     * certificates, for example after a crash before the next autosave or after restoring a world backup, Minecraft
-     * would hand out the ids of certificates again. The certificate maps are created again on the way.
+     * Writes the current state of certificate [mapId]. Writes of the same certificate never overlap and each one
+     * reads the state only once it holds the lock, so the file always ends up with the latest state, even if a claim
+     * and an offer of the same certificate happen at the same time.
      */
-    private fun repairMapIds() {
-        val highest = registry.highestMapId() ?: return
-        if (Bukkit.getMap(highest) != null) {
-            return
-        }
-
-        plugin.logger.warning("The map of certificate #$highest is missing, the world's map data is probably older")
-        val world = Bukkit.getWorlds().first()
-        var restored = 0
-        do {
-            val map = Bukkit.createMap(world)
-            if (map.id in registry) {
-                attach(map)
-                restored++
-            }
-        } while (map.id < highest)
-
-        if (restored == 0) {
-            plugin.logger.warning("The map data of certificate #$highest is lost, its map stays empty")
-        } else {
-            plugin.logger.info("Restored the maps of $restored certificate(s)")
+    private fun persist(mapId: Int) {
+        synchronized(persistLocks[Math.floorMod(mapId, persistLocks.size)]) {
+            registry[mapId]?.let(storage::saveRecord)
         }
     }
 
-    /**
-     * Creates a map for a new certificate and attaches the certificate renderer. Ids that already belong to a
-     * certificate are skipped; their certificate gets the freshly created map, which restores it.
-     */
-    private fun createUnusedMap(): MapView {
-        val world = Bukkit.getWorlds().first()
-        var map = Bukkit.createMap(world)
-        while (map.id in registry) {
-            plugin.logger.warning("Map #${map.id} already belongs to a certificate, restoring the certificate on it")
-            attach(map)
-            map = Bukkit.createMap(world)
+    private fun reportRepair(repair: MapRepair) {
+        when (repair) {
+            MapRepair.NotNeeded -> Unit
+            is MapRepair.Restored -> plugin.logger.warning(
+                "The world's map ids were behind the certificates, restored the maps of ${repair.certificates} " +
+                        "certificate(s)"
+            )
+
+            is MapRepair.TooFarBehind -> plugin.logger.severe(
+                "The world hands out map #${repair.nextMapId}, but certificates go up to " +
+                        "#${repair.highestCertificate}. The gap is too large to catch up automatically; new maps " +
+                        "with the id of a certificate show that certificate."
+            )
         }
-        attach(map)
-        return map
     }
 
     private fun attach(map: MapView) {
@@ -320,6 +304,7 @@ object CertificateService {
                     throw exception
                 } catch (exception: Exception) {
                     plugin.logger.log(Level.WARNING, "Could not load the image of certificate map #$mapId", exception)
+                    renderer.loadFailed()
                 }
             }
         }

@@ -106,6 +106,21 @@ class CertificateStorageTest {
     }
 
     @Test
+    fun `temporary files left behind by a crash are removed when loading`() {
+        val storage = CertificateStorage(directory)
+        storage.save(record(mapId = 1), image(0xFF000000.toInt()))
+        directory.resolve("certificates/1.json.4711.tmp").writeText("{ half written")
+
+        val loaded = CertificateStorage(directory).loadRecords()
+
+        assertEquals(listOf(1), loaded.records.map { it.mapId })
+        assertEquals(
+            setOf("1.json", "1.png"),
+            directory.resolve("certificates").listDirectoryEntries().map { it.name }.toSet()
+        )
+    }
+
+    @Test
     fun `no temporary files are left behind after saving`() {
         val storage = CertificateStorage(directory)
         storage.save(record(mapId = 1), image(0xFF000000.toInt()))

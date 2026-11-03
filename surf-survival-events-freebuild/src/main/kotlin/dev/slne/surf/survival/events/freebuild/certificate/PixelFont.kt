@@ -9,18 +9,21 @@ import java.awt.image.BufferedImage
  * Draws text with the bitmap glyphs of Bukkit's built-in [MinecraftFont], pixel by pixel and without anti-aliasing.
  * Bold text is drawn like the Minecraft client does it: every glyph a second time, shifted by one pixel.
  *
- * [MinecraftFont] assigns the code page 437 symbols to the code points U+00C0 to U+00FF and thereby overwrites its
- * own glyphs of the accented letters, so `ä` would be drawn as `Σ`. The German umlauts therefore come from a corrected
- * table, `ß` and typographic punctuation are written in their plain form, and the other letters of that range count
- * as not drawable.
+ * [MinecraftFont] assigns the code page 437 symbols to the code points U+00B0 to U+00FF and thereby overwrites its
+ * own glyphs of the accented letters, so `ä` would be drawn as `Σ` and `°` as `░`. It also draws the apostrophe with
+ * the glyph of the grave accent. The German umlauts and the apostrophe therefore come from a corrected table, `ß` and
+ * typographic punctuation are written in their plain form, and the other characters of that range count as not
+ * drawable.
  */
 object PixelFont {
     private const val REPLACEMENT = '?'
     private const val SECTION_SIGN = '§'
+    private const val DELETE = '\u007F'
     private val font = MinecraftFont.Font
-    private val misassignedRange = 'À'..'ÿ'
+    private val misassignedRange = '\u00B0'..'\u00FF'
 
-    private val umlauts = mapOf(
+    private val corrected = mapOf(
+        '\'' to glyph(2, 2, 1, 0, 0, 0, 0, 0),
         'ä' to glyph(10, 0, 14, 16, 30, 17, 30, 0),
         'ö' to glyph(10, 0, 14, 17, 17, 17, 14, 0),
         'ü' to glyph(10, 0, 17, 17, 17, 17, 30, 0),
@@ -92,8 +95,8 @@ object PixelFont {
     }
 
     private fun sprite(char: Char): CharacterSprite? = when {
-        char == SECTION_SIGN || char < ' ' -> null
-        char in umlauts -> umlauts[char]
+        char == SECTION_SIGN || char == DELETE || char < ' ' -> null
+        char in corrected -> corrected[char]
         char in misassignedRange -> null
         else -> font.getChar(char)
     }

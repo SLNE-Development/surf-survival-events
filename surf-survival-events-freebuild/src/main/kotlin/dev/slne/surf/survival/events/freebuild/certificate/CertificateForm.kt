@@ -10,8 +10,7 @@ data class CertificateForm(
     val minimumMinutes: Int,
 ) {
     /** Returns an error message for the first invalid value, or `null` if the form is complete. */
-    fun validate(): String? = when {
-        eventNameError(eventName) != null -> eventNameError(eventName)
+    fun validate(): String? = eventNameError(eventName) ?: when {
         CertificateDates.parse(date) == null -> INVALID_DATE
         server.isEmpty() -> "Bitte gib den Server an, auf dem das Event stattgefunden hat."
         else -> null
@@ -27,7 +26,7 @@ data class CertificateForm(
             eventName = normalizeEventName(eventName),
             date = date.orEmpty().trim(),
             server = server.orEmpty().trim(),
-            minimumMinutes = minimumMinutes?.roundToInt() ?: 0,
+            minimumMinutes = minimumMinutes?.takeIf { it.isFinite() }?.roundToInt()?.coerceAtLeast(0) ?: 0,
         )
 
         fun normalizeEventName(eventName: String?) = eventName.orEmpty().trim().replace(whitespace, " ")
