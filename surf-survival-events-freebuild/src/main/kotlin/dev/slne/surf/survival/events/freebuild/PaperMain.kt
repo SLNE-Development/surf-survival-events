@@ -9,12 +9,20 @@ import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.api.core.util.toObjectSet
 import dev.slne.surf.api.paper.event.register
 import dev.slne.surf.api.paper.hook.papi.SurfPaperPAPIHook
+import dev.slne.surf.api.paper.packet.SurfPaperPacketApi
 import dev.slne.surf.core.api.common.SurfCoreApi
 import dev.slne.surf.core.api.paper.util.surfPlayer
 import dev.slne.surf.npc.api.dsl.npc
 import dev.slne.surf.npc.api.event.NpcInteractEvent
 import dev.slne.surf.npc.api.npc.skin.NpcSkin
 import dev.slne.surf.npc.api.npc.skin.NpcSkinPart
+import dev.slne.surf.survival.events.freebuild.certificate.CertificateCopyProtection
+import dev.slne.surf.survival.events.freebuild.certificate.CertificateDelivery
+import dev.slne.surf.survival.events.freebuild.certificate.CertificateItem
+import dev.slne.surf.survival.events.freebuild.certificate.CertificateLore
+import dev.slne.surf.survival.events.freebuild.certificate.CertificateMapListener
+import dev.slne.surf.survival.events.freebuild.certificate.CertificateService
+import dev.slne.surf.survival.events.freebuild.command.certificateCommand
 import dev.slne.surf.survival.events.freebuild.command.joinEventCommand
 import dev.slne.surf.survival.events.freebuild.command.reloadFreebuildSurvivalEventsConfigCommand
 import dev.slne.surf.survival.events.freebuild.command.switchFreebuildSurvivalServerEventsServerNpcCommand
@@ -27,6 +35,7 @@ import org.bukkit.Location
 import org.bukkit.entity.EntityType
 import org.bukkit.plugin.java.JavaPlugin
 import java.util.*
+import java.util.logging.Level
 import kotlin.time.Duration.Companion.seconds
 
 val plugin get() = JavaPlugin.getPlugin(PaperMain::class.java)
@@ -41,11 +50,22 @@ class PaperMain : SuspendingJavaPlugin() {
         switchFreebuildSurvivalServerEventsServerNpcCommand()
         reloadFreebuildSurvivalEventsConfigCommand()
         joinEventCommand()
+        certificateCommand()
 
         SurfPaperPAPIHook.register(PapiExpansion)
     }
 
     override suspend fun onEnableAsync() {
+        CertificateMapListener.register()
+        CertificateDelivery.register()
+        CertificateCopyProtection(CertificateService::isCertificate).register()
+        SurfPaperPacketApi.registerPacketLoreListener(this, CertificateItem.key, CertificateLore)
+        try {
+            CertificateService.restore()
+        } catch (exception: Exception) {
+            logger.log(Level.SEVERE, "Failed to restore certificate maps", exception)
+        }
+
         npc {
             uniqueName = NPC_UNIQUE_NAME
             displayName {
@@ -111,6 +131,11 @@ class PaperMain : SuspendingJavaPlugin() {
         if (hudAvailable) {
             HudListener.register()
         }
+    }
+
+    override suspend fun onDisableAsync() {
+        SurfPaperPacketApi.unregisterPacketLoreListener(this)
+        CertificateService.shutdown()
     }
 
     val hudAvailable get() = Bukkit.getPluginManager().isPluginEnabled("surf-hud-paper")
