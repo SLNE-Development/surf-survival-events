@@ -22,8 +22,8 @@ object CertificateItem {
     /**
      * Only the map id is set, so the map does not have to be loaded for this. The name is set as plain item name
      * (not a custom name), so it is not italic and takes the purple colour of the epic rarity. The tooltip of the map
-     * id component, which shows the map number and "Locked", is hidden. The lore is not stored on the item but added
-     * by [CertificateLore].
+     * id component, which shows the map number and "Locked", is hidden. The item shimmers like an enchanted one. The lore
+     * is not stored on the item but added by [CertificateLore].
      *
      * If `certificate-item-model` is configured, the item uses that model from the resource pack as icon. Item frames
      * and the hand still show the map, since they render items by their map id.
@@ -36,6 +36,7 @@ object CertificateItem {
         )
         setData(DataComponentTypes.ITEM_NAME, Component.text("Teilnahmeurkunde – ${record.eventName}"))
         setData(DataComponentTypes.RARITY, ItemRarity.EPIC)
+        setData(DataComponentTypes.ENCHANTMENT_GLINT_OVERRIDE, true)
         configuredItemModel()?.let { setData(DataComponentTypes.ITEM_MODEL, it) }
         editPersistentDataContainer { it.set(key, PersistentDataType.INTEGER, record.mapId) }
     }
