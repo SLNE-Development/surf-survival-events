@@ -40,6 +40,7 @@ class CertificateRegistry {
     private val unreadable = HashSet<Int>()
     private val reserved = HashSet<EventKey>()
     private val claiming = HashSet<Int>()
+    private val newestFirst = compareByDescending<CertificateRecord> { it.date }.thenByDescending { it.createdAt }
 
     /** Adds or replaces [record] and ends the reservation it was issued under. */
     fun add(record: CertificateRecord): Unit = synchronized(lock) {
@@ -81,6 +82,16 @@ class CertificateRegistry {
 
         add(record.copy(claimedAt = null))
         true
+    }
+
+    /** All certificates of [playerUuid], newest event first. */
+    fun certificatesOf(playerUuid: UUID): List<CertificateRecord> = synchronized(lock) {
+        recordsOf(playerUuid).sortedWith(newestFirst)
+    }
+
+    /** All certificates, newest event first. */
+    fun all(): List<CertificateRecord> = synchronized(lock) {
+        records.values.sortedWith(newestFirst)
     }
 
     fun pendingFor(playerUuid: UUID): List<CertificateRecord> = synchronized(lock) {

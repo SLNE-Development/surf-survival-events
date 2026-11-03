@@ -108,6 +108,19 @@ object CertificateService {
     fun hasCertificate(playerUuid: UUID, eventName: String, date: LocalDate) =
         registry.hasCertificate(playerUuid, eventName, date)
 
+    /** All certificates of [playerUuid], newest event first. */
+    fun certificatesOf(playerUuid: UUID) = registry.certificatesOf(playerUuid)
+
+    /** All certificates, newest event first. */
+    fun allCertificates() = registry.all()
+
+    /**
+     * Puts a copy of [record] into the inventory of [player] and returns whether it fit. The copy shows the same map
+     * and leaves the claim of the owner untouched. Must run on the thread of [player].
+     */
+    fun giveCopy(player: Player, record: CertificateRecord): Boolean =
+        player.inventory.addItem(CertificateItem.create(record)).isEmpty()
+
     /**
      * Gives a single player the certificate for an event. If the player already has it, the same certificate is
      * offered again, so a lost certificate can be replaced. [onIssuing] is called before a new certificate is created.

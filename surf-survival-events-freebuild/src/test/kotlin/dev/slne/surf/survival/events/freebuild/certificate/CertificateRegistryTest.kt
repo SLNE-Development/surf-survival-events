@@ -146,6 +146,18 @@ class CertificateRegistryTest {
     }
 
     @Test
+    fun `lists the certificates of a player newest event first`() {
+        val registry = CertificateRegistry()
+        registry.add(record(1, date = date.minusDays(10)))
+        registry.add(record(2, date = date))
+        registry.add(record(3, player = jeb, date = date.minusDays(1)))
+        registry.add(record(4, date = date.minusDays(3), claimedAt = Instant.parse("2026-11-02T20:00:00Z")))
+
+        assertEquals(listOf(2, 4, 1), registry.certificatesOf(notch).map { it.mapId })
+        assertEquals(listOf(2, 3, 4, 1), registry.all().map { it.mapId })
+    }
+
+    @Test
     fun `reopening a claimed certificate makes it pending again`() {
         val registry = CertificateRegistry()
         registry.add(record(1, claimedAt = Instant.parse("2026-11-02T20:00:00Z")))
