@@ -10,6 +10,7 @@ import dev.slne.surf.api.paper.dialog.dialog
 import dev.slne.surf.api.paper.dialog.type
 import dev.slne.surf.core.api.common.SurfCoreApi
 import dev.slne.surf.survival.events.freebuild.config.FreebuildPartConfig
+import dev.slne.surf.survival.events.freebuild.permission.PermissionList
 import dev.slne.surf.survival.events.freebuild.plugin
 import io.papermc.paper.dialog.Dialog
 import io.papermc.paper.dialog.DialogResponseView
@@ -106,6 +107,8 @@ object CertificateDialogs {
     }
 
     private fun search(player: Player, response: DialogResponseView) {
+        if (!mayIssue(player)) return
+
         val form = CertificateForm.from(
             eventName = response.getText("event"),
             date = response.getText("date"),
@@ -267,7 +270,25 @@ object CertificateDialogs {
         }
     }
 
+    /**
+     * Dialog clicks bypass the command and its permission, so the permission is checked again before anything is
+     * issued.
+     */
+    private fun mayIssue(player: Player): Boolean {
+        if (player.hasPermission(PermissionList.COMMAND_CERTIFICATE)) {
+            return true
+        }
+
+        player.sendText {
+            appendErrorPrefix()
+            error("Du darfst keine Teilnahmeurkunden vergeben.")
+        }
+        return false
+    }
+
     private fun issue(player: Player, form: CertificateForm, date: LocalDate, participants: List<NamedParticipant>) {
+        if (!mayIssue(player)) return
+
         player.sendText {
             appendInfoPrefix()
             info("Die Teilnahmeurkunden für ")

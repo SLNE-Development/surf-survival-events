@@ -33,12 +33,26 @@ class CertificateClaimsTest {
         createdAt = Instant.parse("2026-11-02T18:00:00Z"),
     )
 
-    private fun claim(player: UUID = notch, fits: Boolean = true) = claims.claim(
+    private fun claim(player: UUID = notch, fits: Boolean = true, saved: Boolean = true) = claims.claim(
         playerUuid = player,
         mapId = 1,
         handOver = { steps += "handOver"; fits },
-        savePlayer = { steps += "savePlayer" },
+        savePlayer = { steps += "savePlayer"; saved },
     )
+
+    @Test
+    fun `a failed player save hands the item over but keeps the certificate pending`() {
+        registry.add(pending)
+
+        val result = claim(saved = false)
+
+        assertIs<ClaimResult.Claimed>(result)
+        assertEquals(listOf("handOver", "savePlayer"), steps)
+        assertEquals(emptyList(), persisted)
+        assertNull(registry[1]?.claimedAt)
+        assertIs<ClaimResult.Claimed>(claim())
+        assertEquals(1, persisted.size)
+    }
 
     @Test
     fun `hands the certificate over and saves the player before persisting the claim`() {
@@ -77,7 +91,7 @@ class CertificateClaimsTest {
         registry.add(pending)
 
         assertFailsWith<IllegalStateException> {
-            claims.claim(notch, 1, handOver = { error("inventory broke") }, savePlayer = {})
+            claims.claim(notch, 1, handOver = { error("inventory broke") }, savePlayer = { true })
         }
 
         assertIs<ClaimResult.Claimed>(claim())

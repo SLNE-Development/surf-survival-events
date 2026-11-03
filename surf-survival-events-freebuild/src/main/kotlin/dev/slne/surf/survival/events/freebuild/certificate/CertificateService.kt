@@ -5,13 +5,21 @@ import com.github.shynixn.mccoroutine.folia.launch
 import dev.slne.surf.survival.events.freebuild.plugin
 import io.papermc.paper.datacomponent.DataComponentTypes
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineName
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.job
+import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.time.Duration.Companion.seconds
 import org.bukkit.Bukkit
 import org.bukkit.entity.Player
 import org.bukkit.inventory.ItemStack
@@ -54,6 +62,7 @@ sealed interface GiveResult {
 object CertificateService {
     private const val PARALLEL_ISSUES = 4
     private const val PERSIST_LOCK_STRIPES = 64
+    private val SHUTDOWN_TIMEOUT = 10.seconds
 
     private val storage by lazy { CertificateStorage(plugin.dataPath) }
     private val registry = CertificateRegistry()
@@ -67,6 +76,7 @@ object CertificateService {
         )
     }
     private val persistLocks = Array(PERSIST_LOCK_STRIPES) { Any() }
+    private val persistence = CoroutineScope(SupervisorJob() + Dispatchers.IO + CoroutineName("certificate-writes"))
 
     /**
      * Loads the metadata of all stored certificates during plugin enable and then checks the world's map ids on the
@@ -210,8 +220,10 @@ object CertificateService {
         savePlayer = {
             try {
                 player.saveData()
+                true
             } catch (exception: Exception) {
                 plugin.logger.log(Level.WARNING, "Could not save ${player.name} after claiming map #$mapId", exception)
+                false
             }
         },
     )
@@ -263,20 +275,38 @@ object CertificateService {
         }
     }
 
+    /**
+     * The current state is written on every offer, not only when the certificate was reopened, so a write that failed
+     * on an earlier offer is caught up.
+     */
     private suspend fun offerAgain(mapId: Int): GiveResult.Offered {
         val reopened = registry.reopen(mapId)
-        if (reopened) {
-            withContext(Dispatchers.IO) { persist(mapId) }
-        }
+        withContext(Dispatchers.IO) { persist(mapId) }
 
         return GiveResult.Offered(checkNotNull(registry[mapId]), wasClaimed = reopened)
     }
 
+    /**
+     * Claims run on the thread of the player, so the record is written in the background. A crash before the write
+     * offers the certificate again after the restart, which at worst hands out a second copy.
+     */
     private fun persistClaim(record: CertificateRecord) {
-        try {
-            persist(record.mapId)
-        } catch (exception: Exception) {
-            plugin.logger.log(Level.SEVERE, "Failed to save the claim of certificate map #${record.mapId}", exception)
+        persistence.launch {
+            try {
+                persist(record.mapId)
+            } catch (exception: Exception) {
+                plugin.logger.log(Level.SEVERE, "Failed to save the claim of certificate map #${record.mapId}", exception)
+            }
+        }
+    }
+
+    /** Waits for pending writes during plugin disable, so a stop right after a claim does not lose the claim. */
+    suspend fun shutdown() {
+        val finished = withTimeoutOrNull(SHUTDOWN_TIMEOUT) {
+            persistence.coroutineContext.job.children.toList().joinAll()
+        }
+        if (finished == null) {
+            plugin.logger.warning("Gave up waiting for certificate writes after $SHUTDOWN_TIMEOUT")
         }
     }
 

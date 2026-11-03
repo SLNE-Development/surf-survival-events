@@ -135,6 +135,7 @@ class PaperMain : SuspendingJavaPlugin() {
 
     override suspend fun onDisableAsync() {
         SurfPaperPacketApi.unregisterPacketLoreListener(this)
+        CertificateService.shutdown()
     }
 
     val hudAvailable get() = Bukkit.getPluginManager().isPluginEnabled("surf-hud-paper")
