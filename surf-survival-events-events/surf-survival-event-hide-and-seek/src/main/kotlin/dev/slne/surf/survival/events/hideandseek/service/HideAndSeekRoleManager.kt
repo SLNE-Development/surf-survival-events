@@ -1,20 +1,18 @@
 package dev.slne.surf.survival.events.hideandseek.service
 
 import com.github.shynixn.mccoroutine.folia.entityDispatcher
-import dev.slne.surf.api.core.messages.adventure.playSound
-import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.survival.events.base.game.GameContext
 import dev.slne.surf.survival.events.base.game.PlayerRemoveReason
 import dev.slne.surf.survival.events.base.service.GameService
 import dev.slne.surf.survival.events.hideandseek.config.HideAndSeekConfig
 import dev.slne.surf.survival.events.hideandseek.game.*
 import dev.slne.surf.survival.events.hideandseek.plugin
-import dev.slne.surf.survival.events.hideandseek.service.HideAndSeekBroadcast.broadcast
+import dev.slne.surf.survival.events.hideandseek.service.HideAndSeekBroadcast.broadcastRaw
+import dev.slne.surf.survival.events.hideandseek.theme.HideAndSeekThemes
 import dev.slne.surf.survival.events.hideandseek.util.tp
 import dev.slne.surf.survival.events.hideandseek.util.tpToServerLobby
 import kotlinx.coroutines.withContext
-import net.kyori.adventure.sound.Sound
-import net.kyori.adventure.text.format.TextDecoration
+import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder
 import org.bukkit.Bukkit
 import org.bukkit.GameMode
 import org.bukkit.attribute.Attribute
@@ -22,7 +20,6 @@ import org.bukkit.entity.Player
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.sqrt
-import org.bukkit.Sound as BukkitSound
 
 object HideAndSeekRoleManager {
 
@@ -66,17 +63,13 @@ object HideAndSeekRoleManager {
         role.giveInventory(player)
 
         if (announce) {
-            player.sendText {
-                appendInfoPrefix()
-                info("Du bist jetzt ein ")
-                text(role.displayName, role.color, TextDecoration.BOLD)
-                info("!")
-            }
-            player.playSound {
-                type(BukkitSound.ENTITY_PLAYER_LEVELUP)
-                volume(.75f)
-                source(Sound.Source.PLAYER)
-            }
+            HideAndSeekThemes.send(
+                player,
+                HideAndSeekThemes.theme.messages.roleAssigned,
+                Placeholder.unparsed("article", HideAndSeekThemes.roleTheme(role).article),
+                Placeholder.component("role", HideAndSeekThemes.roleName(role, bold = true))
+            )
+            HideAndSeekThemes.playSound(player, HideAndSeekThemes.theme.sounds.roleAssigned)
         }
     }
 
@@ -93,6 +86,11 @@ object HideAndSeekRoleManager {
     }
 
     suspend fun handlePostRespawn(player: Player) {
+        if (pendingLobbyAfterRespawn.remove(player.uniqueId)) {
+            sendToServerLobby(player)
+            return
+        }
+
         val role = roleOf(player) ?: return
 
         if (role == HiderRole && HideAndSeekService.isSeekingPhase) {
@@ -114,14 +112,31 @@ object HideAndSeekRoleManager {
 
     suspend fun handleParticipantRemove(uuid: UUID, player: Player?, disconnected: Boolean) {
         roles.remove(uuid)
+
+        // Decide the outcome first: teleporting a caught (dead) hider can take a while or fail,
+        // and must never delay the seekers' win.
+        HideAndSeekService.performPlayerCheck()
+
         HideAndSeekScoreboard.hide(uuid)
 
-        if (player != null && !disconnected) {
-            resetPlayer(player)
-            player.tpToServerLobby()
-        }
+        if (player == null || disconnected) return
 
-        HideAndSeekService.performPlayerCheck()
+        if (player.isDead) {
+            // A dead player cannot be teleported; send them to the lobby once they respawn.
+            pendingLobbyAfterRespawn.add(uuid)
+        } else {
+            sendToServerLobby(player)
+        }
+    }
+
+    /** Players that were removed while dead and still have to be sent to the server lobby. */
+    private val pendingLobbyAfterRespawn = ConcurrentHashMap.newKeySet<UUID>()
+
+    fun clearPendingLobby() = pendingLobbyAfterRespawn.clear()
+
+    private suspend fun sendToServerLobby(player: Player) {
+        resetPlayer(player)
+        player.tpToServerLobby()
     }
 
     fun announceDeath(player: Player, role: HideAndSeekRole) {
@@ -130,24 +145,28 @@ object HideAndSeekRoleManager {
         val remainingHiders = (onlineHiders.size - if (role == HiderRole) 1 else 0)
             .coerceAtLeast(0)
 
-        broadcast {
-            appendInfoPrefix()
-            coloredComponent(player.name, role.color)
-            if (killer != null && killerRole != null) {
-                info(" wurde von ")
-                coloredComponent(killer.name, killerRole.color)
-                info(" gefangen!")
-            } else {
-                info(" ist ausgeschieden!")
-            }
+        val messages = HideAndSeekThemes.theme.messages
+        val textColor = HideAndSeekThemes.color(HideAndSeekThemes.theme.textColor)
+        val playerName = HideAndSeekThemes.playerName("player", player.name, role)
 
-            if (role == HiderRole && remainingHiders > 0) {
-                appendSpace()
-                info("Noch ")
-                variableValue(remainingHiders)
-                info(" Verstecker übrig.")
-            }
+        var message = if (killer != null && killerRole != null) {
+            HideAndSeekThemes.render(
+                messages.caught,
+                playerName,
+                HideAndSeekThemes.playerName("killer", killer.name, killerRole)
+            )
+        } else {
+            HideAndSeekThemes.render(messages.eliminated, playerName)
+        }.colorIfAbsent(textColor)
+
+        if (role == HiderRole && remainingHiders > 0) {
+            message = message.append(
+                HideAndSeekThemes.render(messages.hidersRemaining, HideAndSeekThemes.value("count", remainingHiders))
+                    .colorIfAbsent(textColor)
+            )
         }
+
+        broadcastRaw(message)
     }
 
     suspend fun setupLobbyPlayer(player: Player, context: GameContext) {

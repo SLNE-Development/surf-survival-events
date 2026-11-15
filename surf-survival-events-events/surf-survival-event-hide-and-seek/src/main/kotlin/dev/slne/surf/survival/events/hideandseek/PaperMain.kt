@@ -9,7 +9,10 @@ import dev.slne.surf.survival.events.base.game.GameWorldService
 import dev.slne.surf.survival.events.base.service.GameService
 import dev.slne.surf.survival.events.hideandseek.command.hideAndSeekCommand
 import dev.slne.surf.survival.events.hideandseek.config.HideAndSeekConfig
+import dev.slne.surf.api.paper.event.register
+import dev.slne.surf.survival.events.hideandseek.game.HideAndSeekCelebration
 import dev.slne.surf.survival.events.hideandseek.game.HideAndSeekGame
+import dev.slne.surf.survival.events.hideandseek.theme.HideAndSeekThemes
 import kotlinx.coroutines.CoroutineStart
 import org.bukkit.plugin.java.JavaPlugin
 
@@ -18,6 +21,8 @@ val plugin get() = JavaPlugin.getPlugin(PaperMain::class.java)
 class PaperMain : SuspendingJavaPlugin() {
     override suspend fun onEnableAsync() {
         hideAndSeekCommand()
+        // Stays registered: the celebration runs in the server lobby after the game has ended.
+        HideAndSeekCelebration.register()
 
         val game = HideAndSeekGame()
         GameRegistry.register(HideAndSeekGame.KEY, game)
@@ -38,6 +43,9 @@ class PaperMain : SuspendingJavaPlugin() {
             }
 
             HideAndSeekConfig.init()
+            HideAndSeekThemes.load()?.let { error ->
+                componentLogger.warn("Using the default hide and seek theme: $error")
+            }
         }
     }
 

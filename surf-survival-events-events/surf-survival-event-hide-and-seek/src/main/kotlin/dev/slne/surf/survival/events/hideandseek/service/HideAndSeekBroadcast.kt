@@ -1,35 +1,45 @@
 package dev.slne.surf.survival.events.hideandseek.service
 
-import dev.slne.surf.api.core.messages.adventure.TitleBuilder
-import dev.slne.surf.api.core.messages.adventure.playSound
-import dev.slne.surf.api.core.messages.adventure.sendText
-import dev.slne.surf.api.core.messages.adventure.showTitle
-import dev.slne.surf.api.core.messages.builder.SurfComponentBuilder
-import net.kyori.adventure.sound.Sound
-import org.bukkit.Sound as BukkitSound
+import dev.slne.surf.survival.events.hideandseek.theme.HideAndSeekTheme.ThemeSound
+import dev.slne.surf.survival.events.hideandseek.theme.HideAndSeekThemes
+import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver
+import net.kyori.adventure.title.Title
+import org.bukkit.entity.Player
+import java.time.Duration
 
+/** Sends themed messages, titles and sounds to everyone in the running hide and seek event. */
 object HideAndSeekBroadcast {
 
-    fun broadcast(message: SurfComponentBuilder.() -> Unit) {
-        currentContext()?.onlineEventPlayers?.forEach { player ->
-            player.sendText(message)
-        }
+    private fun recipients(): List<Player> = currentContext()?.onlineEventPlayers ?: emptyList()
+
+    /** Sends a themed chat message with the theme prefix. */
+    fun broadcast(text: String, vararg placeholders: TagResolver) {
+        recipients().forEach { player -> HideAndSeekThemes.send(player, text, *placeholders) }
     }
 
-    fun broadcastTitle(title: TitleBuilder.() -> Unit) {
-        currentContext()?.onlineEventPlayers?.forEach { player ->
-            player.showTitle(title)
-        }
+    /** Sends an already rendered message with the theme prefix. */
+    fun broadcastRaw(message: Component) {
+        recipients().forEach { player -> HideAndSeekThemes.sendRaw(player, message) }
     }
 
-    fun broadcastSound(sound: BukkitSound, volume: Float, pitch: Float) {
-        currentContext()?.onlineEventPlayers?.forEach { player ->
-            player.playSound {
-                type(sound)
-                volume(volume)
-                pitch(pitch)
-                source(Sound.Source.HOSTILE)
-            }
-        }
+    /** Sends themed chat lines without a prefix, e.g. a multi-line announcement. */
+    fun broadcastLines(lines: List<String>) {
+        val textColor = HideAndSeekThemes.color(HideAndSeekThemes.theme.textColor)
+        val rendered = lines.map { HideAndSeekThemes.render(it).colorIfAbsent(textColor) }
+        recipients().forEach { player -> rendered.forEach(player::sendMessage) }
+    }
+
+    fun broadcastTitle(title: String, subtitle: String) {
+        val shown = Title.title(
+            HideAndSeekThemes.render(title),
+            HideAndSeekThemes.render(subtitle),
+            Title.Times.times(Duration.ofMillis(500), Duration.ofMillis(2500), Duration.ofMillis(1000))
+        )
+        recipients().forEach { player -> player.showTitle(shown) }
+    }
+
+    fun broadcastSound(sound: ThemeSound) {
+        recipients().forEach { player -> HideAndSeekThemes.playSound(player, sound) }
     }
 }

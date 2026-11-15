@@ -9,7 +9,11 @@ import dev.slne.surf.survival.events.base.service.GameService
 import dev.slne.surf.survival.events.base.util.toGamePosition
 import dev.slne.surf.survival.events.hideandseek.config.HideAndSeekConfig
 import dev.slne.surf.survival.events.hideandseek.config.SeekerSelection
+import com.github.shynixn.mccoroutine.folia.launch
 import dev.slne.surf.survival.events.hideandseek.game.HideAndSeekGame
+import dev.slne.surf.survival.events.hideandseek.game.HideAndSeekScoreboard
+import dev.slne.surf.survival.events.hideandseek.plugin
+import dev.slne.surf.survival.events.hideandseek.theme.HideAndSeekThemes
 import dev.slne.surf.survival.events.hideandseek.service.HideAndSeekRoleManager
 import dev.slne.surf.survival.events.hideandseek.service.HideAndSeekService
 import dev.slne.surf.survival.events.hideandseek.util.PermissionRegistry
@@ -185,15 +189,28 @@ fun hideAndSeekCommand() = commandTree("hideandseek") {
 
     literalArgument("reload") {
         withPermission(PermissionRegistry.COMMAND_COMMUNITY_MANAGER)
-        anyExecutor { sender, _ ->
-            val ms = measureTimeMillis {
-                HideAndSeekConfig.reloadFromFile()
-            }
+        anyExecutor { sender, _ -> reloadConfigAndTheme(sender) }
+    }
 
+    literalArgument("theme") {
+        withPermission(PermissionRegistry.COMMAND_COMMUNITY_MANAGER)
+        anyExecutor { sender, _ ->
             sender.sendText {
-                appendSuccessPrefix()
-                success("Die Hide-and-Seek-Config wurde erfolgreich neu geladen ")
-                spacer("(${ms}ms)")
+                appendInfoPrefix()
+                info("Aktives Theme: ")
+                variableValue(HideAndSeekThemes.themeName)
+                appendNewline()
+                info("Verfügbar: ")
+                variableValue(HideAndSeekThemes.available().joinToString(", ").ifEmpty { "-" })
+            }
+        }
+
+        stringArgument("name") {
+            replaceSuggestions(ArgumentSuggestions.stringCollection { HideAndSeekThemes.available() })
+            anyExecutor { sender, args ->
+                val name: String by args
+                HideAndSeekConfig.edit { theme = name }
+                reloadConfigAndTheme(sender)
             }
         }
     }
@@ -252,6 +269,34 @@ fun hideAndSeekCommand() = commandTree("hideandseek") {
                 appendSpace()
                 variableValue(location.readableString(true))
             }
+        }
+    }
+}
+
+/** Reloads config.yml and the theme it selects, then redraws open scoreboards. */
+private fun reloadConfigAndTheme(sender: CommandSender) {
+    var themeError: String? = null
+    val ms = measureTimeMillis {
+        HideAndSeekConfig.reloadFromFile()
+        themeError = HideAndSeekThemes.load()
+    }
+
+    plugin.launch { HideAndSeekScoreboard.rebuildAll() }
+
+    sender.sendText {
+        appendSuccessPrefix()
+        success("Die Hide-and-Seek-Config wurde neu geladen ")
+        spacer("(${ms}ms)")
+        appendNewline()
+        appendInfoPrefix()
+        info("Aktives Theme: ")
+        variableValue(HideAndSeekThemes.themeName)
+    }
+
+    themeError?.let { error ->
+        sender.sendText {
+            appendErrorPrefix()
+            error(error)
         }
     }
 }

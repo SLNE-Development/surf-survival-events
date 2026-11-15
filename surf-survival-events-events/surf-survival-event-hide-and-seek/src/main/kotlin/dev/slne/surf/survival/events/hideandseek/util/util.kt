@@ -1,23 +1,21 @@
 package dev.slne.surf.survival.events.hideandseek.util
 
 import com.github.shynixn.mccoroutine.folia.launch
-import dev.slne.surf.api.core.messages.adventure.playSound
 import dev.slne.surf.survival.events.base.service.GameService
 import dev.slne.surf.survival.events.hideandseek.plugin
+import dev.slne.surf.survival.events.hideandseek.theme.HideAndSeekThemes
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.future.await
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
-import net.kyori.adventure.sound.Sound
 import org.bukkit.Location
 import org.bukkit.entity.Entity
 import org.bukkit.entity.Player
 import kotlin.coroutines.resume
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
-import org.bukkit.Sound as BukkitSound
 
 private const val TELEPORT_ATTEMPTS = 3
 private val TELEPORT_ATTEMPT_TIMEOUT = 10.seconds
@@ -83,11 +81,7 @@ private suspend fun Player.teleportReliably(
 
         if (arrived) {
             if (playSound) {
-                playSound {
-                    type(BukkitSound.ENTITY_ENDERMAN_TELEPORT)
-                    volume(.5f)
-                    source(Sound.Source.HOSTILE)
-                }
+                HideAndSeekThemes.playSound(this, HideAndSeekThemes.theme.sounds.teleport)
             }
             return true
         }

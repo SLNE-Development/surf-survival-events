@@ -11,6 +11,9 @@ enum class SeekerSelection { RANDOM, FIXED }
 
 @ConfigSerializable
 data class HideAndSeekConfig(
+    @param:Comment("Active theme: the name of a file in the themes folder without .yml (e.g. default, charity-royale). Apply with /has reload.")
+    var theme: String = "default",
+
     var gameplay: GameplayConfig = GameplayConfig(),
     var timers: TimerConfig = TimerConfig(),
     var border: BorderConfig = BorderConfig(),
@@ -72,7 +75,7 @@ data class HideAndSeekConfig(
         @param:Comment("Time the seekers have to find the hiders.")
         var seekSeconds: Long = 600,
 
-        @param:Comment("Celebration time after the winner announcement before players return to the server lobby.")
+        @param:Comment("How long the winners are celebrated in the server lobby (fireworks/hearts, see the theme) after the game ended.")
         var celebrationSeconds: Long = 30
     )
 

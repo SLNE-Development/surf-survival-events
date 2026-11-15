@@ -2,19 +2,15 @@ package dev.slne.surf.survival.events.hideandseek.service
 
 import com.github.shynixn.mccoroutine.folia.globalRegionDispatcher
 import com.github.shynixn.mccoroutine.folia.launch
-import dev.slne.surf.api.core.messages.Colors
-import dev.slne.surf.api.core.messages.adventure.playSound
-import dev.slne.surf.api.core.messages.adventure.sendText
-import dev.slne.surf.api.core.messages.builder.SurfComponentBuilder
 import dev.slne.surf.survival.events.base.game.GameContext
 import dev.slne.surf.survival.events.base.game.GameStopReason
-import dev.slne.surf.survival.events.base.game.ParticipantRole
 import dev.slne.surf.survival.events.base.service.GameService
 import dev.slne.surf.survival.events.hideandseek.config.HideAndSeekConfig
 import dev.slne.surf.survival.events.hideandseek.config.SeekerSelection
 import dev.slne.surf.survival.events.hideandseek.game.*
 import dev.slne.surf.survival.events.hideandseek.plugin
 import dev.slne.surf.survival.events.hideandseek.service.HideAndSeekBroadcast.broadcast
+import dev.slne.surf.survival.events.hideandseek.service.HideAndSeekBroadcast.broadcastLines
 import dev.slne.surf.survival.events.hideandseek.service.HideAndSeekBroadcast.broadcastSound
 import dev.slne.surf.survival.events.hideandseek.service.HideAndSeekBroadcast.broadcastTitle
 import dev.slne.surf.survival.events.hideandseek.service.HideAndSeekRoleManager.clearRoles
@@ -23,8 +19,9 @@ import dev.slne.surf.survival.events.hideandseek.service.HideAndSeekRoleManager.
 import dev.slne.surf.survival.events.hideandseek.service.HideAndSeekRoleManager.resetPlayer
 import dev.slne.surf.survival.events.hideandseek.service.HideAndSeekRoleManager.setRole
 import dev.slne.surf.survival.events.hideandseek.service.HideAndSeekRoleManager.setupSpectator
-import dev.slne.surf.survival.events.hideandseek.util.formatClock
+import dev.slne.surf.survival.events.hideandseek.theme.HideAndSeekThemes
 import dev.slne.surf.survival.events.hideandseek.util.forEachPlayerConcurrently
+import dev.slne.surf.survival.events.hideandseek.util.formatClock
 import dev.slne.surf.survival.events.hideandseek.util.formatLongDuration
 import dev.slne.surf.survival.events.hideandseek.util.tp
 import dev.slne.surf.survival.events.hideandseek.util.tpToServerLobby
@@ -34,13 +31,10 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
-import net.kyori.adventure.sound.Sound
 import net.kyori.adventure.text.Component
-import net.kyori.adventure.text.format.TextDecoration
 import org.bukkit.entity.Player
 import java.util.UUID
 import kotlin.time.Duration.Companion.seconds
-import org.bukkit.Sound as BukkitSound
 
 object HideAndSeekService {
 
@@ -66,11 +60,15 @@ object HideAndSeekService {
 
     val isRolePhase get() = phase == Phase.PREPARATION || phase == Phase.SEEKING
 
+    private val messages get() = HideAndSeekThemes.theme.messages
+    private val sounds get() = HideAndSeekThemes.theme.sounds
+
     context(context: GameContext)
     suspend fun startSession() {
         gameJob?.cancel("A new hide and seek session has been started.")
         gameJob = null
         clearRoles()
+        HideAndSeekRoleManager.clearPendingLobby()
         pendingEnd = null
         HideAndSeekItems.resetCooldowns()
         phase = Phase.LOBBY
@@ -88,10 +86,7 @@ object HideAndSeekService {
             setupSpectator(player, context)
         }
 
-        broadcast {
-            appendInfoPrefix()
-            info("Alle Spieler sind in der Lobby!")
-        }
+        broadcast(messages.allInLobby)
     }
 
     context(context: GameContext)
@@ -145,42 +140,25 @@ object HideAndSeekService {
     private suspend fun runGame(context: GameContext) {
         announceGameStart()
 
-        countdown(HideAndSeekConfig.getConfig().timers.lobbySeconds, SHORT_ANNOUNCEMENTS) { remaining ->
-            appendInfoPrefix()
-            info("Das Spiel beginnt in ")
-            variableValue(formatLongDuration(remaining))
-            info(".")
-        }
+        countdown(HideAndSeekConfig.getConfig().timers.lobbySeconds, SHORT_ANNOUNCEMENTS) { messages.lobbyCountdown }
         if (finishEarlyIfEnded()) return
 
         phase = Phase.PREPARATION
         setupBorder(context)
         assignRoles(context)
-        broadcast {
-            appendInfoPrefix()
-            info("Los geht's! Die Verstecker haben ")
-            variableValue(formatLongDuration(HideAndSeekConfig.getConfig().timers.preparationSeconds))
-            info(" Zeit, um sich zu verstecken.")
-        }
-        broadcastSound(BukkitSound.ENTITY_ENDER_DRAGON_GROWL, volume = .5f, pitch = .75f)
+        broadcast(
+            messages.hidingStarted,
+            HideAndSeekThemes.value("time", formatLongDuration(HideAndSeekConfig.getConfig().timers.preparationSeconds))
+        )
+        broadcastSound(sounds.hidingStarted)
 
-        countdown(HideAndSeekConfig.getConfig().timers.preparationSeconds, SHORT_ANNOUNCEMENTS) { remaining ->
-            appendInfoPrefix()
-            info("Noch ")
-            variableValue(formatLongDuration(remaining))
-            info(", dann ziehen die Sucher los!")
-        }
+        countdown(HideAndSeekConfig.getConfig().timers.preparationSeconds, SHORT_ANNOUNCEMENTS) { messages.hidingCountdown }
         if (finishEarlyIfEnded()) return
 
         phase = Phase.SEEKING
         startSeeking(context)
 
-        countdown(HideAndSeekConfig.getConfig().timers.seekSeconds, LONG_ANNOUNCEMENTS) { remaining ->
-            appendInfoPrefix()
-            info("Noch ")
-            variableValue(formatLongDuration(remaining))
-            info(" bis zum Spielende.")
-        }
+        countdown(HideAndSeekConfig.getConfig().timers.seekSeconds, LONG_ANNOUNCEMENTS) { messages.seekingCountdown }
 
         finish(pendingEnd ?: EndReason.TIME_UP)
     }
@@ -194,64 +172,49 @@ object HideAndSeekService {
     private suspend fun finish(reason: EndReason) {
         phase = Phase.CELEBRATION
 
-        broadcast {
-            appendInfoPrefix()
-            info("Spielende! ")
-            when (reason) {
-                EndReason.TIME_UP, EndReason.HIDERS_WIN ->
-                    text("Die Verstecker haben gewonnen!", HiderRole.color, TextDecoration.BOLD)
-
-                EndReason.SEEKERS_WIN ->
-                    text("Die Sucher haben gewonnen!", SeekerRole.color, TextDecoration.BOLD)
-            }
+        when (reason) {
+            EndReason.TIME_UP, EndReason.HIDERS_WIN -> broadcast(messages.hidersWin)
+            EndReason.SEEKERS_WIN -> broadcast(messages.seekersWin)
         }
-        broadcastSound(BukkitSound.ENTITY_ENDER_DRAGON_DEATH, volume = .75f, pitch = .75f)
+        broadcastSound(sounds.gameEnd)
 
-        moveRemainingPlayersToSpectator()
+        val players = currentContext()?.onlineEventPlayers.orEmpty()
 
-        countdown(HideAndSeekConfig.getConfig().timers.celebrationSeconds, emptySet()) { }
-
+        // Ending the game sends everyone to the server lobby; the celebration then takes place
+        // there so all players see it together. This runs outside the game loop, which ending the
+        // game cancels.
         plugin.launch {
             GameService.endGame(GameStopReason.HANDLER)
+            HideAndSeekCelebration.celebrate(players, HideAndSeekConfig.getConfig().timers.celebrationSeconds)
         }
     }
 
-    private suspend fun moveRemainingPlayersToSpectator() {
-        val context = currentContext() ?: return
-        val spectatorSpawn = HideAndSeekConfig.getConfig().spectatorSpawn.toLocation(context)
-
-        context.onlineGamePlayers.forEachPlayerConcurrently { player ->
-            setRole(player, SpectatorRole, announce = false)
-            GameService.setParticipantRole(player.uniqueId, ParticipantRole.SPECTATOR)
-            player.tp(spectatorSpawn)
-        }
-    }
-
+    /**
+     * Counts down [seconds], showing the clock in the action bar and sending the themed message
+     * from [announcement] (with a `<time>` placeholder) at the seconds in [announceAt].
+     */
     private suspend fun countdown(
         seconds: Long,
         announceAt: Set<Long>,
-        announce: SurfComponentBuilder.(remaining: Long) -> Unit
+        announcement: () -> String
     ) {
         for (remaining in seconds downTo 1) {
             remainingSeconds = remaining
             if (pendingEnd != null && phase != Phase.CELEBRATION) return
 
+            val valueColor = HideAndSeekThemes.color(HideAndSeekThemes.theme.valueColor)
             val players = currentContext()?.onlineEventPlayers ?: emptyList()
             players.forEach { player ->
-                player.sendActionBar(Component.text(formatClock(remaining), Colors.VARIABLE_VALUE))
+                player.sendActionBar(Component.text(formatClock(remaining), valueColor))
                 if (remaining in 1..10) {
-                    player.playSound {
-                        type(BukkitSound.BLOCK_NOTE_BLOCK_PLING)
-                        pitch(2f)
-                        volume(.5f)
-                        source(Sound.Source.BLOCK)
-                    }
+                    HideAndSeekThemes.playSound(player, sounds.countdownTick)
                 }
             }
 
             if (remaining in announceAt) {
+                val text = announcement()
                 players.forEach { player ->
-                    player.sendText { announce(remaining) }
+                    HideAndSeekThemes.send(player, text, HideAndSeekThemes.value("time", formatLongDuration(remaining)))
                 }
             }
 
@@ -325,11 +288,8 @@ object HideAndSeekService {
     private suspend fun startSeeking(context: GameContext) {
         val config = HideAndSeekConfig.getConfig()
 
-        broadcast {
-            appendInfoPrefix()
-            info("Die Vorbereitungszeit ist vorbei – die Sucher ziehen los!")
-        }
-        broadcastSound(BukkitSound.ENTITY_ENDER_DRAGON_GROWL, volume = .75f, pitch = .75f)
+        broadcast(messages.seekersReleased)
+        broadcastSound(sounds.seekersReleased)
 
         withContext(plugin.globalRegionDispatcher) {
             context.eventWorld.worldBorder.setSize(
@@ -364,23 +324,9 @@ object HideAndSeekService {
     }
 
     private fun announceGameStart() {
-        broadcast {
-            appendNewline()
-            text("HIDE AND SEEK", Colors.PRIMARY, TextDecoration.BOLD)
-            appendNewline(2)
-            info("Macht euch bereit – gleich geht's los!")
-            appendNewline()
-        }
-        broadcastTitle {
-            title { text("HIDE AND SEEK", Colors.PRIMARY, TextDecoration.BOLD) }
-            subtitle { text("Das Spiel beginnt!", Colors.VARIABLE_VALUE) }
-            times {
-                fadeIn(10)
-                stay(50)
-                fadeOut(20)
-            }
-        }
-        broadcastSound(BukkitSound.ENTITY_ENDER_DRAGON_GROWL, volume = .8f, pitch = 1.2f)
+        broadcastLines(messages.gameStartChat)
+        broadcastTitle(messages.gameStartTitle, messages.gameStartSubtitle)
+        broadcastSound(sounds.gameStart)
     }
 
     private val SHORT_ANNOUNCEMENTS = setOf<Long>(60, 30, 15, 10, 5, 4, 3, 2, 1)

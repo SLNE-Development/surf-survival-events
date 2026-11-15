@@ -1,7 +1,6 @@
 package dev.slne.surf.survival.events.hideandseek.game
 
 import com.github.shynixn.mccoroutine.folia.entityDispatcher
-import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.api.paper.builder.buildItem
 import dev.slne.surf.api.paper.builder.buildLore
 import dev.slne.surf.api.paper.builder.displayName
@@ -10,6 +9,8 @@ import dev.slne.surf.survival.events.hideandseek.config.HideAndSeekConfig
 import dev.slne.surf.survival.events.hideandseek.plugin
 import dev.slne.surf.survival.events.hideandseek.service.HideAndSeekRoleManager
 import dev.slne.surf.survival.events.hideandseek.service.HideAndSeekService
+import dev.slne.surf.survival.events.hideandseek.theme.HideAndSeekTheme
+import dev.slne.surf.survival.events.hideandseek.theme.HideAndSeekThemes
 import dev.slne.surf.survival.events.hideandseek.util.formatLongDuration
 import io.papermc.paper.util.Tick
 import kotlinx.coroutines.withContext
@@ -20,7 +21,6 @@ import org.bukkit.NamespacedKey
 import org.bukkit.attribute.Attribute
 import org.bukkit.attribute.AttributeModifier
 import org.bukkit.enchantments.Enchantment
-import org.bukkit.entity.Horse
 import org.bukkit.entity.Player
 import org.bukkit.inventory.EquipmentSlotGroup
 import org.bukkit.inventory.ItemStack
@@ -36,10 +36,11 @@ import kotlin.time.toJavaDuration
 object HideAndSeekItems {
     val specialItemKey = NamespacedKey(plugin, "special_item")
 
+    /** Marks the seekers' sword, whose material depends on the active theme. */
+    val catchWeaponKey = NamespacedKey(plugin, "catch_weapon")
+
     const val GLOW_ITEM_ID = "glow"
     const val SHRINK_ITEM_ID = "shrink"
-
-    val SWORD_MATERIAL = Material.NETHERITE_SWORD
 
     private const val SHRINK_ITEM_ATTACK_DAMAGE = 7.0
 
@@ -60,105 +61,44 @@ object HideAndSeekItems {
     }
 
     suspend fun giveSeekerKit(player: Player) = withContext(plugin.entityDispatcher(player)) {
-        val sword = buildItem(SWORD_MATERIAL) {
-            displayName { primary("Schwert des Suchers") }
-            buildLore {
-                line { secondary("Nutze dieses Schwert, um die versteckten") }
-                line { secondary("Spieler aufzuspüren und zu fangen.") }
-                line { info("Es ist unzerstörbar und dein treuer Begleiter.") }
-            }
+        val items = HideAndSeekThemes.theme.items
+        val armorColor = Color.fromRGB(HideAndSeekThemes.color(items.armorColor).value())
+
+        val sword = themedItem(HideAndSeekThemes.material(items.swordMaterial, Material.NETHERITE_SWORD), items.sword) {
             meta {
                 isUnbreakable = true
             }
-        }
-        val bow = buildItem(Material.BOW) {
-            displayName { primary("Bogen des Jägers") }
-            buildLore {
-                line { secondary("Nutze den Bogen, um flüchtende Spieler") }
-                line { secondary("aus der Ferne aufzuhalten.") }
-                line { info("Unendlich haltbar, für unendliche Jagd.") }
+            editPersistentDataContainer {
+                it.set(catchWeaponKey, PersistentDataType.BOOLEAN, true)
             }
+        }
+        val bow = themedItem(Material.BOW, items.bow) {
             meta {
                 isUnbreakable = true
             }
             addEnchantment(Enchantment.INFINITY, Enchantment.INFINITY.maxLevel)
         }
-        val arrow = buildItem(Material.ARROW) {
-            displayName { primary("Pfeil der Unendlichkeit") }
-            buildLore {
-                line { secondary("Ein einfacher Pfeil, der niemals ausgeht.") }
-                line { info("Nutze ihn weise und treffsicher.") }
-            }
-        }
+        val arrow = themedItem(Material.ARROW, items.arrow)
 
-        val helmet = buildItem(Material.LEATHER_HELMET) {
-            displayName { primary("Helm des Aufspürers") }
-            buildLore {
-                line { secondary("Dieser Helm schützt dich") }
-                line { secondary("und unterstützt dich bei der Jagd nach Versteckten.") }
-                line { info("Leicht, robust und zuverlässig.") }
-            }
+        fun armor(material: Material, theme: HideAndSeekTheme.ItemTheme) = themedItem(material, theme) {
             meta<LeatherArmorMeta> {
-                setColor(Color.fromRGB(243, 140, 168))
-                isUnbreakable = true
-            }
-        }
-        val chestplate = buildItem(Material.LEATHER_CHESTPLATE) {
-            displayName { primary("Brustplatte des Suchers") }
-            buildLore {
-                line { secondary("Verleiht dir Schutz und Stärke bei") }
-                line { secondary("deiner Mission, alle Spieler zu finden.") }
-                line { info("Sie wird niemals versagen.") }
-            }
-            meta<LeatherArmorMeta> {
-                setColor(Color.fromRGB(243, 140, 168))
-                isUnbreakable = true
-            }
-        }
-        val leggings = buildItem(Material.LEATHER_LEGGINGS) {
-            displayName { primary("Hose des Suchers") }
-            buildLore {
-                line { secondary("Mit dieser Hose bewegst du dich geschmeidig") }
-                line { secondary("durch jedes Terrain.") }
-                line { info("Robust und zuverlässig für die Jagd.") }
-            }
-            meta<LeatherArmorMeta> {
-                setColor(Color.fromRGB(243, 140, 168))
-                isUnbreakable = true
-            }
-        }
-        val boots = buildItem(Material.LEATHER_BOOTS) {
-            displayName { primary("Stiefel des Fährtenlesers") }
-            buildLore {
-                line { secondary("Geräuschlos und leicht, ideal um dich deinen") }
-                line { secondary("Gegnern unbemerkt zu nähern.") }
-                line { info("Die perfekten Schuhe für den Sucher.") }
-            }
-            meta<LeatherArmorMeta> {
-                setColor(Color.fromRGB(243, 140, 168))
+                setColor(armorColor)
                 isUnbreakable = true
             }
         }
 
-        val glowItem = buildItem(Material.GLOW_INK_SAC) {
-            displayName { primary("Leuchtbeutel") }
-            buildLore {
-                line { secondary("Lässt alle Verstecker für kurze Zeit leuchten.") }
-                line { info("Hilft dir, versteckte Spieler aufzuspüren.") }
-            }
+        val helmet = armor(Material.LEATHER_HELMET, items.helmet)
+        val chestplate = armor(Material.LEATHER_CHESTPLATE, items.chestplate)
+        val leggings = armor(Material.LEATHER_LEGGINGS, items.leggings)
+        val boots = armor(Material.LEATHER_BOOTS, items.boots)
+
+        val glowItem = themedItem(HideAndSeekThemes.material(items.glowMaterial, Material.GLOW_INK_SAC), items.glow) {
             editPersistentDataContainer {
                 it.set(specialItemKey, PersistentDataType.STRING, GLOW_ITEM_ID)
             }
         }
 
-        val shrinkItem = buildItem(Material.WHITE_TULIP) {
-            displayName { primary("Schrumpfblume") }
-            buildLore {
-                line { secondary("Solange du diese Blume in der Hand hältst,") }
-                line { secondary("schrumpfst du auf die Größe der Verstecker.") }
-                line { info("Du kannst mit ihr auch Verstecker fangen.") }
-                line { info("Wechsle das Item, um wieder zu wachsen.") }
-            }
+        val shrinkItem = themedItem(HideAndSeekThemes.material(items.shrinkMaterial, Material.WHITE_TULIP), items.shrink) {
             meta {
                 addAttributeModifier(
                     Attribute.ATTACK_DAMAGE,
@@ -195,13 +135,33 @@ object HideAndSeekItems {
         }
     }
 
+    /** Builds an item named and described by [theme]. */
+    private fun themedItem(
+        material: Material,
+        theme: HideAndSeekTheme.ItemTheme,
+        extra: ItemStack.() -> Unit = {}
+    ): ItemStack {
+        val textColor = HideAndSeekThemes.color(HideAndSeekThemes.theme.textColor)
+        val valueColor = HideAndSeekThemes.color(HideAndSeekThemes.theme.valueColor)
+        val name = HideAndSeekThemes.render(theme.name).colorIfAbsent(valueColor)
+        val lore = theme.lore.map { HideAndSeekThemes.render(it).colorIfAbsent(textColor) }
+
+        return buildItem(material) {
+            displayName { append(name) }
+            buildLore {
+                lore.forEach { loreLine -> line { append(loreLine) } }
+            }
+            extra()
+        }
+    }
+
     fun specialItemId(item: ItemStack?): String? {
         return item?.persistentDataContainer?.get(specialItemKey, PersistentDataType.STRING)
     }
 
     fun isCatchWeapon(item: ItemStack?): Boolean {
         if (item == null) return false
-        return item.type == SWORD_MATERIAL || specialItemId(item) == SHRINK_ITEM_ID
+        return item.persistentDataContainer.has(catchWeaponKey) || specialItemId(item) == SHRINK_ITEM_ID
     }
 
     suspend fun handleSpecialItem(player: Player, item: ItemStack, id: String) {
@@ -238,10 +198,7 @@ object HideAndSeekItems {
 
     private suspend fun runPreCheck(player: Player, item: ItemStack, id: String): Boolean {
         if (!HideAndSeekService.isSeekingPhase) {
-            player.sendText {
-                appendErrorPrefix()
-                error("Du kannst das Item gerade nicht benutzen.")
-            }
+            HideAndSeekThemes.send(player, HideAndSeekThemes.theme.messages.itemUnavailable)
             return false
         }
 
@@ -275,13 +232,11 @@ object HideAndSeekItems {
         }
 
         HideAndSeekRoleManager.onlineSeekers.forEach { seeker ->
-            seeker.sendText {
-                appendInfoPrefix()
-                info("Die Verstecker sind nun für ")
-                variableValue(formatLongDuration(duration.inWholeSeconds))
-                info(" sichtbar.")
-            }
+            HideAndSeekThemes.send(
+                seeker,
+                HideAndSeekThemes.theme.messages.glowUsed,
+                HideAndSeekThemes.value("time", formatLongDuration(duration.inWholeSeconds))
+            )
         }
     }
-
 }
