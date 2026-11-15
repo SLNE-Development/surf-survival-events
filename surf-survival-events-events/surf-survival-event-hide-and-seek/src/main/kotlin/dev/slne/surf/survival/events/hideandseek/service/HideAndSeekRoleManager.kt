@@ -11,6 +11,7 @@ import dev.slne.surf.survival.events.hideandseek.game.*
 import dev.slne.surf.survival.events.hideandseek.plugin
 import dev.slne.surf.survival.events.hideandseek.service.HideAndSeekBroadcast.broadcast
 import dev.slne.surf.survival.events.hideandseek.util.tp
+import dev.slne.surf.survival.events.hideandseek.util.tpToServerLobby
 import kotlinx.coroutines.withContext
 import net.kyori.adventure.sound.Sound
 import net.kyori.adventure.text.format.TextDecoration
@@ -117,7 +118,7 @@ object HideAndSeekRoleManager {
 
         if (player != null && !disconnected) {
             resetPlayer(player)
-            GameService.teleportToServerLobby(player)
+            player.tpToServerLobby()
         }
 
         HideAndSeekService.performPlayerCheck()

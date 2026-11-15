@@ -24,13 +24,16 @@ import dev.slne.surf.survival.events.hideandseek.service.HideAndSeekRoleManager.
 import dev.slne.surf.survival.events.hideandseek.service.HideAndSeekRoleManager.setRole
 import dev.slne.surf.survival.events.hideandseek.service.HideAndSeekRoleManager.setupSpectator
 import dev.slne.surf.survival.events.hideandseek.util.formatClock
+import dev.slne.surf.survival.events.hideandseek.util.forEachPlayerConcurrently
 import dev.slne.surf.survival.events.hideandseek.util.formatLongDuration
 import dev.slne.surf.survival.events.hideandseek.util.tp
+import dev.slne.surf.survival.events.hideandseek.util.tpToServerLobby
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import net.kyori.adventure.sound.Sound
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.TextDecoration
@@ -75,12 +78,13 @@ object HideAndSeekService {
         val config = HideAndSeekConfig.getConfig()
         remainingSeconds = config.timers.lobbySeconds
 
-        context.onlineParticipants.forEach { player ->
+        val lobbySpawn = config.lobbySpawn.toLocation(context)
+        context.onlineParticipants.forEachPlayerConcurrently { player ->
             resetPlayer(player)
-            player.tp(config.lobbySpawn.toLocation(context))
+            player.tp(lobbySpawn)
             HideAndSeekScoreboard.show(player)
         }
-        context.onlineSpectators.forEach { player ->
+        context.onlineSpectators.forEachPlayerConcurrently { player ->
             setupSpectator(player, context)
         }
 
@@ -116,7 +120,9 @@ object HideAndSeekService {
 
         gameJob?.let { job ->
             job.cancel("The hide and seek session has been stopped.")
-            job.join()
+            // A loop stuck on a single player must not keep everyone else in the event world.
+            withTimeoutOrNull(5.seconds) { job.join() }
+                ?: plugin.componentLogger.warn("Hide and seek game loop did not stop within 5 seconds")
         }
         gameJob = null
 
@@ -127,9 +133,9 @@ object HideAndSeekService {
         }
 
         if (reason != GameStopReason.PLUGIN_DISABLE) {
-            context.onlineEventPlayers.forEach { player ->
+            context.onlineEventPlayers.forEachPlayerConcurrently { player ->
                 resetPlayer(player)
-                GameService.teleportToServerLobby(player)
+                player.tpToServerLobby()
             }
         }
 
@@ -214,7 +220,7 @@ object HideAndSeekService {
         val context = currentContext() ?: return
         val spectatorSpawn = HideAndSeekConfig.getConfig().spectatorSpawn.toLocation(context)
 
-        context.onlineGamePlayers.forEach { player ->
+        context.onlineGamePlayers.forEachPlayerConcurrently { player ->
             setRole(player, SpectatorRole, announce = false)
             GameService.setParticipantRole(player.uniqueId, ParticipantRole.SPECTATOR)
             player.tp(spectatorSpawn)
@@ -280,12 +286,13 @@ object HideAndSeekService {
             .coerceAtMost((candidates.size - 1).coerceAtLeast(1))
         val seekers = selectSeekers(candidates, seekerAmount)
 
-        candidates.forEach { player ->
+        val gameSpawn = config.gameSpawn.toLocation(context)
+        candidates.forEachPlayerConcurrently { player ->
             if (player in seekers) {
                 setRole(player, SeekerRole)
             } else {
                 setRole(player, HiderRole)
-                player.tp(config.gameSpawn.toLocation(context))
+                player.tp(gameSpawn)
             }
         }
 
@@ -331,8 +338,9 @@ object HideAndSeekService {
             )
         }
 
-        onlineSeekers.forEach { seeker ->
-            seeker.tp(config.gameSpawn.toLocation(context))
+        val gameSpawn = config.gameSpawn.toLocation(context)
+        onlineSeekers.forEachPlayerConcurrently { seeker ->
+            seeker.tp(gameSpawn)
             HideAndSeekItems.refreshShrinkScale(seeker)
         }
     }
