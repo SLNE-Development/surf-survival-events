@@ -7,7 +7,8 @@ import org.spongepowered.configurate.objectmapping.ConfigSerializable
 @ConfigSerializable
 data class FreebuildPartConfig(
     var enableSurvivalEventsNpc: Boolean = false,
-    val eventServerName: String = "survival-events"
+    val eventServerName: String = "survival-events",
+    val npcHeadItemModel: String = ""
 ) {
     companion object : SpongeYmlConfigClass<FreebuildPartConfig>(
         FreebuildPartConfig::class.java,

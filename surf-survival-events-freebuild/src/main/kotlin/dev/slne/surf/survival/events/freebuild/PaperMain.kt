@@ -9,6 +9,7 @@ import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.api.core.util.toObjectSet
 import dev.slne.surf.core.api.common.SurfCoreApi
 import dev.slne.surf.core.api.paper.util.surfPlayer
+import dev.slne.surf.npc.api.SurfNpcApi
 import dev.slne.surf.npc.api.dsl.npc
 import dev.slne.surf.npc.api.event.NpcInteractEvent
 import dev.slne.surf.npc.api.npc.skin.NpcSkin
@@ -16,10 +17,15 @@ import dev.slne.surf.npc.api.npc.skin.NpcSkinPart
 import dev.slne.surf.survival.events.freebuild.command.reloadFreebuildSurvivalEventsConfigCommand
 import dev.slne.surf.survival.events.freebuild.command.switchFreebuildSurvivalServerEventsServerNpcCommand
 import dev.slne.surf.survival.events.freebuild.config.FreebuildPartConfig
+import io.papermc.paper.datacomponent.DataComponentTypes
+import net.kyori.adventure.key.Key
 import net.kyori.adventure.text.format.TextDecoration
 import org.bukkit.Bukkit
 import org.bukkit.Location
+import org.bukkit.Material
 import org.bukkit.entity.EntityType
+import org.bukkit.inventory.EquipmentSlot
+import org.bukkit.inventory.ItemStack
 import org.bukkit.plugin.java.JavaPlugin
 import java.util.*
 import kotlin.time.Duration.Companion.seconds
@@ -99,5 +105,24 @@ class PaperMain : SuspendingJavaPlugin() {
                 }
             }
         }
+
+        applyNpcHeadModel()
     }
+}
+
+@Suppress("UnstableApiUsage")
+fun applyNpcHeadModel() {
+    val npc = SurfNpcApi.getNpc(NPC_UNIQUE_NAME) ?: return
+    val modelKey = FreebuildPartConfig.getConfig().npcHeadItemModel.trim()
+    if (modelKey.isEmpty()) return
+
+    val key = runCatching { Key.key(modelKey) }.getOrElse {
+        plugin.logger.warning("Invalid npcHeadItemModel '$modelKey' in config.yml")
+        return
+    }
+
+    val head = ItemStack.of(Material.PAPER).apply {
+        setData(DataComponentTypes.ITEM_MODEL, key)
+    }
+    npc.setEquipment(EquipmentSlot.HEAD, head)
 }
