@@ -1,10 +1,6 @@
 import dev.slne.surf.api.gradle.platform.paper.plugin.PaperPluginSurfExtension
 import dev.slne.surf.api.gradle.util.registerRequired
 
-plugins {
-    kotlin("jvm")
-}
-
 
 subprojects {
     pluginManager.apply("dev.slne.surf.api.gradle.paper-plugin")
@@ -30,13 +26,4 @@ subprojects {
             registerRequired("surf-survival-events-base")
         }
     }
-}
-dependencies {
-    implementation(kotlin("stdlib-jdk8"))
-}
-repositories {
-    mavenCentral()
-}
-kotlin {
-    jvmToolchain(8)
 }
