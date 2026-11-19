@@ -2,6 +2,7 @@ package dev.slne.surf.survival.events.hideandseek.theme
 
 import dev.slne.surf.api.core.config.manager.SpongeConfigManager
 import dev.slne.surf.api.core.messages.adventure.sendText
+import dev.slne.surf.api.core.minimessage.miniMessage
 import dev.slne.surf.survival.events.hideandseek.config.HideAndSeekConfig
 import dev.slne.surf.survival.events.hideandseek.game.HideAndSeekRole
 import dev.slne.surf.survival.events.hideandseek.game.HiderRole
@@ -9,12 +10,9 @@ import dev.slne.surf.survival.events.hideandseek.game.SeekerRole
 import dev.slne.surf.survival.events.hideandseek.plugin
 import dev.slne.surf.survival.events.hideandseek.theme.HideAndSeekTheme.ThemeSound
 import net.kyori.adventure.audience.Audience
-import net.kyori.adventure.key.Key
 import net.kyori.adventure.sound.Sound
 import net.kyori.adventure.text.Component
-import net.kyori.adventure.text.format.TextColor
 import net.kyori.adventure.text.format.TextDecoration
-import net.kyori.adventure.text.minimessage.MiniMessage
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver
 import org.bukkit.Material
@@ -34,7 +32,6 @@ object HideAndSeekThemes {
     const val CHARITY_ROYALE_THEME = "charity-royale"
 
     private val validName = Regex("^[a-zA-Z0-9_-]+$")
-    private val miniMessage = MiniMessage.miniMessage()
 
     @Volatile
     var theme: HideAndSeekTheme = HideAndSeekTheme()
@@ -93,10 +90,6 @@ object HideAndSeekThemes {
 
     // ---- rendering ------------------------------------------------------------------------------
 
-    fun color(hex: String, fallback: TextColor = TextColor.color(0xFFFFFF)): TextColor {
-        return TextColor.fromHexString(hex.trim()) ?: fallback
-    }
-
     fun material(name: String, fallback: Material): Material {
         return Material.matchMaterial(name.trim()) ?: fallback
     }
@@ -116,56 +109,51 @@ object HideAndSeekThemes {
 
     /** A placeholder that shows [value] in the theme's value color. */
     fun value(key: String, value: Any): TagResolver {
-        return Placeholder.component(key, Component.text(value.toString(), color(theme.valueColor)))
+        return Placeholder.component(key, Component.text(value.toString(), theme.valueColor))
     }
 
     /** A placeholder that shows [name] in the color of [role]. */
     fun playerName(key: String, name: String, role: HideAndSeekRole?): TagResolver {
-        val roleColor = role?.let { color(roleTheme(it).color) } ?: color(theme.valueColor)
+        val roleColor = role?.let { roleTheme(it).color } ?: theme.valueColor
         return Placeholder.component(key, Component.text(name, roleColor))
     }
 
     fun roleName(role: HideAndSeekRole, bold: Boolean = false): Component {
         val roleTheme = roleTheme(role)
-        val component = Component.text(roleTheme.name, color(roleTheme.color))
+        val component = Component.text(roleTheme.name, roleTheme.color)
         return if (bold) component.decorate(TextDecoration.BOLD) else component
     }
 
     private fun roleResolver(): TagResolver {
         val roles = theme.roles
         return TagResolver.resolver(
-            Placeholder.component("hiders", Component.text(roles.hider.plural, color(roles.hider.color))),
-            Placeholder.component("seekers", Component.text(roles.seeker.plural, color(roles.seeker.color))),
-            Placeholder.component("hider", Component.text(roles.hider.name, color(roles.hider.color))),
-            Placeholder.component("seeker", Component.text(roles.seeker.name, color(roles.seeker.color)))
+            Placeholder.component("hiders", Component.text(roles.hider.plural, roles.hider.color)),
+            Placeholder.component("seekers", Component.text(roles.seeker.plural, roles.seeker.color)),
+            Placeholder.component("hider", Component.text(roles.hider.name, roles.hider.color)),
+            Placeholder.component("seeker", Component.text(roles.seeker.name, roles.seeker.color))
         )
     }
 
     /** Sends a themed chat message with the theme prefix. */
     fun send(audience: Audience, text: String, vararg placeholders: TagResolver) {
-        val message = render(text, *placeholders).colorIfAbsent(color(theme.textColor))
+        val message = render(text, *placeholders).colorIfAbsent(theme.textColor)
         sendRaw(audience, message)
     }
 
     /** Sends an already rendered [message] with the theme prefix. */
     fun sendRaw(audience: Audience, message: Component) {
         val prefix = theme.prefix
-        if (prefix.isBlank()) {
+        if (prefix == Component.empty()) {
             audience.sendText {
                 appendInfoPrefix()
                 append(message)
             }
         } else {
-            audience.sendMessage(render(prefix).append(message))
+            audience.sendMessage(prefix.append(message))
         }
     }
 
     fun playSound(audience: Audience, sound: ThemeSound) {
-        val key = sound.key.trim()
-        if (key.isEmpty()) return
-
-        val parsedKey = runCatching { Key.key(key) }.getOrNull() ?: return
-        val source = Sound.Source.NAMES.value(sound.source.trim().lowercase()) ?: Sound.Source.MASTER
-        audience.playSound(Sound.sound(parsedKey, source, sound.volume, sound.pitch))
+        audience.playSound(Sound.sound(sound.key, sound.source, sound.volume, sound.pitch))
     }
 }

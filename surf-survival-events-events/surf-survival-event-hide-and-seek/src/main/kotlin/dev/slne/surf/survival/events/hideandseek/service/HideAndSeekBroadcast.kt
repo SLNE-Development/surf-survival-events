@@ -24,16 +24,16 @@ object HideAndSeekBroadcast {
     }
 
     /** Sends themed chat lines without a prefix, e.g. a multi-line announcement. */
-    fun broadcastLines(lines: List<String>) {
-        val textColor = HideAndSeekThemes.color(HideAndSeekThemes.theme.textColor)
-        val rendered = lines.map { HideAndSeekThemes.render(it).colorIfAbsent(textColor) }
+    fun broadcastLines(lines: List<Component>) {
+        val textColor = HideAndSeekThemes.theme.textColor
+        val rendered = lines.map { it.colorIfAbsent(textColor) }
         recipients().forEach { player -> rendered.forEach(player::sendMessage) }
     }
 
-    fun broadcastTitle(title: String, subtitle: String) {
+    fun broadcastTitle(title: Component, subtitle: Component) {
         val shown = Title.title(
-            HideAndSeekThemes.render(title),
-            HideAndSeekThemes.render(subtitle),
+            title,
+            subtitle,
             Title.Times.times(Duration.ofMillis(500), Duration.ofMillis(2500), Duration.ofMillis(1000))
         )
         recipients().forEach { player -> player.showTitle(shown) }

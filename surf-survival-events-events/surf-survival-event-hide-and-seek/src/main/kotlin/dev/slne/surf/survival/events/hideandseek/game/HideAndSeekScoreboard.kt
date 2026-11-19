@@ -1,9 +1,7 @@
 package dev.slne.surf.survival.events.hideandseek.game
 
-import com.github.shynixn.mccoroutine.folia.entityDispatcher
-import com.github.shynixn.mccoroutine.folia.globalRegionDispatcher
-import dev.slne.surf.api.paper.scoreboard.SurfScoreboard
-import dev.slne.surf.api.paper.scoreboard.SurfScoreboardBuilder
+import dev.slne.surf.api.paper.sidebar.SurfAutoUpdatingSidebar
+import dev.slne.surf.api.paper.sidebar.autoUpdatingSidebar
 import dev.slne.surf.survival.events.base.service.GameService
 import dev.slne.surf.survival.events.hideandseek.plugin
 import dev.slne.surf.survival.events.hideandseek.service.HideAndSeekRoleManager
@@ -12,7 +10,6 @@ import dev.slne.surf.survival.events.hideandseek.service.HideAndSeekService.Phas
 import dev.slne.surf.survival.events.hideandseek.theme.HideAndSeekTheme.ScoreboardLine
 import dev.slne.surf.survival.events.hideandseek.theme.HideAndSeekThemes
 import dev.slne.surf.survival.events.hideandseek.util.formatClock
-import kotlinx.coroutines.withContext
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextColor
@@ -20,94 +17,102 @@ import net.kyori.adventure.text.format.TextDecoration
 import org.bukkit.Bukkit
 import org.bukkit.entity.Player
 import java.util.*
-import java.util.concurrent.ConcurrentHashMap
+import kotlin.time.Duration.Companion.seconds
 
+/**
+ * The hide and seek sidebar. One sidebar is shared by all viewers; only the role line is rendered
+ * per viewer.
+ */
 object HideAndSeekScoreboard {
 
-    private val boards = ConcurrentHashMap<UUID, SurfScoreboard>()
+    private val viewers: MutableSet<UUID> = Collections.synchronizedSet(HashSet())
+
+    @Volatile
+    private var sidebar: SurfAutoUpdatingSidebar? = null
 
     suspend fun show(player: Player) {
-        val uuid = player.uniqueId
-        if (boards.containsKey(uuid)) return
-
-        val board = buildBoard(player)
+        viewers.add(player.uniqueId)
         try {
-            withContext(plugin.entityDispatcher(player)) {
-                board.enable()
-                board.addViewer(player)
-            }
-            boards[uuid] = board
+            currentSidebar().addViewer(player)
         } catch (throwable: Throwable) {
+            viewers.remove(player.uniqueId)
             plugin.componentLogger.error("Failed to show hide and seek scoreboard for ${player.name}", throwable)
         }
     }
 
     suspend fun hide(uuid: UUID) {
-        val board = boards.remove(uuid) ?: return
-        val player = Bukkit.getPlayer(uuid)
-        val dispatcher = if (player != null) plugin.entityDispatcher(player) else plugin.globalRegionDispatcher
+        if (!viewers.remove(uuid)) return
 
+        val player = Bukkit.getPlayer(uuid) ?: return
         try {
-            withContext(dispatcher) {
-                board.disable()
-            }
+            sidebar?.removeViewer(player)
         } catch (throwable: Throwable) {
             plugin.componentLogger.error("Failed to hide hide and seek scoreboard", throwable)
         }
     }
 
     suspend fun hideAll() {
-        boards.keys.toList().forEach { hide(it) }
+        viewers.clear()
+        closeSidebar()
     }
 
-    /** Rebuilds every visible scoreboard, so a newly loaded theme shows up immediately. */
+    /** Rebuilds the sidebar for every viewer, so a newly loaded theme shows up immediately. */
     suspend fun rebuildAll() {
-        boards.keys.toList().forEach { uuid ->
-            hide(uuid)
-            Bukkit.getPlayer(uuid)?.let { show(it) }
-        }
+        val current = viewers.toList()
+        closeSidebar()
+        current.forEach { uuid -> Bukkit.getPlayer(uuid)?.let { show(it) } }
     }
 
-    private fun buildBoard(player: Player): SurfScoreboard {
+    @Synchronized
+    private fun currentSidebar(): SurfAutoUpdatingSidebar {
+        return sidebar?.takeUnless { it.isClosed } ?: buildSidebar().also { sidebar = it }
+    }
+
+    @Synchronized
+    private fun closeSidebar() {
+        sidebar?.close()
+        sidebar = null
+    }
+
+    private fun buildSidebar(): SurfAutoUpdatingSidebar {
         val scoreboard = HideAndSeekThemes.theme.scoreboard
 
-        var builder = SurfScoreboardBuilder.builder(HideAndSeekThemes.render(scoreboard.title))
-            .maxLines(15)
-            .addLineSeparator()
-            .addEmptyLine()
-            .addUpdatableLine { entry(theme().phase, accent()) { value(phaseName()) } }
-            .addUpdatableLine { entry(theme().time, accent()) { value(formatClock(HideAndSeekService.remainingSeconds)) } }
-            .addEmptyLine()
-            .addUpdatableLine { roleLine(player) }
-            .addEmptyLine()
-            .addUpdatableLine { entry(theme().hiders, HiderRole.color) { value(HideAndSeekRoleManager.onlineHiders.size) } }
-            .addUpdatableLine { entry(theme().seekers, SeekerRole.color) { value(HideAndSeekRoleManager.onlineSeekers.size) } }
-            .addUpdatableLine { entry(theme().players, NamedTextColor.GRAY) { value(onlineCount()) } }
-            .addEmptyLine()
+        return autoUpdatingSidebar(plugin) {
+            title(scoreboard.title)
+            updateInterval = 1.seconds
 
-        // The board holds 15 lines, which leaves room for two footer lines.
-        scoreboard.footer.take(2).forEach { line ->
-            builder = builder.addLine(HideAndSeekThemes.render(line))
-        }
-        if (scoreboard.footer.isNotEmpty()) {
-            builder = builder.addEmptyLine()
-        }
+            separator()
+            emptyLine()
+            sharedLine { entry(theme().phase, accent()) { value(phaseName()) } }
+            sharedLine { entry(theme().time, accent()) { value(formatClock(HideAndSeekService.remainingSeconds)) } }
+            emptyLine()
+            line { viewer -> roleLine(viewer) }
+            emptyLine()
+            sharedLine { entry(theme().hiders, HiderRole.color) { value(HideAndSeekRoleManager.onlineHiders.size) } }
+            sharedLine { entry(theme().seekers, SeekerRole.color) { value(HideAndSeekRoleManager.onlineSeekers.size) } }
+            sharedLine { entry(theme().players, NamedTextColor.GRAY) { value(onlineCount()) } }
+            emptyLine()
 
-        return builder
-            .addLineSeparator()
-            .buildAutoUpdatable()
+            // The board holds 15 lines, which leaves room for two footer lines.
+            scoreboard.footer.take(2).forEach { line(it) }
+            if (scoreboard.footer.isNotEmpty()) {
+                emptyLine()
+            }
+
+            separator()
+        }
     }
 
     private fun theme() = HideAndSeekThemes.theme.scoreboard
 
-    private fun accent(): TextColor = HideAndSeekThemes.color(theme().accentColor)
+    private fun accent(): TextColor = theme().accentColor
 
     private fun value(value: Any): Component =
-        Component.text(value.toString(), HideAndSeekThemes.color(HideAndSeekThemes.theme.valueColor))
+        Component.text(value.toString(), HideAndSeekThemes.theme.valueColor)
 
     private fun entry(line: ScoreboardLine, iconColor: TextColor, value: () -> Component): Component {
-        val icon = HideAndSeekThemes.render(line.icon).colorIfAbsent(iconColor)
-        val label = HideAndSeekThemes.render(line.label).colorIfAbsent(HideAndSeekThemes.color(theme().labelColor))
+        val icon = line.icon.colorIfAbsent(iconColor)
+        val label = line.label.colorIfAbsent(theme().labelColor)
 
         return Component.text()
             .append(icon)

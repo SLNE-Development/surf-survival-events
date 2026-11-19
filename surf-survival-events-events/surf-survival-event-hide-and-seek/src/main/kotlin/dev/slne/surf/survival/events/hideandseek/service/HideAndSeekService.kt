@@ -11,6 +11,7 @@ import dev.slne.surf.survival.events.hideandseek.game.*
 import dev.slne.surf.survival.events.hideandseek.plugin
 import dev.slne.surf.survival.events.hideandseek.service.HideAndSeekBroadcast.broadcast
 import dev.slne.surf.survival.events.hideandseek.service.HideAndSeekBroadcast.broadcastLines
+import dev.slne.surf.survival.events.hideandseek.service.HideAndSeekBroadcast.broadcastRaw
 import dev.slne.surf.survival.events.hideandseek.service.HideAndSeekBroadcast.broadcastSound
 import dev.slne.surf.survival.events.hideandseek.service.HideAndSeekBroadcast.broadcastTitle
 import dev.slne.surf.survival.events.hideandseek.service.HideAndSeekRoleManager.clearRoles
@@ -33,7 +34,6 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import net.kyori.adventure.text.Component
 import org.bukkit.entity.Player
-import java.util.UUID
 import kotlin.time.Duration.Companion.seconds
 
 object HideAndSeekService {
@@ -74,7 +74,7 @@ object HideAndSeekService {
         phase = Phase.LOBBY
 
         val config = HideAndSeekConfig.getConfig()
-        remainingSeconds = config.timers.lobbySeconds
+        remainingSeconds = config.timers.lobby.inWholeSeconds()
 
         val lobbySpawn = config.lobbySpawn.toLocation(context)
         context.onlineParticipants.forEachPlayerConcurrently { player ->
@@ -86,7 +86,7 @@ object HideAndSeekService {
             setupSpectator(player, context)
         }
 
-        broadcast(messages.allInLobby)
+        broadcastRaw(messages.allInLobby.colorIfAbsent(HideAndSeekThemes.theme.textColor))
     }
 
     context(context: GameContext)
@@ -140,7 +140,7 @@ object HideAndSeekService {
     private suspend fun runGame(context: GameContext) {
         announceGameStart()
 
-        countdown(HideAndSeekConfig.getConfig().timers.lobbySeconds, SHORT_ANNOUNCEMENTS) { messages.lobbyCountdown }
+        countdown(HideAndSeekConfig.getConfig().timers.lobby.inWholeSeconds(), SHORT_ANNOUNCEMENTS) { messages.lobbyCountdown }
         if (finishEarlyIfEnded()) return
 
         phase = Phase.PREPARATION
@@ -148,17 +148,17 @@ object HideAndSeekService {
         assignRoles(context)
         broadcast(
             messages.hidingStarted,
-            HideAndSeekThemes.value("time", formatLongDuration(HideAndSeekConfig.getConfig().timers.preparationSeconds))
+            HideAndSeekThemes.value("time", formatLongDuration(HideAndSeekConfig.getConfig().timers.preparation.inWholeSeconds()))
         )
         broadcastSound(sounds.hidingStarted)
 
-        countdown(HideAndSeekConfig.getConfig().timers.preparationSeconds, SHORT_ANNOUNCEMENTS) { messages.hidingCountdown }
+        countdown(HideAndSeekConfig.getConfig().timers.preparation.inWholeSeconds(), SHORT_ANNOUNCEMENTS) { messages.hidingCountdown }
         if (finishEarlyIfEnded()) return
 
         phase = Phase.SEEKING
         startSeeking(context)
 
-        countdown(HideAndSeekConfig.getConfig().timers.seekSeconds, LONG_ANNOUNCEMENTS) { messages.seekingCountdown }
+        countdown(HideAndSeekConfig.getConfig().timers.seek.inWholeSeconds(), LONG_ANNOUNCEMENTS) { messages.seekingCountdown }
 
         finish(pendingEnd ?: EndReason.TIME_UP)
     }
@@ -185,7 +185,7 @@ object HideAndSeekService {
         // game cancels.
         plugin.launch {
             GameService.endGame(GameStopReason.HANDLER)
-            HideAndSeekCelebration.celebrate(players, HideAndSeekConfig.getConfig().timers.celebrationSeconds)
+            HideAndSeekCelebration.celebrate(players, HideAndSeekConfig.getConfig().timers.celebration.inWholeSeconds())
         }
     }
 
@@ -202,7 +202,7 @@ object HideAndSeekService {
             remainingSeconds = remaining
             if (pendingEnd != null && phase != Phase.CELEBRATION) return
 
-            val valueColor = HideAndSeekThemes.color(HideAndSeekThemes.theme.valueColor)
+            val valueColor = HideAndSeekThemes.theme.valueColor
             val players = currentContext()?.onlineEventPlayers ?: emptyList()
             players.forEach { player ->
                 player.sendActionBar(Component.text(formatClock(remaining), valueColor))
@@ -267,9 +267,7 @@ object HideAndSeekService {
         val selected = LinkedHashSet<Player>()
 
         if (config.gameplay.seekerSelection == SeekerSelection.FIXED) {
-            val fixed = config.gameplay.fixedSeekers
-                .mapNotNull { runCatching { UUID.fromString(it) }.getOrNull() }
-                .toSet()
+            val fixed = config.gameplay.fixedSeekers.toSet()
             candidates.filter { it.uniqueId in fixed }
                 .take(amount)
                 .forEach(selected::add)
@@ -294,7 +292,7 @@ object HideAndSeekService {
         withContext(plugin.globalRegionDispatcher) {
             context.eventWorld.worldBorder.setSize(
                 config.border.endRadius * 2.0,
-                config.timers.seekSeconds
+                config.timers.seek.inWholeSeconds()
             )
         }
 

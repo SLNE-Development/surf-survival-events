@@ -4,6 +4,7 @@ import dev.jorel.commandapi.arguments.Argument
 import dev.jorel.commandapi.arguments.ArgumentSuggestions
 import dev.jorel.commandapi.kotlindsl.*
 import dev.slne.surf.api.core.messages.adventure.sendText
+import dev.slne.surf.api.core.config.type.ConfigDuration
 import dev.slne.surf.api.paper.util.readableString
 import dev.slne.surf.survival.events.base.service.GameService
 import dev.slne.surf.survival.events.base.util.toGamePosition
@@ -20,8 +21,8 @@ import dev.slne.surf.survival.events.hideandseek.util.PermissionRegistry
 import org.bukkit.Bukkit
 import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
-import java.util.UUID
-import kotlin.system.measureTimeMillis
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.measureTime
 
 fun hideAndSeekCommand() = commandTree("hideandseek") {
     withAliases("has")
@@ -124,18 +125,18 @@ fun hideAndSeekCommand() = commandTree("hideandseek") {
         doubleSetting("hider-scale", min = 0.0625, max = 16.0,
             get = { it.gameplay.hiderScale }, set = { c, v -> c.gameplay.hiderScale = v })
         longSetting("special-item-cooldown", min = 0,
-            get = { it.gameplay.specialItemCooldownSeconds }, set = { c, v -> c.gameplay.specialItemCooldownSeconds = v })
+            get = { it.gameplay.specialItemCooldown.inWholeSeconds() }, set = { c, v -> c.gameplay.specialItemCooldown = ConfigDuration(v.seconds) })
         longSetting("glow-duration", min = 1,
-            get = { it.gameplay.glowEffectDurationSeconds }, set = { c, v -> c.gameplay.glowEffectDurationSeconds = v })
+            get = { it.gameplay.glowEffectDuration.inWholeSeconds() }, set = { c, v -> c.gameplay.glowEffectDuration = ConfigDuration(v.seconds) })
 
         longSetting("lobby-time", min = 0,
-            get = { it.timers.lobbySeconds }, set = { c, v -> c.timers.lobbySeconds = v })
+            get = { it.timers.lobby.inWholeSeconds() }, set = { c, v -> c.timers.lobby = ConfigDuration(v.seconds) })
         longSetting("preparation-time", min = 0,
-            get = { it.timers.preparationSeconds }, set = { c, v -> c.timers.preparationSeconds = v })
+            get = { it.timers.preparation.inWholeSeconds() }, set = { c, v -> c.timers.preparation = ConfigDuration(v.seconds) })
         longSetting("seek-time", min = 1,
-            get = { it.timers.seekSeconds }, set = { c, v -> c.timers.seekSeconds = v })
+            get = { it.timers.seek.inWholeSeconds() }, set = { c, v -> c.timers.seek = ConfigDuration(v.seconds) })
         longSetting("celebration-time", min = 0,
-            get = { it.timers.celebrationSeconds }, set = { c, v -> c.timers.celebrationSeconds = v })
+            get = { it.timers.celebration.inWholeSeconds() }, set = { c, v -> c.timers.celebration = ConfigDuration(v.seconds) })
 
         intSetting("start-radius", min = 1,
             get = { it.border.startRadius }, set = { c, v -> c.border.startRadius = v })
@@ -201,7 +202,7 @@ fun hideAndSeekCommand() = commandTree("hideandseek") {
                 variableValue(HideAndSeekThemes.themeName)
                 appendNewline()
                 info("Verfügbar: ")
-                variableValue(HideAndSeekThemes.available().joinToString(", ").ifEmpty { "-" })
+                variableValue(HideAndSeekThemes.available().joinToString(", ").ifEmpty { "N/A" })
             }
         }
 
@@ -223,7 +224,6 @@ fun hideAndSeekCommand() = commandTree("hideandseek") {
             HideAndSeekConfig.edit {
                 lobbySpawn = location.toGamePosition()
             }
-            HideAndSeekConfig.save()
 
             player.sendText {
                 appendSuccessPrefix()
@@ -242,7 +242,6 @@ fun hideAndSeekCommand() = commandTree("hideandseek") {
             HideAndSeekConfig.edit {
                 gameSpawn = location.toGamePosition()
             }
-            HideAndSeekConfig.save()
 
             player.sendText {
                 appendSuccessPrefix()
@@ -261,7 +260,6 @@ fun hideAndSeekCommand() = commandTree("hideandseek") {
             HideAndSeekConfig.edit {
                 spectatorSpawn = location.toGamePosition()
             }
-            HideAndSeekConfig.save()
 
             player.sendText {
                 appendSuccessPrefix()
@@ -276,7 +274,7 @@ fun hideAndSeekCommand() = commandTree("hideandseek") {
 /** Reloads config.yml and the theme it selects, then redraws open scoreboards. */
 private fun reloadConfigAndTheme(sender: CommandSender) {
     var themeError: String? = null
-    val ms = measureTimeMillis {
+    val duration = measureTime {
         HideAndSeekConfig.reloadFromFile()
         themeError = HideAndSeekThemes.load()
     }
@@ -286,7 +284,7 @@ private fun reloadConfigAndTheme(sender: CommandSender) {
     sender.sendText {
         appendSuccessPrefix()
         success("Die Hide-and-Seek-Config wurde neu geladen ")
-        spacer("(${ms}ms)")
+        spacer("($duration)")
         appendNewline()
         appendInfoPrefix()
         info("Aktives Theme: ")
@@ -303,7 +301,7 @@ private fun reloadConfigAndTheme(sender: CommandSender) {
 
 private fun fixedSeekerNames(): List<String> {
     return HideAndSeekConfig.getConfig().gameplay.fixedSeekers.mapNotNull { uuid ->
-        runCatching { Bukkit.getOfflinePlayer(UUID.fromString(uuid)).name }.getOrNull()
+        Bukkit.getOfflinePlayer(uuid).name
     }
 }
 
@@ -329,7 +327,7 @@ private fun CommandSender.setSeekerMode(mode: SeekerSelection) {
 
 private fun addFixedSeeker(sender: CommandSender, target: Player) {
     val gameplay = HideAndSeekConfig.getConfig().gameplay
-    val uuid = target.uniqueId.toString()
+    val uuid = target.uniqueId
 
     if (uuid in gameplay.fixedSeekers) {
         sender.sendText {
@@ -353,7 +351,6 @@ private fun addFixedSeeker(sender: CommandSender, target: Player) {
     }
 
     HideAndSeekConfig.edit { this.gameplay.fixedSeekers.add(uuid) }
-    HideAndSeekConfig.save()
 
     val current = HideAndSeekConfig.getConfig().gameplay
     sender.sendText {
@@ -367,7 +364,7 @@ private fun addFixedSeeker(sender: CommandSender, target: Player) {
 
 private fun removeFixedSeeker(sender: CommandSender, name: String) {
     val match = HideAndSeekConfig.getConfig().gameplay.fixedSeekers.firstOrNull { uuid ->
-        runCatching { Bukkit.getOfflinePlayer(UUID.fromString(uuid)).name }.getOrNull()
+        Bukkit.getOfflinePlayer(uuid).name
             ?.equals(name, ignoreCase = true) == true
     }
 
@@ -381,7 +378,6 @@ private fun removeFixedSeeker(sender: CommandSender, name: String) {
     }
 
     HideAndSeekConfig.edit { gameplay.fixedSeekers.remove(match) }
-    HideAndSeekConfig.save()
 
     sender.sendText {
         appendSuccessPrefix()

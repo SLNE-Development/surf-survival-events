@@ -12,6 +12,8 @@ import dev.slne.surf.survival.events.hideandseek.service.HideAndSeekService
 import dev.slne.surf.survival.events.hideandseek.theme.HideAndSeekTheme
 import dev.slne.surf.survival.events.hideandseek.theme.HideAndSeekThemes
 import dev.slne.surf.survival.events.hideandseek.util.formatLongDuration
+import com.github.benmanes.caffeine.cache.Caffeine
+import com.github.benmanes.caffeine.cache.Expiry
 import io.papermc.paper.util.Tick
 import kotlinx.coroutines.withContext
 import net.kyori.adventure.util.Ticks
@@ -27,11 +29,11 @@ import org.bukkit.inventory.ItemStack
 import org.bukkit.inventory.meta.LeatherArmorMeta
 import org.bukkit.persistence.PersistentDataType
 import org.bukkit.potion.PotionEffectType
-import java.util.concurrent.ConcurrentHashMap
+import java.time.Duration as JavaDuration
 import kotlin.time.Duration
-import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.Duration.Companion.seconds
+
 import kotlin.time.toJavaDuration
+import kotlin.time.toKotlinDuration
 
 object HideAndSeekItems {
     val specialItemKey = NamespacedKey(plugin, "special_item")
@@ -44,25 +46,33 @@ object HideAndSeekItems {
 
     private const val SHRINK_ITEM_ATTACK_DAMAGE = 7.0
 
-    private val lastUse = ConcurrentHashMap<String, Long>()
+    /** Shared cooldown of the seeker special items, one entry per item id. */
+    private val cooldowns = Caffeine.newBuilder()
+        .expireAfter(Expiry.creating<String, Unit> { _, _ -> JavaDuration.ZERO })
+        .build<String, Unit>()
+
+    private val expiration = cooldowns.policy().expireVariably().orElseThrow()
 
     fun resetCooldowns() {
-        lastUse.clear()
+        cooldowns.invalidateAll()
     }
 
-    private fun remainingCooldown(id: String, cooldown: Duration): Duration {
-        val last = lastUse[id] ?: return Duration.ZERO
-        return (cooldown - (System.currentTimeMillis() - last).milliseconds)
-            .coerceAtLeast(Duration.ZERO)
+    /** Starts the cooldown of [id] and returns true, or returns false while it is still running. */
+    private fun tryStartCooldown(id: String, cooldown: Duration): Boolean {
+        return expiration.putIfAbsent(id, Unit, cooldown.toJavaDuration()) == null
+    }
+
+    private fun remainingCooldown(id: String): Duration {
+        return expiration.getExpiresAfter(id).orElse(JavaDuration.ZERO).toKotlinDuration()
     }
 
     private fun specialItemCooldown(): Duration {
-        return HideAndSeekConfig.getConfig().gameplay.specialItemCooldownSeconds.seconds
+        return HideAndSeekConfig.getConfig().gameplay.specialItemCooldown.asDuration()
     }
 
     suspend fun giveSeekerKit(player: Player) = withContext(plugin.entityDispatcher(player)) {
         val items = HideAndSeekThemes.theme.items
-        val armorColor = Color.fromRGB(HideAndSeekThemes.color(items.armorColor).value())
+        val armorColor = Color.fromRGB(items.armorColor.value())
 
         val sword = themedItem(HideAndSeekThemes.material(items.swordMaterial, Material.NETHERITE_SWORD), items.sword) {
             meta {
@@ -130,7 +140,7 @@ object HideAndSeekItems {
         }
 
         val cooldown = specialItemCooldown()
-        remainingCooldown(GLOW_ITEM_ID, cooldown).takeIf { it > Duration.ZERO }?.let {
+        remainingCooldown(GLOW_ITEM_ID).takeIf { it > Duration.ZERO }?.let {
             player.setCooldown(glowItem, Tick.tick().fromDuration(it.toJavaDuration()))
         }
     }
@@ -141,10 +151,10 @@ object HideAndSeekItems {
         theme: HideAndSeekTheme.ItemTheme,
         extra: ItemStack.() -> Unit = {}
     ): ItemStack {
-        val textColor = HideAndSeekThemes.color(HideAndSeekThemes.theme.textColor)
-        val valueColor = HideAndSeekThemes.color(HideAndSeekThemes.theme.valueColor)
-        val name = HideAndSeekThemes.render(theme.name).colorIfAbsent(valueColor)
-        val lore = theme.lore.map { HideAndSeekThemes.render(it).colorIfAbsent(textColor) }
+        val textColor = HideAndSeekThemes.theme.textColor
+        val valueColor = HideAndSeekThemes.theme.valueColor
+        val name = theme.name.colorIfAbsent(valueColor)
+        val lore = theme.lore.map { it.colorIfAbsent(textColor) }
 
         return buildItem(material) {
             displayName { append(name) }
@@ -198,13 +208,12 @@ object HideAndSeekItems {
 
     private suspend fun runPreCheck(player: Player, item: ItemStack, id: String): Boolean {
         if (!HideAndSeekService.isSeekingPhase) {
-            HideAndSeekThemes.send(player, HideAndSeekThemes.theme.messages.itemUnavailable)
+            HideAndSeekThemes.sendRaw(player, HideAndSeekThemes.theme.messages.itemUnavailable)
             return false
         }
 
         val cooldown = specialItemCooldown()
-        if (remainingCooldown(id, cooldown) > Duration.ZERO) return false
-        lastUse[id] = System.currentTimeMillis()
+        if (!tryStartCooldown(id, cooldown)) return false
 
         val cooldownTicks = Tick.tick().fromDuration(cooldown.toJavaDuration())
         HideAndSeekRoleManager.onlineSeekers.forEach { seeker ->
@@ -219,7 +228,7 @@ object HideAndSeekItems {
     private suspend fun handleGlowItem(player: Player, item: ItemStack) {
         if (!runPreCheck(player, item, GLOW_ITEM_ID)) return
 
-        val duration = HideAndSeekConfig.getConfig().gameplay.glowEffectDurationSeconds.seconds
+        val duration = HideAndSeekConfig.getConfig().gameplay.glowEffectDuration.asDuration()
         val effect = PotionEffectType.GLOWING.createEffect(
             (duration.inWholeMilliseconds / Ticks.SINGLE_TICK_DURATION_MS).toInt(),
             255

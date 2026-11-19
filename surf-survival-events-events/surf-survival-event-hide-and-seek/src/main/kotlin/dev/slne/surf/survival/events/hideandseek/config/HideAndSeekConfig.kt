@@ -4,8 +4,12 @@ import dev.slne.surf.api.core.config.SpongeYmlConfigClass
 import dev.slne.surf.api.core.config.constraints.PositiveNumber
 import dev.slne.surf.survival.events.base.util.GamePosition
 import dev.slne.surf.survival.events.hideandseek.plugin
+import dev.slne.surf.api.core.config.type.ConfigDuration
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
 import org.spongepowered.configurate.objectmapping.meta.Comment
+import java.util.UUID
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 
 enum class SeekerSelection { RANDOM, FIXED }
 
@@ -46,7 +50,7 @@ data class HideAndSeekConfig(
         var seekerSelection: SeekerSelection = SeekerSelection.RANDOM,
 
         @param:Comment("UUIDs of the players that become seekers while seekerSelection is FIXED. Managed via /has seeker add|remove.")
-        var fixedSeekers: MutableList<String> = mutableListOf(),
+        var fixedSeekers: MutableList<UUID> = mutableListOf(),
 
         @param:Comment("If true, caught hiders become seekers. Otherwise they become spectators.")
         var hidersBecomeSeekers: Boolean = false,
@@ -57,26 +61,26 @@ data class HideAndSeekConfig(
         @param:Comment("Scale applied to hiders while the game runs.")
         var hiderScale: Double = 1.0,
 
-        @param:Comment("Cooldown in seconds shared by the seeker special items.")
-        var specialItemCooldownSeconds: Long = 180,
+        @param:Comment("Cooldown shared by the seeker special items, e.g. 3m or 90s.")
+        var specialItemCooldown: ConfigDuration = ConfigDuration(3.minutes),
 
-        @param:Comment("Duration in seconds of the glow effect applied to hiders by the glow item.")
-        var glowEffectDurationSeconds: Long = 30
+        @param:Comment("Duration of the glow effect applied to hiders by the glow item, e.g. 30s.")
+        var glowEffectDuration: ConfigDuration = ConfigDuration(30.seconds)
     )
 
     @ConfigSerializable
     data class TimerConfig(
-        @param:Comment("Lobby countdown before roles are assigned.")
-        var lobbySeconds: Long = 60,
+        @param:Comment("Lobby countdown before roles are assigned, e.g. 1m or 90s.")
+        var lobby: ConfigDuration = ConfigDuration(60.seconds),
 
         @param:Comment("Time the hiders have to hide before the seekers are released.")
-        var preparationSeconds: Long = 60,
+        var preparation: ConfigDuration = ConfigDuration(60.seconds),
 
         @param:Comment("Time the seekers have to find the hiders.")
-        var seekSeconds: Long = 600,
+        var seek: ConfigDuration = ConfigDuration(10.minutes),
 
         @param:Comment("How long the winners are celebrated in the server lobby (fireworks/hearts, see the theme) after the game ended.")
-        var celebrationSeconds: Long = 30
+        var celebration: ConfigDuration = ConfigDuration(30.seconds)
     )
 
     @ConfigSerializable

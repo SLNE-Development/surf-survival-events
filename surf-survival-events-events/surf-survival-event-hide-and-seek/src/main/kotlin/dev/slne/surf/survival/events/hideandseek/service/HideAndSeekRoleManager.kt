@@ -146,7 +146,7 @@ object HideAndSeekRoleManager {
             .coerceAtLeast(0)
 
         val messages = HideAndSeekThemes.theme.messages
-        val textColor = HideAndSeekThemes.color(HideAndSeekThemes.theme.textColor)
+        val textColor = HideAndSeekThemes.theme.textColor
         val playerName = HideAndSeekThemes.playerName("player", player.name, role)
 
         var message = if (killer != null && killerRole != null) {

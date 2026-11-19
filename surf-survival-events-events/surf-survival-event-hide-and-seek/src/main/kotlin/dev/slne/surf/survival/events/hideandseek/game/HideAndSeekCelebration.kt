@@ -51,7 +51,7 @@ object HideAndSeekCelebration : Listener {
         if (!celebration.fireworks && !celebration.hearts) return
 
         val colors = celebration.fireworkColors
-            .map { Color.fromRGB(HideAndSeekThemes.color(it).value()) }
+            .map { Color.fromRGB(it.value()) }
             .ifEmpty { listOf(Color.WHITE) }
 
         players.forEach { player ->

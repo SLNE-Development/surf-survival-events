@@ -16,7 +16,6 @@ internal fun CommandTree.setServerLobbyCommand() = literalArgument("set-server-l
         SurvivalEventsConfig.edit {
             serverLobby = lobbyLocation
         }
-        SurvivalEventsConfig.save()
 
         player.sendText {
             appendSuccessPrefix()

@@ -16,7 +16,7 @@ sealed class HideAndSeekRole(
     val displayName: String get() = HideAndSeekThemes.roleTheme(this).name
 
     /** Role color from the active theme. */
-    val color: TextColor get() = HideAndSeekThemes.color(HideAndSeekThemes.roleTheme(this).color)
+    val color: TextColor get() = HideAndSeekThemes.roleTheme(this).color
 
     open suspend fun giveInventory(player: Player) {
         withContext(plugin.entityDispatcher(player)) {
