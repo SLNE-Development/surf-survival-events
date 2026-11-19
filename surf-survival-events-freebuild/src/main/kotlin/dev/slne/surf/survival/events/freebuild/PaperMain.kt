@@ -7,6 +7,9 @@ import com.sksamuel.aedile.core.expireAfterWrite
 import dev.slne.surf.api.core.font.toSmallCaps
 import dev.slne.surf.api.core.messages.adventure.sendText
 import dev.slne.surf.api.core.util.toObjectSet
+import dev.slne.surf.api.paper.event.register
+import dev.slne.surf.api.paper.hook.papi.SurfPaperPAPIHook
+import dev.slne.surf.api.paper.packet.SurfPaperPacketApi
 import dev.slne.surf.core.api.common.SurfCoreApi
 import dev.slne.surf.core.api.paper.util.surfPlayer
 import dev.slne.surf.npc.api.SurfNpcApi
@@ -14,9 +17,19 @@ import dev.slne.surf.npc.api.dsl.npc
 import dev.slne.surf.npc.api.event.NpcInteractEvent
 import dev.slne.surf.npc.api.npc.skin.NpcSkin
 import dev.slne.surf.npc.api.npc.skin.NpcSkinPart
+import dev.slne.surf.survival.events.freebuild.certificate.CertificateCopyProtection
+import dev.slne.surf.survival.events.freebuild.certificate.CertificateDelivery
+import dev.slne.surf.survival.events.freebuild.certificate.CertificateItem
+import dev.slne.surf.survival.events.freebuild.certificate.CertificateLore
+import dev.slne.surf.survival.events.freebuild.certificate.CertificateMapListener
+import dev.slne.surf.survival.events.freebuild.certificate.CertificateService
+import dev.slne.surf.survival.events.freebuild.command.certificateCommand
+import dev.slne.surf.survival.events.freebuild.command.joinEventCommand
 import dev.slne.surf.survival.events.freebuild.command.reloadFreebuildSurvivalEventsConfigCommand
 import dev.slne.surf.survival.events.freebuild.command.switchFreebuildSurvivalServerEventsServerNpcCommand
 import dev.slne.surf.survival.events.freebuild.config.FreebuildPartConfig
+import dev.slne.surf.survival.events.freebuild.hud.HudListener
+import dev.slne.surf.survival.events.freebuild.papi.PapiExpansion
 import io.papermc.paper.datacomponent.DataComponentTypes
 import net.kyori.adventure.key.Key
 import net.kyori.adventure.text.format.TextDecoration
@@ -28,12 +41,13 @@ import org.bukkit.inventory.EquipmentSlot
 import org.bukkit.inventory.ItemStack
 import org.bukkit.plugin.java.JavaPlugin
 import java.util.*
+import java.util.logging.Level
 import kotlin.time.Duration.Companion.seconds
 
 val plugin get() = JavaPlugin.getPlugin(PaperMain::class.java)
 
 private const val NPC_UNIQUE_NAME = "survival_events_freebuild_server_npc"
-private val npcCooldown = Caffeine.newBuilder()
+val joinCooldown = Caffeine.newBuilder()
     .expireAfterWrite(2.seconds)
     .build<UUID, Unit>()
 
@@ -41,9 +55,23 @@ class PaperMain : SuspendingJavaPlugin() {
     override suspend fun onLoadAsync() {
         switchFreebuildSurvivalServerEventsServerNpcCommand()
         reloadFreebuildSurvivalEventsConfigCommand()
+        joinEventCommand()
+        certificateCommand()
+
+        SurfPaperPAPIHook.register(PapiExpansion)
     }
 
     override suspend fun onEnableAsync() {
+        CertificateMapListener.register()
+        CertificateDelivery.register()
+        CertificateCopyProtection(CertificateService::isCertificate).register()
+        SurfPaperPacketApi.registerPacketLoreListener(this, CertificateItem.key, CertificateLore)
+        try {
+            CertificateService.restore()
+        } catch (exception: Exception) {
+            logger.log(Level.SEVERE, "Failed to restore certificate maps", exception)
+        }
+
         npc {
             uniqueName = NPC_UNIQUE_NAME
             displayName {
@@ -82,13 +110,15 @@ class PaperMain : SuspendingJavaPlugin() {
                     return@withEventHandler
                 }
 
-                if (npcCooldown.getIfPresent(event.player.uniqueId) != null) {
+                if (joinCooldown.getIfPresent(event.player.uniqueId) != null) {
                     event.player.sendText {
                         appendErrorPrefix()
                         error("Bitte warte einen Moment bevor du erneut mit Arty interagierst.")
                     }
                     return@withEventHandler
                 }
+
+                joinCooldown.put(event.player.uniqueId, Unit)
 
                 plugin.launch {
                     val surfPlayer = event.player.surfPlayer
@@ -100,14 +130,23 @@ class PaperMain : SuspendingJavaPlugin() {
                             error("Beim Verbinden zum Survival Event Server ist ein Fehler aufgetreten. Bitte versuche es später erneut. (${result.status})")
                         }
                     }
-
-                    npcCooldown.put(event.player.uniqueId, Unit)
                 }
             }
         }
 
         applyNpcHeadModel()
+
+        if (hudAvailable) {
+            HudListener.register()
+        }
     }
+
+    override suspend fun onDisableAsync() {
+        SurfPaperPacketApi.unregisterPacketLoreListener(this)
+        CertificateService.shutdown()
+    }
+
+    val hudAvailable get() = Bukkit.getPluginManager().isPluginEnabled("surf-hud-paper")
 }
 
 @Suppress("UnstableApiUsage")
