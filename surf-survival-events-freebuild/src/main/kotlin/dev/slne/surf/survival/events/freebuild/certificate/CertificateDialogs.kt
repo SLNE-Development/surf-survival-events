@@ -134,7 +134,7 @@ object CertificateDialogs {
                 if (playtime == null) {
                     player.sendText {
                         appendErrorPrefix()
-                        error("Die Spielzeiten konnten nicht geladen werden, surf-playtime fehlt oder ist zu alt.")
+                        error("Die Spielzeiten konnten nicht geladen werden, surf-player fehlt oder ist zu alt.")
                     }
                     return@launch
                 }
