@@ -5,8 +5,11 @@ import dev.jorel.commandapi.kotlindsl.booleanArgument
 import dev.jorel.commandapi.kotlindsl.commandTree
 import dev.jorel.commandapi.kotlindsl.getValue
 import dev.slne.surf.api.core.messages.adventure.sendText
+import dev.slne.surf.survival.events.freebuild.PaperMain
 import dev.slne.surf.survival.events.freebuild.config.FreebuildPartConfig
+import dev.slne.surf.survival.events.freebuild.hud.HudManager
 import dev.slne.surf.survival.events.freebuild.permission.PermissionList
+import dev.slne.surf.survival.events.freebuild.plugin
 
 fun switchFreebuildSurvivalServerEventsServerNpcCommand() =
     commandTree("switchfreebuildsurvivalservereventssservernpc") {
@@ -27,6 +30,10 @@ fun switchFreebuildSurvivalServerEventsServerNpcCommand() =
 
                 FreebuildPartConfig.edit(true) {
                     this.enableSurvivalEventsNpc = switch
+                }
+
+                if(plugin.hudAvailable) {
+                    HudManager.handleUpdate()
                 }
 
                 sender.sendText {
